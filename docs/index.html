@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>المُركّب الرياضي السيادي</title>
+<style>
+  :root{
+    --bg:#07090f; --panel:#0e1220; --panel2:#141a2e; --line:#1e2740;
+    --txt:#e8ecf6; --dim:#8b95b0; --acc:#5ce1a6; --acc2:#6aa6ff; --warn:#ffcf6a;
+    --mono:'SF Mono',ui-monospace,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    background:radial-gradient(1200px 700px at 80% -10%,#101a33 0%,var(--bg) 55%) fixed;
+    color:var(--txt);font-family:'Segoe UI',Tahoma,'Noto Naskh Arabic',system-ui,sans-serif;
+    display:flex;flex-direction:column;min-height:100vh;
+  }
+  header{padding:18px 22px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .logo{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--acc),var(--acc2));display:grid;place-items:center;font-weight:800;color:#04121a}
+  h1{font-size:18px;margin:0;font-weight:700}
+  .sub{color:var(--dim);font-size:12.5px}
+  .badges{margin-inline-start:auto;display:flex;gap:8px;flex-wrap:wrap}
+  .badge{font-size:11.5px;padding:5px 10px;border:1px solid var(--line);border-radius:999px;background:var(--panel);color:var(--dim)}
+  .badge b{color:var(--acc);font-weight:700}
+  main{flex:1;display:grid;grid-template-columns:1fr 360px;gap:0;min-height:0}
+  @media(max-width:900px){main{grid-template-columns:1fr}}
+  .chat{display:flex;flex-direction:column;min-height:0}
+  .feed{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:16px}
+  .msg{max-width:760px;border:1px solid var(--line);border-radius:14px;padding:14px 16px;line-height:1.85;font-size:14.5px;white-space:pre-wrap;word-break:break-word}
+  .me{align-self:flex-start;background:linear-gradient(180deg,var(--panel2),var(--panel));border-color:#26324f}
+  .sys{align-self:flex-end;background:#0b1a16;border-color:#1c3d31}
+  .sys .tag{display:inline-block;font-size:11px;color:var(--acc);border:1px solid #1c3d31;border-radius:6px;padding:2px 7px;margin-inline-end:8px}
+  .eq{direction:ltr;text-align:left;font-family:var(--mono);font-size:12.5px;color:#bcd7ff;background:#0a1120;border:1px dashed #22314f;border-radius:10px;padding:10px 12px;margin:10px 0;overflow-x:auto}
+  .kv{font-size:12.5px;color:var(--dim);margin-top:8px}
+  .kv b{color:var(--txt);font-weight:600}
+  a{color:var(--acc2)}
+  form{display:flex;gap:10px;padding:14px 20px;border-top:1px solid var(--line);background:var(--panel)}
+  textarea{flex:1;resize:none;height:52px;background:#0a0f1c;border:1px solid var(--line);border-radius:12px;color:var(--txt);padding:12px 14px;font-size:14.5px;font-family:inherit}
+  textarea:focus{outline:none;border-color:var(--acc2)}
+  button{background:linear-gradient(135deg,var(--acc),var(--acc2));color:#04121a;border:none;border-radius:12px;padding:0 22px;font-weight:800;font-size:14px;cursor:pointer}
+  button:disabled{opacity:.55;cursor:progress}
+  aside{border-inline-start:1px solid var(--line);background:var(--panel);overflow-y:auto;padding:16px}
+  @media(max-width:900px){aside{border-inline-start:none;border-top:1px solid var(--line)}}
+  aside h3{font-size:12.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.06em;margin:6px 0 10px}
+  .prim{font-size:12px;border:1px solid var(--line);border-radius:9px;padding:8px 10px;margin-bottom:7px;background:#0a0f1c}
+  .prim .r{color:var(--acc2);font-family:var(--mono);font-size:11.5px}
+  .prim .m{color:var(--dim);font-size:11px;margin-top:3px}
+  .live{color:var(--acc)}.seed{color:var(--dim)}
+  .pulse{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--acc);margin-inline-end:6px;animation:p 1.4s infinite}
+  @keyframes p{0%,100%{opacity:1}50%{opacity:.25}}
+  .spin{display:inline-block;width:12px;height:12px;border:2px solid #2a3a55;border-top-color:var(--acc);border-radius:50%;animation:s .8s linear infinite;vertical-align:-2px}
+  @keyframes s{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">∑</div>
+  <div>
+    <h1>المُركّب الرياضي السيادي</h1>
+    <div class="sub">محرك حتمي غير وصائي — يخترع المسار ويولّد البرهان ثم ينفّذ</div>
+  </div>
+  <div class="badges">
+    <span class="badge">الشبكة: <b id="net">—</b></span>
+    <span class="badge">المُبرهن: <b id="prover">—</b></span>
+    <span class="badge">مكونات حية: <b id="live">—</b></span>
+    <span class="badge">المستفيد: <b id="ben">—</b></span>
+  </div>
+</header>
+<main>
+  <section class="chat">
+    <div class="feed" id="feed">
+      <div class="msg sys"><span class="tag">النظام</span>جاهز. اكتب نيتك بالعربية، مهما كانت صعبة أو غير تقليدية. لن أقول «لا أستطيع»: سأخترع الحل رياضياً وبرمجياً، أولّد البرهان، ثم أُظهر النتيجة.</div>
+    </div>
+    <form id="f">
+      <textarea id="q" placeholder="مثال: أريد ربح 1000 دولار من سوق السيولة بدون مفتاح وبدون رأس مال…"></textarea>
+      <button id="go" type="submit">أطلق الاختراع</button>
+    </form>
+  </section>
+  <aside>
+    <h3><span class="pulse"></span>المكونات الممسوحة حياً</h3>
+    <div id="prims"><div class="prim">…جارٍ المسح</div></div>
+  </aside>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const feed=$('feed');
+
+async function loadStatus(){
+  try{
+    const s=await (await fetch(./status')).json();
+    $('net').textContent = (s.treasury&&s.treasury.network)||'base-mainnet';
+    $('prover').textContent = s.prover||'z3';
+    $('live').textContent = s.primitives_live+' / '+s.primitives_total;
+    $('ben').textContent = (s.beneficiary||'').slice(0,6)+'…'+(s.beneficiary||'').slice(-4);
+  }catch(e){}
+}
+async function loadPrims(){
+  try{
+    const d=await (await fetch(./primitives')).json();
+    const box=$('prims'); box.innerHTML='';
+    d.primitives.slice(0,60).forEach(p=>{
+      const live=p.source==='live';
+      const el=document.createElement('div');
+      el.className='prim';
+      el.innerHTML=`<div class="r">${live?'<span class="live">●</span>':'<span class="seed">○</span>'} ${p.repo}</div>
+        <div class="m">${p.category} · ${live?(p.freshness_hours+'h'):'seed'}</div>`;
+      box.appendChild(el);
+    });
+  }catch(e){}
+}
+
+function bubble(cls,html){const d=document.createElement('div');d.className='msg '+cls;d.innerHTML=html;feed.appendChild(d);feed.scrollTop=feed.scrollHeight;return d;}
+
+$('f').addEventListener('submit',async e=>{
+  e.preventDefault();
+  const q=$('q').value.trim(); if(!q) return;
+  bubble('me', q.replace(/</g,'&lt;'));
+  $('q').value=''; $('go').disabled=true;
+  const wait=bubble('sys','<span class="tag">النظام</span><span class="spin"></span> أعمل الآن على التحليل الصوري، مسح GitHub الحيّ، التركيب الذري، وتوليد البرهان…');
+  try{
+    const r=await fetch(./synthesize',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({intent:q})});
+    const d=await r.json();
+    wait.remove();
+    render(d);
+  }catch(err){
+    wait.innerHTML='<span class="tag">النظام</span>الحلقة تعمل في الخلفية 24/7 حتى يتحقق الشرط. أعِد المحاولة بعد لحظات.';
+  }finally{ $('go').disabled=false; loadStatus(); }
+});
+
+function render(d){
+  const p=d.chosen_path, pr=d.proof, ex=d.execution;
+  let h='<span class="tag">النظام</span>';
+  h += escapeHtml(d.narrative_ar||'');
+  if(d.equations&&d.equations.length){
+    h += '<div class="eq">'+d.equations.map(escapeHtml).join('<br>')+'</div>';
+  }
+  h += '<div class="kv">';
+  if(p) h+=`المسار: <b>${p.path_id}</b> · الخطوات: <b>${p.steps.length}</b> · صافي: <b>${p.net_profit_usd} USDC</b><br>`;
+  if(pr) h+=`البرهان: <b>${pr.satisfied?'ناجح (SAT)':'غير مكتمل'}</b> · ${escapeHtml(pr.certificate||'')}<br>`;
+  if(ex){
+    h+=`الحالة: <b>${ex.status}</b>`;
+    if(ex.tx_hash) h+=` · المعرّف: <code>${ex.tx_hash.slice(0,26)}…</code>`;
+    if(ex.explorer_url) h+=` · <a href="${ex.explorer_url}" target="_blank" rel="noopener">عرض في المستكشف ↗</a>`;
+  }
+  h+='</div>';
+  bubble('sys',h);
+}
+function escapeHtml(s){return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+
+loadStatus(); loadPrims();
+setInterval(loadStatus,20000);
+</script>
+</body>
+</html>
