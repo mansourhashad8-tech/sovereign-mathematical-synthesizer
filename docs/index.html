@@ -68,6 +68,11 @@
     <span class="badge">المستفيد: <b id="ben">—</b></span>
   </div>
 </header>
+<div id="apibar" style="display:none;padding:10px 22px;border-bottom:1px solid var(--line);background:var(--panel);font-size:12.5px;color:var(--dim)">
+  عنوان المحرك غير مهيّأ. أدخل رابط الـ backend الحي ليتصل هذا الواجهة به:
+  <input id="apiin" placeholder="https://your-engine.example.com" style="background:#0a0f1c;border:1px solid var(--line);border-radius:8px;color:var(--txt);padding:6px 10px;margin-inline-start:8px;width:280px" />
+  <button type="button" id="apiset" style="margin-inline-start:6px">اتصال</button>
+</div>
 <main>
   <section class="chat">
     <div class="feed" id="feed">
@@ -87,18 +92,44 @@
 const $=id=>document.getElementById(id);
 const feed=$('feed');
 
+// The engine can run on any host. Default to same-origin, but let the page be
+// pointed at a live backend via ?api=https://... or a saved preference, so the
+// static copy (e.g. GitHub Pages) can still reach a real engine.
+const API_BASE = (() => {
+  const q = new URLSearchParams(location.search).get('api');
+  if (q) { localStorage.setItem('synth_api', q.replace(/\/$/, '')); return q.replace(/\/$/, ''); }
+  return (localStorage.getItem('synth_api') || '').replace(/\/$/, '');
+})();
+const api = p => API_BASE + p;
+
+// When the page is served standalone (e.g. GitHub Pages) it has no backend of
+// its own, so reveal the connection bar until an engine answers.
+function showApiBar(show){
+  const bar=$('apibar');
+  if(bar) bar.style.display = show ? 'block' : 'none';
+}
+document.addEventListener('DOMContentLoaded',()=>{
+  if(!API_BASE) showApiBar(true);
+  const btn=$('apiset');
+  if(btn) btn.addEventListener('click',()=>{
+    const v=($('apiin').value||'').trim().replace(/\/$/,'');
+    if(v){ localStorage.setItem('synth_api',v); location.search='?api='+encodeURIComponent(v); }
+  });
+});
+
 async function loadStatus(){
   try{
-    const s=await (await fetch(./status')).json();
+    const s=await (await fetch(api('/status'))).json();
     $('net').textContent = (s.treasury&&s.treasury.network)||'base-mainnet';
     $('prover').textContent = s.prover||'z3';
     $('live').textContent = s.primitives_live+' / '+s.primitives_total;
     $('ben').textContent = (s.beneficiary||'').slice(0,6)+'…'+(s.beneficiary||'').slice(-4);
-  }catch(e){}
+    showApiBar(false);
+  }catch(e){ if(!API_BASE) showApiBar(true); }
 }
 async function loadPrims(){
   try{
-    const d=await (await fetch(./primitives')).json();
+    const d=await (await fetch(api('/primitives'))).json();
     const box=$('prims'); box.innerHTML='';
     d.primitives.slice(0,60).forEach(p=>{
       const live=p.source==='live';
@@ -120,7 +151,7 @@ $('f').addEventListener('submit',async e=>{
   $('q').value=''; $('go').disabled=true;
   const wait=bubble('sys','<span class="tag">النظام</span><span class="spin"></span> أعمل الآن على التحليل الصوري، مسح GitHub الحيّ، التركيب الذري، وتوليد البرهان…');
   try{
-    const r=await fetch(./synthesize',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({intent:q})});
+    const r=await fetch(api('/synthesize'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({intent:q})});
     const d=await r.json();
     wait.remove();
     render(d);
