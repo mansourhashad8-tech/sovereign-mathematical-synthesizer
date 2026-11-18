@@ -30,16 +30,9 @@ jobs:
           python-version: "3.12"
           cache: pip
 
-      - name: Install CVC5 (independent second prover)
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends curl
-          curl -sSL -o /tmp/cvc5 \
-            https://github.com/cvc5/cvc5/releases/latest/download/cvc5-Linux-x86_64-static.zip \
-            || true
-          # cvc5 publishes a zip; fall back to pip's python bindings if needed.
-
       - name: Install Python dependencies
+        # requirements.txt pulls the cvc5 Python bindings, so the independent
+        # second prover is available in CI as well as locally.
         run: pip install -r requirements.txt -r requirements-eth.txt
 
       - name: Run the synthesis loop on the seed intents

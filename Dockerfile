@@ -2,7 +2,8 @@
 # Runs the synthesis tools (Z3, CVC5) and the HTTP surface 24/7.
 FROM python:3.12-slim
 
-# cvc5 gives an independent second proof alongside Z3. z3 ships via pip.
+# curl is for the HEALTHCHECK; z3 and cvc5 both ship as pip wheels, so no
+# compiler toolchain is needed in the image.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends curl ca-certificates \
  && rm -rf /var/lib/apt/lists/*
@@ -15,7 +16,8 @@ RUN pip install --no-cache-dir -r requirements.txt -r requirements-eth.txt
 COPY synthesizer ./synthesizer
 COPY web ./web
 COPY scripts ./scripts
-COPY config ./config 2>/dev/null || true
+COPY config ./config
+COPY api ./api
 
 ENV SYNTH_HOST=0.0.0.0 \
     SYNTH_PORT=8000 \

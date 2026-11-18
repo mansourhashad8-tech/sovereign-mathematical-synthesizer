@@ -201,6 +201,19 @@ def test_api_health_and_synthesize():
     assert body["narrative_ar"]
 
 
+def test_second_prover_agrees_when_available():
+    from synthesizer.prover import _CVC5_PY, Prover
+
+    c = parse_deterministic("اربح 5 دولار من السيولة")
+    c.net_profit_usd_min = 5.0
+    path = Composer().propose(c, _primitives(), attempt=0)
+    proof = Prover().prove(path, c)
+    assert proof.satisfied is True
+    if _CVC5_PY:
+        # Two independent engines must agree on the same SMT problem.
+        assert "cvc5=sat" in proof.certificate
+
+
 def test_billion_target_is_queued_not_refused():
     from synthesizer.loop import Synthesizer
 

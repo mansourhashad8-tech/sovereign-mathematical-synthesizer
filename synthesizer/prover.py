@@ -22,8 +22,6 @@ proof can be re-checked by the Certora Prover in a CI job.
 from __future__ import annotations
 
 import shutil
-import subprocess
-import tempfile
 import time
 
 import z3
@@ -31,7 +29,18 @@ import z3
 from .composer import MAX_NOTIONAL_USD
 from .models import AtomicPath, Constraints, Proof
 
-_CVC5 = shutil.which("cvc5")
+# The CVC5 binary (if installed) or the cvc5 Python bindings (pip) both count
+# as a real, independent second prover.
+try:  # pragma: no cover - optional dependency
+    import cvc5 as _cvc5_py
+
+    _CVC5_PY = True
+except Exception:  # noqa: BLE001
+    _cvc5_py = None
+    _CVC5_PY = False
+
+_CVC5_BIN = shutil.which("cvc5")
+_CVC5 = bool(_CVC5_BIN) or _CVC5_PY
 
 
 def _theorem_text(constraints: Constraints) -> str:
@@ -187,44 +196,58 @@ class Prover:
         )
 
     def _cvc5_recheck(self, path: AtomicPath, constraints: Constraints) -> bool | None:
-        """Independent second opinion via the cvc5 binary when installed."""
-        if not _CVC5:
+        """Independent second opinion via the cvc5 Python bindings.
+
+        The same SMT problem is solved by a different engine. Agreement between
+        Z3 and CVC5 is what makes the proof trustworthy: two independent
+        solvers reaching SAT on the same constraints.
+        """
+        if not _CVC5_PY:
             return None
-        lines = ["(set-logic QF_NRA)"]
-        lines.append("(declare-fun N () Real)")
-        lines.append("(assert (>= N 0))")
-        if path.has_uncollateralized_capital:
-            lines.append(f"(assert (<= N {MAX_NOTIONAL_USD:.6f}))")
-        else:
-            lines.append("(assert (= N 0))")
-        rate_terms = []
-        for i, step in enumerate(path.steps):
-            y, f = f"y_{i}", f"f_{i}"
-            lines.append(f"(declare-fun {y} () Real)")
-            lines.append(f"(declare-fun {f} () Real)")
-            ylo, yhi = max(step.yield_rate * 0.8, 0.0), max(step.yield_rate * 1.2, 0.0)
-            flo, fhi = max(step.fee_rate * 0.8, 0.0), max(step.fee_rate * 1.2, 0.0)
-            lines.append(f"(assert (>= {y} {ylo:.8f}))")
-            lines.append(f"(assert (<= {y} {yhi:.8f}))")
-            lines.append(f"(assert (>= {f} {flo:.8f}))")
-            lines.append(f"(assert (<= {f} {fhi:.8f}))")
-            rate_terms.append(f"(- {y} {f})")
-        if rate_terms:
-            rate_sum = "(+ " + " ".join(rate_terms) + ")"
-            lines.append(
-                f"(assert (>= (- (* N {rate_sum}) {path.total_gas_usd:.6f}) "
-                f"{constraints.net_profit_usd_min:.6f}))"
-            )
-        else:
-            lines.append("(assert false)")
-        lines.append("(check-sat)")
-        script = "\n".join(lines) + "\n"
         try:
-            with tempfile.NamedTemporaryFile("w", suffix=".smt2", delete=True) as fh:
-                fh.write(script)
-                fh.flush()
-                out = subprocess.run([_CVC5, fh.name], capture_output=True, text=True, timeout=10)
-            return out.stdout.strip() == "sat"
+            tm = _cvc5_py.TermManager()
+            solver = _cvc5_py.Solver(tm)
+            real = tm.getRealSort()
+
+            def r(v: float):
+                # cvc5's mkReal rejects scientific notation, so expand it to a
+                # plain decimal string.
+                return tm.mkReal(f"{float(v):.12f}".rstrip("0").rstrip(".") or "0")
+
+            N = tm.mkConst(real, "N")
+            solver.assertFormula(tm.mkTerm(_cvc5_py.Kind.GEQ, N, r(0.0)))
+            if path.has_uncollateralized_capital:
+                solver.assertFormula(
+                    tm.mkTerm(_cvc5_py.Kind.LEQ, N, r(MAX_NOTIONAL_USD))
+                )
+            else:
+                solver.assertFormula(tm.mkTerm(_cvc5_py.Kind.EQUAL, N, r(0.0)))
+
+            terms = []
+            for i, step in enumerate(path.steps):
+                y = tm.mkConst(real, f"y_{i}")
+                f = tm.mkConst(real, f"f_{i}")
+                ylo, yhi = max(step.yield_rate * 0.8, 0.0), max(step.yield_rate * 1.2, 0.0)
+                flo, fhi = max(step.fee_rate * 0.8, 0.0), max(step.fee_rate * 1.2, 0.0)
+                for var, lo, hi in ((y, ylo, yhi), (f, flo, fhi)):
+                    solver.assertFormula(tm.mkTerm(_cvc5_py.Kind.GEQ, var, r(lo)))
+                    solver.assertFormula(tm.mkTerm(_cvc5_py.Kind.LEQ, var, r(hi)))
+                terms.append(tm.mkTerm(_cvc5_py.Kind.SUB, y, f))
+
+            if not terms:
+                return False
+            rate_sum = terms[0]
+            for t in terms[1:]:
+                rate_sum = tm.mkTerm(_cvc5_py.Kind.ADD, rate_sum, t)
+            net = tm.mkTerm(
+                _cvc5_py.Kind.SUB,
+                tm.mkTerm(_cvc5_py.Kind.MULT, N, rate_sum),
+                r(path.total_gas_usd),
+            )
+            solver.assertFormula(
+                tm.mkTerm(_cvc5_py.Kind.GEQ, net, r(constraints.net_profit_usd_min))
+            )
+            return str(solver.checkSat()) == "sat"
         except Exception:  # noqa: BLE001
             return None
 
