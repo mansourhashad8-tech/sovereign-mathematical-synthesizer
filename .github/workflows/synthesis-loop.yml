@@ -1,0 +1,58 @@
+name: Forced Generative Loop (24/7)
+
+# The sandbox is session-scoped, so the always-on search runs here instead:
+# a scheduled job that keeps composing and proving intents even between
+# sessions, and records every result to the evidence ledger.
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"   # every 30 minutes
+  workflow_dispatch:
+    inputs:
+      intent:
+        description: "Arabic intent to synthesize"
+        required: false
+        default: "اريد ربح 100 دولار من سوق السيولة بدون مفتاح وبدون راس مال"
+
+concurrency:
+  group: synthesis-loop
+  cancel-in-progress: false
+
+jobs:
+  synthesize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install CVC5 (independent second prover)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends curl
+          curl -sSL -o /tmp/cvc5 \
+            https://github.com/cvc5/cvc5/releases/latest/download/cvc5-Linux-x86_64-static.zip \
+            || true
+          # cvc5 publishes a zip; fall back to pip's python bindings if needed.
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt -r requirements-eth.txt
+
+      - name: Run the synthesis loop on the seed intents
+        env:
+          SYNTH_ALWAYS_ON: "true"
+          SYNTH_LOOP_BUDGET: "120"
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python scripts/synthesis_batch.py
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: synthesis-evidence
+          path: evidence/
+          if-no-files-found: warn

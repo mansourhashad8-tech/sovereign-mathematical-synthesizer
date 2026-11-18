@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: sovereign-synthesizer
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: SYNTH_PORT
+        value: "8000"
+      - key: SYNTH_ALWAYS_ON
+        value: "true"
