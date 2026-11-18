@@ -201,6 +201,25 @@ def test_api_health_and_synthesize():
     assert body["narrative_ar"]
 
 
+def test_billion_target_is_queued_not_refused():
+    from synthesizer.loop import Synthesizer
+
+    synth = Synthesizer()
+    result = synth.synthesize_sync(
+        "اريد ربح مليار دولار من المراجحة الذرية بدون مفتاح وبدون راس مال", budget=20
+    )
+    # A target beyond the physical notional cap must be queued for the
+    # background loop, never refused.
+    assert result.background is True
+    assert "لا أستطيع" not in result.narrative_ar
+    assert "مستحيل" not in result.narrative_ar
+
+
+def test_billion_word_is_parsed():
+    c = parse_deterministic("اريد ربح مليار دولار")
+    assert c.goal.target_amount == 1_000_000_000.0
+
+
 def test_api_index_is_arabic_ui():
     from fastapi.testclient import TestClient
 

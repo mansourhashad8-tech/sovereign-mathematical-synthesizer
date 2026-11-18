@@ -82,6 +82,7 @@ class Synthesizer:
         if chosen is not None and proof is not None and proof.satisfied:
             execution = self.executor.settle(chosen, constraints)
 
+        proven = bool(proof is not None and proof.satisfied)
         narrative, equations = self._narrate(constraints, chosen, proof, invented, stats)
         result = IntentResult(
             intent_id=iid,
@@ -96,7 +97,7 @@ class Synthesizer:
             primitives_used=chosen.primitives if chosen else [],
             equations=equations,
             elapsed_seconds=time.time() - started,
-            background=False,
+            background=not proven,
         )
         self._results[iid] = result
         self._record(result)
@@ -221,9 +222,16 @@ class Synthesizer:
                 f"لصالح العنوان المقفل {constraints.beneficiary}."
             )
         else:
+            from .composer import MAX_NOTIONAL_USD
+
+            best_net = path.net_profit_usd if path else 0.0
+            bound = MAX_NOTIONAL_USD * (path.net_rate if path else 0.0)
             exec_line = (
-                "لا يوجد مسار مُثبت في هذه اللحظة، والنظام يستمر في الخلفية 24/7 "
-                "حتى يتحقق الشرط الرياضي Net Profit > 0."
+                "الحلقة التوليدية القسرية لم تُثبت هذا الهدف بعد داخل الحد المادي "
+                f"(أقصى ربح صافي ممكن في مسار ذري واحد = N_max × Σ(y−f) ≈ {bound:,.2f} USD، "
+                f"وأفضل مسار جزئي حتى الآن = {best_net:,.2f} USD). "
+                "النظام يستمر في الخلفية 24/7 ويوسّع التركيب (مسح حيّ + دمج جديد + برهان جديد) "
+                "حتى يتحقق الشرط. لم يُرفض الطلب."
             )
 
         narrative = (
