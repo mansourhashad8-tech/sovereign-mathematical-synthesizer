@@ -346,6 +346,25 @@ with `python scripts/go_live.py`, so an empty sandbox is recoverable in one comm
   by the operator. HF Static cannot hold a key (`window.huggingface.variables` is inlined verbatim).
 - BENEFICIARY / treasury = `0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47`.
 
+## Gas flywheel — keyless sponsored settlement (commit `e8abe8f`)
+The engine really executes. `synthesizer/gasflywheel.py` builds a real ERC-4337
+op, **Candide's public InstaGas paymaster sponsors it keylessly**
+(`https://api.candide.dev/public/v3/<chainId>`, no key, no policy), it is signed
+with the agent's session key, broadcast, and mined. Verified on chain:
+base-sepolia blocks 60976052/60981511/60982043, arbitrum-sepolia 330832694.
+- Every other keyless sponsor is dead (Pimlico 403 policy, Etherspot/Stackup/
+  Gelato/Biconomy refuse, no keyless faucet exists).
+- Rungs: Base Sepolia primary, **Arbitrum Sepolia** fallback. Ethereum Sepolia is
+  NOT usable (bundler caps userOp at 15M gas) and was removed.
+- The three ERC-4337 traps — `AA20`, `AA14`, `AA23` — and their fixes are in
+  `2026-11-18.md`. The hash must cover every gas field + paymasterAndData and
+  signing is two-phase (sign → sponsor → re-sign).
+- Proof ~90ms, settlement ~2.4s: settle in a background pool, upgrade the
+  stored result in place, `GET /intent/{id}` exposes it. Never block `/synthesize`.
+- **Gas is sponsored; value is not.** The smart account holds 0 ETH, so
+  `value_transferred` is false after a real balance check. Claim execution and
+  sponsored gas, never a payout that did not happen.
+
 ## Tender desk (finished 2026-11-06, commit `c2c11f1`)
 Public-procurement desk; detail in `2026-10-31.md`/`2026-11-06.md`. Superseded as the
 revenue path by Superteam Earn (below), which pays to a wallet.
