@@ -6,6 +6,7 @@ Endpoints
     GET  /status           -> engine + chain state
     POST /synthesize       -> {"intent": "..."} -> IntentResult
     GET  /primitives       -> the current live primitive set
+    GET  /intent/{id}      -> poll one intent's settlement state
     GET  /proofs/{id}      -> the proof certificate for an intent
 """
 
@@ -82,6 +83,14 @@ async def status() -> dict:
         "loop_budget_seconds": SETTINGS.loop_budget_seconds,
         "always_on": SETTINGS.always_on,
         "treasury": await _treasury_state(),
+        "gas": {
+            "paymaster": SETTINGS.paymaster_url,
+            "chain": SETTINGS.settlement_chain,
+            "chain_id": SETTINGS.chain_id,
+            "fallback_networks": len(SETTINGS.fallback_networks),
+            "user_pays_gas": False,
+            "watchdog": synth.watchdog.status(),
+        },
     }
 
 
@@ -145,6 +154,26 @@ def templates() -> dict:
             for t in TEMPLATES
         ]
     }
+
+
+@app.get("/intent/{iid}")
+async def intent_state(iid: str) -> JSONResponse:
+    """Poll one intent's settlement state.
+
+    Settlement happens after the answer is sent, so a client that wants to see
+    the real transaction hash watches this endpoint rather than re-sending the
+    intent.
+    """
+    result = synth.latest(iid)
+    if result is None:
+        return JSONResponse({"error": "unknown_intent", "intent_id": iid}, status_code=404)
+    payload = result.to_dict()
+    return JSONResponse(
+        payload,
+        headers={
+            "X-Execution-Status": result.execution.status if result.execution else "none",
+        },
+    )
 
 
 @app.get("/proofs/{iid}")

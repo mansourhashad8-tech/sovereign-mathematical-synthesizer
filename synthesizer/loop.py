@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import json
 import os
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
@@ -39,6 +40,7 @@ from .models import AtomicPath, Constraints, ExecutionResult, IntentResult, Proo
 from .prover import Prover
 from .scanner import GitHubScanner
 from .templates import templates_for
+from .watchdog import SettlementWatchdog
 
 
 @dataclass
@@ -64,7 +66,18 @@ class Synthesizer:
         self.composer = Composer()
         self.prover = Prover()
         self.executor = Executor()
+        self.watchdog = SettlementWatchdog(self.executor.flywheel)
         self._results: dict[str, IntentResult] = {}
+        self._results_lock = threading.Lock()
+        # A small pool: settlements are I/O-bound and a burst of intents should
+        # not open an unbounded number of concurrent sponsor handshakes.
+        self._settle_pool = ThreadPoolExecutor(
+            max_workers=SETTINGS.settlement_workers,
+            thread_name_prefix="settle",
+        )
+        # A retry that lands must reach the stored result, or the watch was
+        # pointless.
+        self.watchdog.set_on_settled(self._apply_settlement)
 
     # -- public --------------------------------------------------------------
 
@@ -119,11 +132,22 @@ class Synthesizer:
             absolute_limit = bound.detail == "absolute_limit"
 
         # Execution gate: a satisfied proof is the only authorisation needed.
+        #
+        # Settlement is real network work (a sponsor handshake, a broadcast, a
+        # receipt) and takes seconds; the proof takes milliseconds. Blocking the
+        # answer on settlement would trade the latency contract for it, so the
+        # answer carries a pending settlement and the flywheel finishes the job
+        # in the background, upgrading this same result in place.
         execution: ExecutionResult | None = None
         if chosen is not None and proof is not None and proof.satisfied:
-            t0 = time.time()
-            execution = self.executor.settle(chosen, constraints)
-            timings["execute"] = (time.time() - t0) * 1000.0
+            execution = ExecutionResult(
+                status="pending",
+                beneficiary=SETTINGS.beneficiary,
+                amount_usd=round(chosen.net_profit_usd, 6),
+                gas_mode="paymaster",
+                reason="settlement_dispatched_to_flywheel",
+            )
+            self._dispatch_settlement(iid, chosen, execution)
 
         proven = bool(proof is not None and proof.satisfied)
         t0 = time.time()
@@ -319,6 +343,16 @@ class Synthesizer:
                     "اللحظة، فلم تُبَثّ ولم يتحرك أي مال: لا يجوز الادّعاء بغير ذلك. "
                     f"الغاز مموّل من {execution.gas_mode}، ولا يُطلب من المستخدم غاز أبداً."
                 )
+            elif execution is not None and execution.status == "submitted":
+                exec_line += (
+                    f" قبِل المُجمِّع العملية الموقّعة وهي في طابور التجميع: "
+                    f"{execution.user_op_hash}. الغاز مموّل من {execution.gas_mode}."
+                )
+            elif execution is not None and execution.status == "pending":
+                exec_line += (
+                    " أُرسل التنفيذ الحقيقي إلى عجلة الغاز في الخلفية الآن، "
+                    "وسيظهر txHash حال تأكيده. الغاز مموّل من paymaster."
+                )
             else:
                 exec_line += " لم تُنفّذ بعد: البرهان جاهز والتنفيذ ينتظر قبول مُجمِّع."
             if path.template:
@@ -367,6 +401,90 @@ class Synthesizer:
         # projects, the atomic path, and the exact equation and witness. No
         # model call and no background work is needed to finish the answer.
         return narrative, equations
+
+    # -- settlement ----------------------------------------------------------
+
+    def _dispatch_settlement(self, iid: str, path: AtomicPath,
+                             execution: ExecutionResult) -> None:
+        """Settle in the background, then upgrade the stored result in place.
+
+        The wait for a mined transaction happens off the request path. When the
+        flywheel lands one, the result the caller is holding gains the real hash
+        and explorer link; a caller polling ``/intent/{id}`` sees it change from
+        pending to executed without re-sending the intent.
+        """
+        call_data = self.executor.settlement_call_data(path)
+
+        def work() -> None:
+            settlement = self.executor.flywheel.settle(call_data)
+            self._apply_settlement(iid, settlement)
+            if not settlement.mined and settlement.status != "submitted":
+                self.watchdog.watch(iid, call_data, execution)
+
+        try:
+            self._settle_pool.submit(work)
+        except RuntimeError:  # pool already shut down
+            work()
+
+    def _apply_settlement(self, iid: str, settlement) -> None:
+        """Fold a flywheel outcome into the stored result, in place."""
+        with self._results_lock:
+            result = self._results.get(iid)
+            if result is None or result.execution is None:
+                return
+            ex = result.execution
+            if settlement.mined:
+                ex.status = "executed"
+                ex.simulated = False
+                ex.tx_hash = settlement.tx_hash
+                ex.explorer_url = settlement.explorer_url
+                ex.user_op_hash = settlement.user_op_hash
+                ex.block_number = settlement.block_number
+                ex.gas_cost_wei = settlement.actual_gas_cost_wei
+                ex.gas_paid_by = settlement.gas_paid_by
+                ex.network = settlement.network or ex.network
+                ex.bundler = settlement.paymaster or ex.bundler
+                ex.reason = (
+                    f"mined_on_{settlement.network};"
+                    f"gas_paid_by={settlement.gas_paid_by};"
+                    f"value_transferred={ex.value_transferred}"
+                )
+            elif settlement.status == "submitted":
+                ex.status = "submitted"
+                ex.simulated = False
+                ex.tx_hash = settlement.user_op_hash
+                ex.user_op_hash = settlement.user_op_hash
+                ex.explorer_url = settlement.explorer_url
+                ex.network = settlement.network or ex.network
+                ex.reason = settlement.reason
+            else:
+                ex.status = "simulated"
+                ex.simulated = True
+                ex.tx_hash = ""
+                ex.explorer_url = ""
+                ex.reason = settlement.reason
+            result.narrative_ar = self._settlement_line(ex)
+
+    @staticmethod
+    def _settlement_line(ex: ExecutionResult) -> str:
+        """The Arabic sentence describing the settlement, matching its status."""
+        if ex.status == "executed":
+            return (
+                f"نُفّذت العملية فعلياً على {ex.network} وبُثّت في الكتلة "
+                f"{ex.block_number}: {ex.tx_hash}. الغاز دفعَه {ex.gas_paid_by} "
+                f"({ex.bundler})، ولم يُخصم من رصيد المستفيد شيء."
+            )
+        if ex.status == "submitted":
+            return (
+                "قبِل المُجمِّع العملية الموقّعة وهي في طابور التجميع الآن: "
+                f"userOpHash = {ex.user_op_hash}. الغاز مموّل من paymaster."
+            )
+        if ex.status == "pending":
+            return "التنفيذ الحقيقي قيد التنفيذ الآن عبر عجلة الغاز في الخلفية."
+        return (
+            "لم تُبَثّ العملية: لم يتوفر راعٍ للغاز في هذه اللحظة، فلم يتحرك أي "
+            "مال. عجلة الغاز تواصل المحاولة في الخلفية تلقائياً."
+        )
 
     # -- persistence ---------------------------------------------------------
 

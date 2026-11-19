@@ -32,8 +32,27 @@ Arabic intent
 Result: a proven path + Arabic explanation + equations, in the same request.
 
 Primitives (GitHub, commit < 48h), account identity, and gas price are
-resolved once at process start. Nothing is deferred to a background loop.
+resolved once at process start, so the proof itself is pure in-memory work.
 ```
+
+### The proof is instant; settlement is not
+
+Proving takes milliseconds. A sponsored settlement is real network work — a
+paymaster handshake, a broadcast, a receipt — and takes seconds. Blocking the
+answer on it would spend the latency contract to buy it, so the two are
+separated:
+
+```
+POST /synthesize        → proof + narrative, execution.status = "pending"   (~90ms)
+   background thread    → sponsor → sign → broadcast → wait for receipt
+GET  /intent/{id}       → the same result, now execution.status = "executed"
+                          with the real tx_hash and explorer link
+```
+
+The result object is upgraded in place, so the answer a caller already holds
+gains its transaction hash. A settlement that no sponsor would take is retried
+by the watchdog and reported as `simulated` with no hash — never with an
+invented one.
 
 ### The profit equation
 
@@ -102,13 +121,37 @@ SimpleAccount address from the on-chain factory, signs a v0.6 UserOperation with
 its own ephemeral session key, and fires `eth_sendUserOperation` at every
 configured bundler in parallel.
 
-Gas sponsorship is the one leg that needs an external credential: every public
-bundler (Pimlico public, Stackup, Etherspot, Alchemy, Gelato) rejects
-`pm_sponsorUserOperation` without an API key or sponsorship policy. The engine
-records that refusal for a short window, then falls back to the flash-gas
-ledger — the atomic transaction repays its sponsor out of its own proceeds — so
-the user is never asked for gas. Set `SYNTH_BUNDLER_RPC` to a funded bundler
-endpoint to turn settlements from `simulated` into `executed`.
+### Gas is sponsored, keyless, and proven on chain
+
+No API key and no sponsorship policy are needed. Candide's public InstaGas
+paymaster answers `pm_sponsorUserOperation` on **Base Sepolia** and **Arbitrum
+Sepolia**, and operations sponsored there are mined:
+
+| network | tx | block |
+|---|---|---|
+| base-sepolia | `0xbc3d8fca…a26e8` | 60976052 |
+| base-sepolia | `0x2538dabf…d63d` | 60981511 |
+| arbitrum-sepolia | `0x1b746990…f986` | 330832694 |
+
+The other public bundlers do not sponsor keylessly: Pimlico returns
+`Sponsorship policy ID is required`, Etherspot and Stackup reject without a key,
+and Ethereum Sepolia's bundler caps a UserOperation at 15M gas, below the
+sponsored op's cost, so it is not configured.
+
+Settlement is two-phase, and the order matters. The operation is signed, offered
+to the paymaster, and then **re-signed over the gas fields and paymaster data the
+paymaster returned**. Signing once and reusing that signature is what produces
+the `AA23 invalid signature` rejections that look like a dead paymaster.
+
+Networks are tried in order: Base Sepolia first, Arbitrum Sepolia second. A dead
+paymaster on the primary is a routing problem, not a failure — the fallback
+carries the operation. Both rungs are verified, not assumed.
+
+Gas is sponsored; **value is not**. A transfer moves funds only when the smart
+account holds them, which is checked against the node before the operation is
+built. On an unfunded account the settlement still executes and still proves the
+gas path, and it reports `value_transferred: false` rather than implying a
+payout that did not happen.
 
 ### The security posture is a system invariant
 

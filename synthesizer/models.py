@@ -195,6 +195,19 @@ class ExecutionResult:
     gas_mode: str = "protocol"
     # How long the broadcast attempt took, in milliseconds.
     broadcast_ms: float = 0.0
+    # The ERC-4337 userOp hash, which a bundler returns one step before the
+    # operation is mined. Distinct from tx_hash.
+    user_op_hash: str = ""
+    # The address that actually paid for gas, and how much it cost, so a reader
+    # can confirm the beneficiary paid nothing.
+    gas_paid_by: str = ""
+    gas_cost_wei: int = 0
+    # Block the transaction landed in, once mined.
+    block_number: int = 0
+    # True only when the value moved because the operation ran. A sponsored
+    # no-op executes but transfers nothing, and saying otherwise would be a
+    # lie about money that never moved.
+    value_transferred: bool = False
 
 
 @dataclass

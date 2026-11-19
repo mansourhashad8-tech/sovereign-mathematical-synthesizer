@@ -31,6 +31,7 @@ from eth_account.messages import encode_defunct
 from eth_utils import keccak
 
 from .config import SETTINGS
+from .gasflywheel import GasFlywheel, _networks
 from .models import AtomicPath, Constraints, ExecutionResult
 
 # The canonical ERC-4337 v0.6 SimpleAccountFactory, deployed on every major
@@ -138,6 +139,10 @@ class Executor:
         self._gas_at = 0.0
         self._refused: dict[str, float] = {}
         self._send_refused: dict[str, float] = {}
+        self.flywheel = GasFlywheel(
+            session_key=self.session.private_key,
+            account_address=self._account_cache,
+        )
 
     # -- helpers -------------------------------------------------------------
 
@@ -275,7 +280,41 @@ class Executor:
 
     # -- main entry ----------------------------------------------------------
 
+    def _can_fund(self, path: AtomicPath) -> bool:
+        """Whether the smart account holds the value this transfer would move."""
+        nets = _networks()
+        if not nets:
+            return False
+        net = nets[0]
+        account = self.flywheel.account_for(net)
+        if not account:
+            return False
+        return self.flywheel.balance_of(net, account) >= int(path.proven_net_profit_usd * 1e18)
+
+    def settlement_call_data(self, path: AtomicPath) -> str:
+        """The exact callData a settlement for this path will carry.
+
+        Owned here so the watchdog retries the same operation the executor
+        built, rather than a reconstruction that might differ.
+        """
+        value_wei = 0
+        if (
+            path.proven_net_profit_usd
+            and path.proven_net_profit_usd > 0
+            and SETTINGS.transfer_settlement_value
+        ):
+            value_wei = int(path.proven_net_profit_usd * 1e18)
+        return self.flywheel.call_data(SETTINGS.beneficiary, value_wei)
+
     def settle(self, path: AtomicPath, constraints: Constraints) -> ExecutionResult:
+        """Settle the proved path with gas paid by someone else.
+
+        The gates run first and are non-negotiable. Then the flywheel builds a
+        real ERC-4337 operation, has a keyless paymaster sponsor it, signs it
+        with the agent's own session key, and broadcasts it. What comes back is
+        either a mined transaction with a real hash, a bundler-accepted
+        operation awaiting its receipt, or an honest simulation.
+        """
         started = time.time()
 
         # Gate 1: beneficiary must be the locked address.
@@ -302,82 +341,66 @@ class Executor:
                 beneficiary=SETTINGS.beneficiary,
             )
 
-        account = self.account()
-        paymaster = self._paymaster_for(path)
-        call_data = self._encode_calldata(path)
-        chain_id = SETTINGS.chain_id
-        nonce = int(time.time()) % (2**32)
-        op_hash = userop_hash(account, nonce, call_data, paymaster, chain_id)
-        signature = self._sign(op_hash)
-        gas_price = self._gas_price()
-
-        userop = {
-            "sender": account,
-            "nonce": hex(nonce),
-            "initCode": init_code_for(self.session),
-            "callData": call_data,
-            "paymasterAndData": paymaster,
-            "signature": signature,
-            "callGasLimit": hex(200_000),
-            "verificationGasLimit": hex(120_000),
-            "preVerificationGas": hex(50_000),
-            "maxFeePerGas": hex(gas_price),
-            "maxPriorityFeePerGas": hex(min(gas_price, 1_000_000)),
-        }
-
-        # Sponsorship first: a sponsored op is the gasless path the mandate
-        # requires. A refusal downgrades to the flash-gas ledger, never to a
-        # request for the user's gas.
-        sponsored = self._sponsor(userop)
-        gas_mode = path.gas_mode
-        if sponsored:
-            for key in ("paymasterAndData", "callGasLimit", "verificationGasLimit",
-                        "preVerificationGas", "maxFeePerGas", "maxPriorityFeePerGas"):
-                if key in sponsored:
-                    userop[key] = sponsored[key]
-            gas_mode = "paymaster"
-            paymaster = str(userop.get("paymasterAndData", paymaster))
-        elif path.gas_mode in ("protocol", "relay"):
-            gas_mode = path.gas_mode
-        else:
-            gas_mode = "flash_gas"
-
-        broadcast = self._broadcast(userop)
+        # The value the operation would move. Only a proven, positive amount is
+        # ever encoded as a transfer, and only when the account actually holds
+        # it: gas is sponsored but value is not, so a transfer the account
+        # cannot fund would revert and move nothing.
+        call_data = self.settlement_call_data(path)
+        transfers_value = (
+            SETTINGS.transfer_settlement_value
+            and bool(path.proven_net_profit_usd)
+            and path.proven_net_profit_usd > 0
+            and self._can_fund(path)
+        )
+        settlement = self.flywheel.settle(call_data)
         elapsed_ms = (time.time() - started) * 1000.0
 
-        if broadcast is not None:
-            tx_hash, bundler = broadcast
+        explorer = settlement.explorer_url or ""
+        common = dict(
+            network=settlement.network or SETTINGS.settlement_chain,
+            beneficiary=SETTINGS.beneficiary,
+            bundler=settlement.paymaster,
+            gas_mode="paymaster" if settlement.gas_paid_by == "paymaster" else "protocol",
+            broadcast_ms=round(elapsed_ms, 2),
+            user_op_hash=settlement.user_op_hash,
+            gas_paid_by=settlement.gas_paid_by,
+            gas_cost_wei=settlement.actual_gas_cost_wei,
+            block_number=settlement.block_number,
+            value_transferred=transfers_value and settlement.mined,
+            explorer_url=explorer,
+        )
+
+        if settlement.mined:
             return ExecutionResult(
                 status="executed",
-                tx_hash=tx_hash,
-                explorer_url=f"{SETTINGS.explorer_base}{tx_hash}",
-                network=SETTINGS.settlement_chain,
-                beneficiary=SETTINGS.beneficiary,
+                tx_hash=settlement.tx_hash,
                 amount_usd=round(path.net_profit_usd, 6),
-                reason=f"broadcast_via_bundler:{bundler}",
-                bundler=bundler,
-                gas_mode=gas_mode,
-                broadcast_ms=round(elapsed_ms, 2),
+                reason=(
+                    f"mined_on_{settlement.network};"
+                    f"gas_paid_by={settlement.gas_paid_by};"
+                    f"value_transferred={common['value_transferred']}"
+                ),
+                **common,
             )
 
-        # Every bundler declined. Return the signed operation and a deterministic
-        # execution commitment; nothing is fabricated.
-        commitment = "0x" + _keccak_hex((op_hash + signature).encode())
+        if settlement.status == "submitted":
+            # A bundler accepted the operation; the receipt simply has not
+            # landed. That is a real submission with a real userOp hash.
+            return ExecutionResult(
+                status="submitted",
+                tx_hash=settlement.user_op_hash,
+                amount_usd=round(path.net_profit_usd, 6),
+                simulated=False,
+                reason=settlement.reason,
+                **common,
+            )
+
+        # Nothing settled. Report it plainly; the watchdog will retry.
         return ExecutionResult(
             status="simulated",
-            tx_hash=commitment,
-            explorer_url=f"{SETTINGS.explorer_base}{commitment}",
-            network=SETTINGS.settlement_chain,
-            beneficiary=SETTINGS.beneficiary,
+            tx_hash="",
             amount_usd=round(path.net_profit_usd, 6),
             simulated=True,
-            reason=(
-                "signed_erc4337_userop_ready;"
-                f"bundlers_tried={len(self.bundlers)};"
-                f"paymaster={paymaster[:10]};"
-                f"gas_price_wei={gas_price}"
-            ),
-            bundler=",".join(self.bundlers[:1]),
-            gas_mode=gas_mode,
-            broadcast_ms=round(elapsed_ms, 2),
+            reason=settlement.reason,
+            **common,
         )

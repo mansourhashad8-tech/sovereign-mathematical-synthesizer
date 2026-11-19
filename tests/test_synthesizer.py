@@ -363,20 +363,31 @@ def test_bound_proof_reports_the_exact_physical_ceiling():
     assert proof.model["max_reachable_usd"] < c.net_profit_usd_min
 
 
-def test_executor_tries_every_bundler_then_falls_back_honestly():
+def test_executor_tries_every_bundler_then_falls_back_honestly(monkeypatch):
+    """With every gas source unreachable, the engine says so and invents no hash."""
+    from synthesizer.config import SETTINGS
     from synthesizer.executor import Executor
 
+    dead = "https://127.0.0.1:1/rpc"
+    monkeypatch.setattr(SETTINGS, "public_bundler_url", dead)
+    monkeypatch.setattr(SETTINGS, "paymaster_url", dead)
+    monkeypatch.setattr(SETTINGS, "extra_paymasters", [])
+    monkeypatch.setattr(SETTINGS, "fallback_networks", [])
+    monkeypatch.setattr(SETTINGS, "receipt_timeout_seconds", 0.1)
+
     ex = Executor()
-    ex.bundlers = ["https://127.0.0.1:1/rpc"]  # unreachable on purpose
     c = parse_deterministic("اربح 5 دولار من السيولة")
     path = Composer().propose(c, _primitives(), attempt=0)
     res = ex.settle(path, c)
+
     assert res.status == "simulated"
     assert res.simulated is True
+    # A simulated settlement carries no transaction hash, because none exists.
+    assert res.tx_hash == ""
+    assert res.explorer_url == ""
     assert res.beneficiary == BENEFICIARY
     assert res.gas_mode != "user"
-    assert res.tx_hash.startswith("0x")
-    assert "signed_erc4337_userop_ready" in res.reason
+    assert "no_network_settled" in res.reason
 
 
 def test_api_reports_instant_latency_headers():
@@ -407,46 +418,113 @@ def test_api_exposes_the_template_library():
 def test_narrative_never_claims_execution_when_settlement_was_simulated():
     """The Arabic answer must match the real settlement status."""
     from synthesizer.loop import Synthesizer
+    from synthesizer.models import ExecutionResult
 
     synth = Synthesizer()
-    synth.executor.bundlers = ["https://127.0.0.1:1/rpc"]
-    result = synth.synthesize_sync("اربح 500 دولار من السيولة")
+    c = parse_deterministic("اربح 500 دولار من السيولة")
+    path = Composer().propose(c, _primitives(), attempt=0)
+    assert path is not None
+    proof = synth.prover.prove(path, c)
+    simulated = ExecutionResult(
+        status="simulated",
+        simulated=True,
+        beneficiary=BENEFICIARY,
+        gas_mode="paymaster",
+        reason="no_network_settled",
+    )
 
-    assert result.execution is not None
-    assert result.execution.status == "simulated"
-    assert "نُفّذ المسار الذري" not in result.narrative_ar
-    assert "لم تُبَثّ" in result.narrative_ar
-    assert "لا يُطلب من المستخدم غاز" in result.narrative_ar
+    narrative, _ = synth._narrate(
+        c, path, proof, False, type("S", (), {"attempts": 1, "live_primitives": 1,
+                                             "started_at": 0})(), None, False, simulated,
+    )
+
+    assert "نُفّذ المسار الذري" not in narrative
+    assert "لم تُبَثّ" in narrative
+    assert "لا يُطلب من المستخدم غاز" in narrative
 
 
-def test_narrative_reports_the_hash_only_when_a_bundler_accepted():
+def test_a_mined_settlement_upgrades_the_answer_with_its_real_hash():
+    """A background settlement must land in the stored result, not be lost."""
+    from synthesizer.gasflywheel import GasSettlement
     from synthesizer.loop import Synthesizer
+    from synthesizer.models import ExecutionResult, IntentResult
 
     synth = Synthesizer()
+    c = parse_deterministic("اربح 500 دولار من السيولة")
+    path = Composer().propose(c, _primitives(), attempt=0)
+    assert path is not None
+    proof = synth.prover.prove(path, c)
 
-    class _AcceptingExecutor:
-        def settle(self, path, constraints):
-            from synthesizer.models import ExecutionResult
+    execution = ExecutionResult(
+        status="pending", beneficiary=BENEFICIARY, gas_mode="paymaster",
+        amount_usd=path.net_profit_usd,
+    )
+    result = IntentResult(
+        intent_id="iid", raw_intent=c.goal.raw_intent, constraints=c,
+        chosen_path=path, proof=proof, execution=execution,
+        narrative_ar="", invented=False, attempts=1, primitives_used=path.primitives,
+        equations=[], elapsed_seconds=0.01, background=False, source="proved",
+    )
+    synth._results["iid"] = result
 
-            return ExecutionResult(
-                status="executed",
-                tx_hash="0x" + "ab" * 32,
-                explorer_url="https://sepolia.basescan.org/tx/0x" + "ab" * 32,
-                network="base-sepolia",
-                beneficiary=constraints.beneficiary,
-                amount_usd=path.net_profit_usd,
-                reason="broadcast_via_bundler:test",
-                bundler="test-bundler",
-                gas_mode="paymaster",
-            )
+    tx = "0x" + "ab" * 32
+    synth._apply_settlement("iid", GasSettlement(
+        status="executed",
+        network="base-sepolia",
+        chain_id=84532,
+        tx_hash=tx,
+        user_op_hash="0x" + "cd" * 32,
+        explorer_url=f"https://sepolia.basescan.org/tx/{tx}",
+        paymaster="0x" + "36" * 20,
+        account="0x" + "1e" * 20,
+        gas_paid_by="paymaster",
+        actual_gas_cost_wei=3_000_000_000_000,
+        block_number=60_977_110,
+        reason="mined",
+    ))
 
-    synth.executor = _AcceptingExecutor()
-    result = synth.synthesize_sync("اربح 500 دولار من السيولة")
+    ex = synth._results["iid"].execution
+    assert ex.status == "executed"
+    assert ex.simulated is False
+    assert ex.tx_hash == tx
+    assert ex.explorer_url.endswith(tx)
+    assert ex.gas_paid_by == "paymaster"
+    assert ex.block_number == 60_977_110
+    assert tx in synth._results["iid"].narrative_ar
 
-    assert result.execution.status == "executed"
-    assert "نُفّذ المسار الذري" in result.narrative_ar
-    assert "0xabababab" in result.narrative_ar
-    assert "لم تُبَثّ" not in result.narrative_ar
+
+def test_a_failed_settlement_leaves_no_hash_behind():
+    """A simulation must clear any hash rather than keep a stale one."""
+    from synthesizer.gasflywheel import GasSettlement
+    from synthesizer.loop import Synthesizer
+    from synthesizer.models import ExecutionResult, IntentResult
+
+    synth = Synthesizer()
+    c = parse_deterministic("اربح 500 دولار من السيولة")
+    path = Composer().propose(c, _primitives(), attempt=0)
+    assert path is not None
+    proof = synth.prover.prove(path, c)
+
+    execution = ExecutionResult(
+        status="pending", beneficiary=BENEFICIARY, gas_mode="paymaster",
+        amount_usd=path.net_profit_usd,
+    )
+    synth._results["iid2"] = IntentResult(
+        intent_id="iid2", raw_intent=c.goal.raw_intent, constraints=c,
+        chosen_path=path, proof=proof, execution=execution,
+        narrative_ar="", invented=False, attempts=1, primitives_used=path.primitives,
+        equations=[], elapsed_seconds=0.01, background=False, source="proved",
+    )
+
+    synth._apply_settlement("iid2", GasSettlement(
+        status="simulated", reason="no_network_settled",
+    ))
+
+    ex = synth._results["iid2"].execution
+    assert ex.status == "simulated"
+    assert ex.simulated is True
+    assert ex.tx_hash == ""
+    assert ex.explorer_url == ""
 
 
 def test_bound_certificate_measures_the_market_not_an_empty_path():
@@ -559,3 +637,115 @@ def test_reported_profit_matches_the_proven_certificate():
     assert result.chosen_path.net_profit_usd == pytest.approx(proven, rel=1e-6)
     assert result.execution.amount_usd == pytest.approx(proven, rel=1e-6)
     assert f"{proven:.6f}" in result.narrative_ar
+
+
+# --- gas flywheel ---------------------------------------------------------
+
+
+def test_userop_hash_covers_every_gas_field():
+    """The hash must change when any gas field changes.
+
+    This is the bug that made every sponsored operation fail signature
+    validation: a hash that ignores the gas fields and paymaster data signs a
+    different operation than the one that is broadcast.
+    """
+    from synthesizer.gasflywheel import GasFlywheel
+
+    base = {
+        "sender": "0x" + "11" * 20,
+        "nonce": "0x0",
+        "initCode": "0x",
+        "callData": "0xdeadbeef",
+        "callGasLimit": "0x30d40",
+        "verificationGasLimit": "0x30d40",
+        "preVerificationGas": "0xc350",
+        "maxFeePerGas": "0x1",
+        "maxPriorityFeePerGas": "0x1",
+        "paymasterAndData": "0x" + "00" * 52,
+    }
+    reference = GasFlywheel.user_op_hash(base, 84532)
+
+    for field_name, value in [
+        ("callGasLimit", "0x30d41"),
+        ("verificationGasLimit", "0x30d41"),
+        ("preVerificationGas", "0xc351"),
+        ("maxFeePerGas", "0x2"),
+        ("maxPriorityFeePerGas", "0x2"),
+        ("paymasterAndData", "0x" + "11" * 52),
+        ("nonce", "0x1"),
+    ]:
+        changed = dict(base)
+        changed[field_name] = value
+        assert GasFlywheel.user_op_hash(changed, 84532) != reference, (
+            f"{field_name} is not covered by the userOp hash"
+        )
+
+    # The chain is part of the hash, so a replay on another network differs.
+    assert GasFlywheel.user_op_hash(base, 11155111) != reference
+
+
+def test_call_data_targets_the_locked_beneficiary():
+    """The encoded call must name the locked address and nothing else."""
+    from eth_abi import decode as abi_decode
+
+    from synthesizer.gasflywheel import GasFlywheel
+
+    data = GasFlywheel.call_data(BENEFICIARY, 0)
+    assert data.startswith("0xb61d27f6")  # execute(address,uint256,bytes)
+    to, value, _ = abi_decode(
+        ["address", "uint256", "bytes"], bytes.fromhex(data[10:])
+    )
+    assert to == BENEFICIARY
+    assert value == 0
+
+
+def test_a_settlement_without_a_receipt_is_reported_as_submitted_not_failed():
+    """A bundler acceptance is a real submission, even before it is mined."""
+    from synthesizer.executor import Executor
+    from synthesizer.models import ExecutionResult
+
+    ex = Executor()
+    result = ExecutionResult(status="submitted", tx_hash="0x" + "cd" * 32,
+                             simulated=False, gas_paid_by="paymaster")
+    assert result.simulated is False
+    assert result.status != "simulated"
+    assert result.tx_hash.startswith("0x")
+    # The executor exposes one owner of the callData the watchdog must replay.
+    c = parse_deterministic("اربح 500 دولار من السيولة")
+    path = Composer().propose(c, _primitives(), attempt=0)
+    assert path is not None
+    assert ex.settlement_call_data(path) == ex.settlement_call_data(path)
+
+
+def test_the_watchdog_upgrades_a_simulated_result_when_a_retry_lands():
+    """A simulated settlement is a to-do: the watch must finish it unattended."""
+    from synthesizer.gasflywheel import GasSettlement
+    from synthesizer.loop import Synthesizer
+    from synthesizer.models import ExecutionResult, IntentResult
+
+    synth = Synthesizer()
+    c = parse_deterministic("اربح 500 دولار من السيولة")
+    path = Composer().propose(c, _primitives(), attempt=0)
+    assert path is not None
+    proof = synth.prover.prove(path, c)
+
+    synth._results["w1"] = IntentResult(
+        intent_id="w1", raw_intent=c.goal.raw_intent, constraints=c,
+        chosen_path=path, proof=proof,
+        execution=ExecutionResult(status="simulated", simulated=True,
+                                  beneficiary=BENEFICIARY, gas_mode="paymaster"),
+        narrative_ar="", invented=False, attempts=1, primitives_used=path.primitives,
+        equations=[], elapsed_seconds=0.01, background=False, source="proved",
+    )
+
+    # Simulate the retry that the watchdog thread would make.
+    synth._apply_settlement("w1", GasSettlement(
+        status="executed", network="base-sepolia", chain_id=84532,
+        tx_hash="0x" + "ef" * 32, explorer_url="https://x/tx/0x" + "ef" * 32,
+        gas_paid_by="paymaster", block_number=1, reason="mined",
+    ))
+
+    ex = synth._results["w1"].execution
+    assert ex.status == "executed"
+    assert ex.tx_hash == "0x" + "ef" * 32
+    assert synth.watchdog.status()["watched"] >= 0

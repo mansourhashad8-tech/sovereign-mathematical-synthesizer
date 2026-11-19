@@ -35,6 +35,8 @@
   .eq{direction:ltr;text-align:left;font-family:var(--mono);font-size:12.5px;color:#bcd7ff;background:#0a1120;border:1px dashed #22314f;border-radius:10px;padding:10px 12px;margin:10px 0;overflow-x:auto}
   .kv{font-size:12.5px;color:var(--dim);margin-top:8px}
   .kv b{color:var(--txt);font-weight:600}
+  .kv .warn{color:#f0b849}
+  .kv code{font-family:var(--mono);font-size:11.5px;color:#bcd7ff;word-break:break-all}
   a{color:var(--acc2)}
   form{display:flex;gap:10px;padding:14px 20px;border-top:1px solid var(--line);background:var(--panel)}
   textarea{flex:1;resize:none;height:52px;background:#0a0f1c;border:1px solid var(--line);border-radius:12px;color:var(--txt);padding:12px 14px;font-size:14.5px;font-family:inherit}
@@ -178,13 +180,43 @@ function render(d){
   h += `زمن القرار: <b>${ms} مللي ثانية</b> · المصدر: <b>${srcLabel}</b> · خلفية: <b>لا</b><br>`;
   if(p) h+=`المسار: <b>${p.path_id}</b> · الخطوات: <b>${p.steps.length}</b> · صافي: <b>${p.net_profit_usd} ${d.constraints?.goal?.asset||''}</b><br>`;
   if(pr) h+=`البرهان: <b>${pr.satisfied?'ناجح (SAT)':'برهان حد (UNSAT)'}</b> · ${escapeHtml(pr.certificate||'')}<br>`;
-  if(ex){
-    h+=`الحالة: <b>${ex.status}</b> · الغاز: <b>${ex.gas_mode}</b>`;
-    if(ex.tx_hash) h+=` · المعرّف: <code>${ex.tx_hash.slice(0,26)}…</code>`;
-    if(ex.explorer_url) h+=` · <a href="${ex.explorer_url}" target="_blank" rel="noopener">عرض في المستكشف ↗</a>`;
-  }
+  h+=`<div id="exec-${d.intent_id}">${execLine(ex)}</div>`;
   h+='</div>';
-  bubble('sys',h);
+  const node=bubble('sys',h);
+  // Settlement is real network work and finishes after this answer, so watch
+  // the intent until a transaction hash or a final status arrives.
+  if(ex && (ex.status==='pending'||ex.status==='submitted')) pollSettlement(d.intent_id, node);
+}
+
+function execLine(ex){
+  if(!ex) return 'التنفيذ: <b>لا يوجد</b>';
+  const labels={executed:'منفّذة على الشبكة',submitted:'مقبولة في طابور التجميع',
+                pending:'قيد التنفيذ الحقيقي الآن',simulated:'لم تُبَثّ'};
+  let s=`التنفيذ: <b>${labels[ex.status]||ex.status}</b> · الغاز: <b>${ex.gas_mode==='paymaster'?'مدفوع من راعٍ (paymaster)':ex.gas_mode}</b>`;
+  if(ex.gas_paid_by) s+=` · دافع الغاز: <b>${ex.gas_paid_by}</b>`;
+  if(ex.block_number) s+=` · الكتلة: <b>${ex.block_number}</b>`;
+  if(ex.tx_hash) s+=`<br>المعرّف: <code>${ex.tx_hash}</code>`;
+  if(ex.explorer_url) s+=`<br><a href="${ex.explorer_url}" target="_blank" rel="noopener">عرض في المستكشف ↗</a>`;
+  if(ex.status==='simulated') s+=`<br><span class="warn">لم يتحرك أي مال. عجلة الغاز تواصل المحاولة تلقائياً في الخلفية.</span>`;
+  if(ex.status==='executed') s+=ex.value_transferred
+    ? `<br>القيمة وصلت للمستفيد: <b>${ex.amount_usd} USD</b>`
+    : `<br><span class="warn">العملية نُفّذت والغاز مدفوع من راعٍ، لكن القيمة لم تُحوّل: حساب الوكيل رصيده صفر، والغاز وحده هو ما يُموّل خارجياً. القانون المالي (حفظ القيمة) لا يُخرقه المحرك.</span>`;
+  return s;
+}
+
+async function pollSettlement(iid, node){
+  for(let i=0;i<20;i++){
+    await new Promise(r=>setTimeout(r,2500));
+    try{
+      const r=await fetch(api('/intent/'+encodeURIComponent(iid)));
+      if(!r.ok) return;
+      const d=await r.json();
+      const ex=d.execution;
+      const slot=node.querySelector('#exec-'+iid);
+      if(slot && ex) slot.innerHTML=execLine(ex);
+      if(ex && (ex.status==='executed'||ex.status==='simulated')) return;
+    }catch(e){ return; }
+  }
 }
 function escapeHtml(s){return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
 

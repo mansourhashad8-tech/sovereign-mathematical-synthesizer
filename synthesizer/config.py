@@ -85,6 +85,52 @@ class Settings:
     public_bundler_url: str = _env(
         "SYNTH_PUBLIC_BUNDLER", "https://public.pimlico.io/v2/84532/rpc"
     )
+    # --- self-sustaining gas flywheel ---
+    # A keyless paymaster that sponsors the whole operation. Pimlico's public
+    # endpoint now demands a sponsorship policy id, so the working rung is
+    # Candide's InstaGas: it sponsors ERC-4337 ops with no key and no deposit,
+    # which is what makes a zero-capital execution possible at all.
+    paymaster_url: str = _env(
+        "SYNTH_PAYMASTER_URL", "https://api.candide.dev/public/v3/84532"
+    )
+    # Extra paymasters, tried after the primary. Comma-separated.
+    extra_paymasters: list[str] = field(
+        default_factory=lambda: [
+            u.strip() for u in _env("SYNTH_PAYMASTERS", "").split(",") if u.strip()
+        ]
+    )
+    # Fallback networks, tried in order when the primary chain cannot settle.
+    # Each entry is "name|chain_id|rpc|explorer|paymaster".
+    fallback_networks: list[str] = field(
+        default_factory=lambda: [
+            n.strip()
+            for n in _env(
+                "SYNTH_FALLBACK_NETWORKS",
+                # Arbitrum Sepolia is the verified second rung: Candide's public
+                # InstaGas paymaster sponsors there and the operation mines.
+                # Ethereum Sepolia was removed: its bundler caps userOp gas at
+                # 15M and rejects the sponsored op, so it advertised redundancy
+                # it could not deliver.
+                "arbitrum-sepolia|421614|https://sepolia-rollup.arbitrum.io/rpc"
+                "|https://sepolia.arbiscan.io/tx/|https://api.candide.dev/public/v3/421614",
+            ).split(";")
+            if n.strip()
+        ]
+    )
+    # How long to wait for a userOperation receipt before declaring the op
+    # accepted-but-not-yet-mined (which is still a real submission).
+    receipt_timeout_seconds: float = float(_env("SYNTH_RECEIPT_TIMEOUT", "20"))
+    receipt_poll_seconds: float = float(_env("SYNTH_RECEIPT_POLL", "1.5"))
+    # A watchdog re-attempts any settlement that came back simulated.
+    watchdog_attempts: int = _env_int("SYNTH_WATCHDOG_ATTEMPTS", 3)
+    # Whether a settlement should encode the proven profit as a real value
+    # transfer. Off by default: the engine holds no capital, so a sponsored
+    # no-op is the honest settlement until a funded route exists. The gas path
+    # itself is proved either way.
+    transfer_settlement_value: bool = _env_bool("SYNTH_TRANSFER_VALUE", False)
+    # Concurrent background settlements. Settlement is I/O-bound; a small pool
+    # keeps a burst of intents from opening unbounded sponsor handshakes.
+    settlement_workers: int = _env_int("SYNTH_SETTLE_WORKERS", 4)
     # Extra bundlers, tried in order after the public one. Comma-separated.
     extra_bundlers: list[str] = field(
         default_factory=lambda: [
