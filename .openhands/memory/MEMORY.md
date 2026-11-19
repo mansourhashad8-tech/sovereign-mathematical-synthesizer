@@ -401,3 +401,12 @@ open agent-completable slot this run was either taken, gated on a human, or a tr
 - Reliable, real money-paying bounties tend to be **human-gated by design** (as the
   agent's own `claim` endpoint is). The genuinely zero-human path remains the
   engine's own public storefront selling paid x402 endpoints to the treasury.
+
+## Single source of truth for proven numbers (2026-11-18)
+A solver witness IS the truth; anything recomputed from declared inputs is a
+different number with the same name. `AtomicPath.proven_net_profit_usd` carries
+the certified scalar and `net_profit_usd` prefers it, so certificate, narrative,
+executor amount and UI footer cannot drift. Never certify a ceiling from an
+empty path (`detail="no_path"`). GitHub `/search` is 30 req/min and needs a
+`pushed:>` qualifier in the query, not a post-filter; surface
+`scan_rate_limited` rather than silently serving seeds. Detail: `2026-11-18.md`.
