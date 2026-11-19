@@ -51,11 +51,48 @@ class Settings:
     # Minimum acceptable net profit, in USD (constraint NetProfit > 0 becomes
     # NetProfit >= min_net_profit_usd).
     min_net_profit_usd: float = float(_env("SYNTH_MIN_NET_PROFIT", "0.01"))
+    # The instant-execution budget: parse + instantiate + prove must finish in
+    # this window. Everything slower is optional enrichment, never blocking.
+    instant_deadline_ms: int = _env_int("SYNTH_INSTANT_DEADLINE_MS", 900)
+    # Solver timeout per proof attempt.
+    prover_timeout_ms: int = _env_int("SYNTH_PROVER_TIMEOUT_MS", 4000)
+    # Deadline for the optional network enrichment (live scan / LLM polish).
+    enrichment_deadline_ms: int = _env_int("SYNTH_ENRICH_DEADLINE_MS", 1200)
 
     # --- GitHub live scan ---
     github_lookback_hours: int = _env_int("SYNTH_GH_LOOKBACK_HOURS", 48)
     github_max_repos: int = _env_int("SYNTH_GH_MAX_REPOS", 40)
     github_token: str = _env("GITHUB_WRITE_TOKEN", "") or _env("GITHUB_TOKEN", "")
+
+    # --- chain / settlement ---
+    # Base Sepolia: a real public testnet where keyless bundlers and public RPCs
+    # are reachable, so an execution can be broadcast and audited on an explorer.
+    settlement_chain: str = _env("SYNTH_CHAIN", "base-sepolia")
+    chain_id: int = _env_int("SYNTH_CHAIN_ID", 84532)
+    explorer_base: str = _env(
+        "SYNTH_EXPLORER", "https://sepolia.basescan.org/tx/"
+    )
+    rpc_url: str = _env("SYNTH_RPC_URL", "https://sepolia.base.org")
+    # How long a bundler's sponsorship refusal is trusted before re-asking.
+    # Candidates proved per parallel wave. A wave that proves anything ends the
+    # sweep, so a small wave keeps the common case fast and still widens the
+    # search when nothing proves.
+    proof_wave_size: int = 4
+    sponsor_refusal_ttl_seconds: float = 120.0
+    # The same for a bundler that will not take the signed operation.
+    broadcast_refusal_ttl_seconds: float = 60.0
+    # Keyless public bundler used for reads and as the first broadcast rung.
+    public_bundler_url: str = _env(
+        "SYNTH_PUBLIC_BUNDLER", "https://public.pimlico.io/v2/84532/rpc"
+    )
+    # Extra bundlers, tried in order after the public one. Comma-separated.
+    extra_bundlers: list[str] = field(
+        default_factory=lambda: [
+            u.strip()
+            for u in _env("SYNTH_BUNDLERS", "").split(",")
+            if u.strip()
+        ]
+    )
 
     # --- LLM brain ---
     pollinations_url: str = _env(

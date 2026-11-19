@@ -1,5 +1,19 @@
 # Memory — sovereign-intent-mesh / commerce engine
 
+## Sovereign Mathematical Synthesizer (2026-11-18, commit at repo HEAD)
+New deliverable: deterministic NON-CUSTODIAL Arabic-intent engine that never
+refuses. Repo `mansourhashad8-tech/sovereign-mathematical-synthesizer` (public).
+Live engine: `https://work-1-dmmqjcnqawqsycvn.prod-runtime.all-hands.dev/`.
+Pages: `https://mansourhashad8-tech.github.io/sovereign-mathematical-synthesizer/`.
+Pipeline: intent.py -> scanner.py (live GitHub, commit<48h) -> composer.py ->
+prover.py (Z3 + real CVC5 pip bindings, both must agree) -> executor.py (ERC-4337).
+Profit model: `NetProfit = N·Σ(y_i−f_i) − gas`, N = flash capital, gas=0.
+**Hard rules learned:** security flags (no custody/key/user-gas) are system
+invariants, NOT user preferences; a path with no flash primitive pins N=0.
+CVC5 pip wheel works (binary absent); mkReal rejects scientific notation.
+Deploy: Dockerfile + fly/render/vercel + GitHub Actions cron `*/30`.
+Full detail: `2026-11-18.md`.
+
 ## Earning engine (2026-11-16) — where real money is reachable
 - **overturn-ai/overturn pays on merge** for capture adapters ($150 Front #20,
   $100 Gorgias #22, $100 Intercom #21). Real, well-specified code bounties. Our PRs:

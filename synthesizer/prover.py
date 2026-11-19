@@ -22,11 +22,13 @@ proof can be re-checked by the Certora Prover in a CI job.
 from __future__ import annotations
 
 import shutil
+import threading
 import time
 
 import z3
 
 from .composer import MAX_NOTIONAL_USD
+from .config import SETTINGS
 from .models import AtomicPath, Constraints, Proof
 
 # The CVC5 binary (if installed) or the cvc5 Python bindings (pip) both count
@@ -95,51 +97,62 @@ rule no_user_custody() {{
 class Prover:
     def __init__(self) -> None:
         self.solver_name = "z3" + ("+cvc5" if _CVC5 else "")
+        # cvc5's Python bindings are not documented as thread-safe; the parallel
+        # prover only serialises the second opinion, not the Z3 solve.
+        self._cvc5_lock = threading.Lock()
 
-    def prove(self, path: AtomicPath, constraints: Constraints) -> Proof:
+    def prove(self, path: AtomicPath, constraints: Constraints,
+              second_opinion: bool = True) -> Proof:
         started = time.time()
-        s = z3.Solver()
-        s.set("timeout", 8000)
+        # A fresh Z3 context per call: the global context is not thread-safe, and
+        # candidates are proved concurrently.
+        ctx = z3.Context()
+        s = z3.Solver(ctx=ctx)
+        s.set("timeout", int(SETTINGS.prover_timeout_ms))
+
+        def rv(v: float):
+            return z3.RealVal(float(v), ctx)
 
         # The shared notional N (uncollateralised capital) is a real variable.
         # Without a flash primitive there is no uncollateralised capital, so N
         # is pinned to 0 and no profit is possible. This is the honest encoding
         # of "no capital": the constraint is physical, not a preference.
-        N = z3.Real("N")
-        s.add(N >= z3.RealVal(0.0))
+        N = z3.Real("N", ctx)
+        s.add(N >= rv(0.0))
         if path.has_uncollateralized_capital:
-            s.add(N <= z3.RealVal(MAX_NOTIONAL_USD))
+            s.add(N <= rv(MAX_NOTIONAL_USD))
         else:
-            s.add(N == z3.RealVal(0.0))
+            s.add(N == rv(0.0))
 
         # Each hop's yield and fee rates are reals bounded by a band around the
         # composer's declared values, so the solver can find a witness.
         net_terms = []
         for i, step in enumerate(path.steps):
-            y = z3.Real(f"y_{i}")
-            f = z3.Real(f"f_{i}")
+            y = z3.Real(f"y_{i}", ctx)
+            f = z3.Real(f"f_{i}", ctx)
             ylo = max(step.yield_rate * 0.8, 0.0)
             yhi = max(step.yield_rate * 1.2, ylo)
             flo = max(step.fee_rate * 0.8, 0.0)
             fhi = max(step.fee_rate * 1.2, flo)
-            s.add(y >= z3.RealVal(ylo), y <= z3.RealVal(yhi))
-            s.add(f >= z3.RealVal(flo), f <= z3.RealVal(fhi))
+            s.add(y >= rv(ylo), y <= rv(yhi))
+            s.add(f >= rv(flo), f <= rv(fhi))
             net_terms.append(y - f)
 
         # NetProfit = N · Σ(y_i − f_i) − gas, with gas = 0 (sponsored).
-        gas = z3.RealVal(path.total_gas_usd)
-        net = N * (z3.Sum(net_terms) if net_terms else z3.RealVal(0)) - gas
-        s.add(net >= z3.RealVal(constraints.net_profit_usd_min))
+        gas = rv(path.total_gas_usd)
+        rate_sum = z3.Sum(net_terms) if net_terms else rv(0.0)
+        net = N * rate_sum - gas
+        s.add(net >= rv(constraints.net_profit_usd_min))
 
         # Security constraints as boolean guards. Each is a fact about the
         # composition, encoded so the solver can prove them jointly.
         gas_ok = path.gas_sponsor in ("protocol", "paymaster", "barter")
-        s.add(z3.BoolVal(gas_ok))            # gas sponsored by protocol
-        s.add(z3.BoolVal(not constraints.allow_custody))   # no custody
-        s.add(z3.BoolVal(not constraints.allow_user_key))  # no user key
-        s.add(z3.BoolVal(not constraints.allow_user_gas))  # no user gas
-        s.add(z3.BoolVal(constraints.require_atomic))      # atomic
-        s.add(z3.BoolVal(path.simulation_ok))              # simulatable
+        s.add(z3.BoolVal(gas_ok, ctx))            # gas sponsored by protocol
+        s.add(z3.BoolVal(not constraints.allow_custody, ctx))   # no custody
+        s.add(z3.BoolVal(not constraints.allow_user_key, ctx))  # no user key
+        s.add(z3.BoolVal(not constraints.allow_user_gas, ctx))  # no user gas
+        s.add(z3.BoolVal(constraints.require_atomic, ctx))      # atomic
+        s.add(z3.BoolVal(path.simulation_ok, ctx))              # simulatable
 
         check = s.check()
         elapsed = (time.time() - started) * 1000.0
@@ -158,7 +171,7 @@ class Prover:
         model = s.model()
 
         def _real(name: str) -> float:
-            val = model.eval(z3.Real(name), model_completion=True)
+            val = model.eval(z3.Real(name, ctx), model_completion=True)
             return float(val.numerator_as_long()) / float(val.denominator_as_long())
 
         witness: dict[str, float] = {"N": round(_real("N"), 2)}
@@ -179,8 +192,13 @@ class Prover:
             f"gas_sponsor={path.gas_sponsor}; custody=false; user_key=false; atomic=true"
         )
 
-        # Optionally re-check with CVC5 for an independent second proof.
-        cvc5_ok = self._cvc5_recheck(path, constraints) if _CVC5 else None
+        # Optionally re-check with CVC5 for an independent second proof. During
+        # the parallel candidate sweep this is skipped; it runs once on the
+        # winner, where its cost cannot delay the answer.
+        cvc5_ok = None
+        if _CVC5 and second_opinion:
+            with self._cvc5_lock:
+                cvc5_ok = self._cvc5_recheck(path, constraints)
         if cvc5_ok is not None:
             certificate += f"; cvc5={'sat' if cvc5_ok else 'unsat'}"
 
@@ -193,6 +211,94 @@ class Prover:
             certificate=certificate,
             elapsed_ms=round(elapsed, 2),
             detail="proof found",
+        )
+
+    def prove_bound(self, constraints: Constraints, path: AtomicPath | None = None) -> Proof:
+        """Prove the *absolute* limit: no atomic path can reach the target.
+
+        This is the only admissible stopping condition besides success. We ask
+        the solver whether a path at the maximum reachable notional, with the
+        best rate band any composition can offer, still falls short of the
+        target. If UNSAT, the target is unreachable by conservation of value in
+        a single atomic transaction — a physical limit, not a technical failure.
+        """
+        started = time.time()
+        ctx = z3.Context()
+        s = z3.Solver(ctx=ctx)
+        s.set("timeout", int(SETTINGS.prover_timeout_ms))
+
+        def rv(v: float):
+            return z3.RealVal(float(v), ctx)
+
+        N = z3.Real("N_bound", ctx)
+        s.add(N >= rv(0.0))
+        s.add(N <= rv(MAX_NOTIONAL_USD))
+
+        net_terms = []
+        steps = path.steps if path is not None else []
+        for i, step in enumerate(steps):
+            y = z3.Real(f"by_{i}", ctx)
+            f = z3.Real(f"bf_{i}", ctx)
+            # The upper edge of every band: the most optimistic admissible world.
+            s.add(y <= rv(max(step.yield_rate * 1.2, 0.0)))
+            s.add(f >= rv(max(step.fee_rate * 0.8, 0.0)))
+            net_terms.append(y - f)
+
+        if not net_terms:
+            # No composition at all. The problem is unsatisfiable for the
+            # trivial reason that no yield term exists, so the result is a
+            # statement about the *absence of a path*, not about the market.
+            # Say so instead of presenting a ceiling of zero as a market fact.
+            return Proof(
+                path_id="bound",
+                satisfied=False,
+                solver=self.solver_name,
+                theorem="no admissible composition exists for this intent",
+                model={"max_reachable_usd": 0.0, "no_path": True},
+                certificate=(
+                    "UNSAT[no-composition] no admissible atomic path exists; "
+                    "no market ceiling was measured"
+                ),
+                elapsed_ms=round((time.time() - started) * 1000.0, 2),
+                detail="no_path",
+            )
+        else:
+            net = N * z3.Sum(net_terms)
+            s.add(net >= rv(constraints.net_profit_usd_min))
+
+        check = s.check()
+        elapsed = (time.time() - started) * 1000.0
+        bound = MAX_NOTIONAL_USD * (path.net_rate if path is not None else 0.0)
+        theorem = (
+            f"\u2200 (N, y_i, f_i) \u2208 Bands : N \u2264 {MAX_NOTIONAL_USD:.0f} "
+            f"\u2192 N\u00b7\u03a3(y_i - f_i) < {constraints.net_profit_usd_min:.6f}"
+        )
+        if check == z3.unsat:
+            return Proof(
+                path_id=path.path_id if path is not None else "bound",
+                satisfied=False,
+                solver=self.solver_name,
+                theorem=theorem,
+                model={"max_reachable_usd": round(bound, 6)},
+                certificate=(
+                    f"UNSAT[{self.solver_name}] max_atomic_profit="
+                    f"{bound:,.2f} USD < target={constraints.net_profit_usd_min:,.2f} USD"
+                ),
+                elapsed_ms=round(elapsed, 2),
+                detail="absolute_limit",
+            )
+        return Proof(
+            path_id=path.path_id if path is not None else "bound",
+            satisfied=bool(check == z3.sat),
+            solver=self.solver_name,
+            theorem=theorem,
+            model={"max_reachable_usd": round(bound, 6)},
+            certificate=(
+                f"{str(check).upper()}[{self.solver_name}] max_atomic_profit="
+                f"{bound:,.2f} USD vs target={constraints.net_profit_usd_min:,.2f} USD"
+            ),
+            elapsed_ms=round(elapsed, 2),
+            detail="target_reachable_in_principle",
         )
 
     def _cvc5_recheck(self, path: AtomicPath, constraints: Constraints) -> bool | None:

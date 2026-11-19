@@ -12,6 +12,7 @@ Endpoints
 from __future__ import annotations
 
 import asyncio
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 import httpx
@@ -22,20 +23,38 @@ from pydantic import BaseModel
 
 from . import __version__
 from .config import SETTINGS
-from .executor import BASE_RPC
 from .loop import Synthesizer
+from .templates import TEMPLATES
 
 WEB_DIR = Path(__file__).resolve().parent.parent / "web"
 
-app = FastAPI(title="Sovereign Mathematical Synthesizer", version=__version__)
+synth = Synthesizer()
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    """Resolve chain identity, gas price, and the primitive cache at boot.
+
+    This is process startup, not a request: by the time the first intent
+    arrives, every network read is already cached and the answer is pure
+    in-memory work.
+    """
+    await asyncio.to_thread(synth.executor.prewarm)
+    await asyncio.to_thread(synth.scanner.scan)
+    yield
+
+
+app = FastAPI(
+    title="Sovereign Mathematical Synthesizer",
+    version=__version__,
+    lifespan=lifespan,
+)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-synth = Synthesizer()
 
 
 class IntentBody(BaseModel):
@@ -58,10 +77,22 @@ async def status() -> dict:
         "prover": synth.prover.solver_name,
         "primitives_total": len(primitives),
         "primitives_live": live,
+        "scan_rate_limited": synth.scanner.rate_limited(),
         "lookback_hours": SETTINGS.github_lookback_hours,
         "loop_budget_seconds": SETTINGS.loop_budget_seconds,
         "always_on": SETTINGS.always_on,
         "treasury": await _treasury_state(),
+    }
+
+
+@app.post("/primitives/refresh")
+def refresh_primitives() -> dict:
+    """Force a live rescan. Used after a rate-limit window clears."""
+    primitives = synth.scanner.scan(force=True)
+    return {
+        "primitives_total": len(primitives),
+        "primitives_live": synth.scanner.fresh_count(),
+        "scan_rate_limited": synth.scanner.rate_limited(),
     }
 
 
@@ -85,7 +116,35 @@ def primitives() -> dict:
 @app.post("/synthesize")
 async def synthesize(body: IntentBody) -> JSONResponse:
     result = await synth.synthesize(body.intent)
-    return JSONResponse(result.to_dict())
+    payload = result.to_dict()
+    headers = {
+        # The decision time is on the wire so "instant" is auditable, not claimed.
+        "X-Synthesis-Ms": f"{result.elapsed_seconds * 1000:.1f}",
+        "X-Synthesis-Source": result.source,
+        "X-Synthesis-Background": "false",
+    }
+    if result.execution is not None:
+        headers["X-Execution-Status"] = result.execution.status
+        headers["X-Gas-Mode"] = result.execution.gas_mode
+    return JSONResponse(payload, headers=headers)
+
+
+@app.get("/templates")
+def templates() -> dict:
+    """The pre-computed composition library that makes execution instant."""
+    return {
+        "templates": [
+            {
+                "name": t.name,
+                "objective": t.objective,
+                "description": t.description,
+                "primitives": t.primitives,
+                "gas_mode": t.gas_mode,
+                "net_rate": round(t.net_rate, 8),
+            }
+            for t in TEMPLATES
+        ]
+    }
 
 
 @app.get("/proofs/{iid}")
@@ -111,10 +170,9 @@ def index() -> str:
 
 
 async def _treasury_state() -> dict:
-    """Read the beneficiary's real balances from public RPCs (keyless)."""
-    out: dict = {"address": SETTINGS.beneficiary, "network": "base-mainnet"}
+    """Read the beneficiary's real balance from a public RPC (keyless)."""
+    out: dict = {"address": SETTINGS.beneficiary, "network": SETTINGS.settlement_chain}
     try:
-        # eth_getBalance on Base
         payload = {
             "jsonrpc": "2.0",
             "id": 1,
@@ -122,7 +180,7 @@ async def _treasury_state() -> dict:
             "params": [SETTINGS.beneficiary, "latest"],
         }
         r = await asyncio.to_thread(
-            httpx.post, BASE_RPC, json=payload, timeout=8
+            httpx.post, SETTINGS.rpc_url, json=payload, timeout=8
         )
         if r.status_code == 200:
             out["eth_wei"] = int(r.json()["result"], 16)

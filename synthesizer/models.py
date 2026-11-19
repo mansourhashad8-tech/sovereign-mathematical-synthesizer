@@ -119,6 +119,14 @@ class AtomicPath:
     # without it has no uncollateralised capital, so N is pinned to 0 and the
     # path cannot earn. The prover enforces this.
     has_uncollateralized_capital: bool = False
+    # Set when the path came from the pre-computed template library (no scan).
+    template: str = ""
+    # How gas is paid at execution: paymaster | protocol | relay | flash_gas.
+    gas_mode: str = "protocol"
+    # Set from the proof once a witness exists. The certificate's number is the
+    # authoritative one: it is what the solver actually proved, and every other
+    # surface (executor, UI, narrative) must report it unchanged.
+    proven_net_profit_usd: float | None = None
     created_at: float = field(default_factory=_now)
 
     @property
@@ -139,6 +147,8 @@ class AtomicPath:
 
     @property
     def net_profit_usd(self) -> float:
+        if self.proven_net_profit_usd is not None:
+            return self.proven_net_profit_usd
         return self.notional_usd * self.net_rate - self.total_gas_usd
 
     @property
@@ -179,6 +189,12 @@ class ExecutionResult:
     amount_usd: float = 0.0
     reason: str = ""
     simulated: bool = False
+    # The bundler that accepted the UserOperation, when one did.
+    bundler: str = ""
+    # How the gas was covered: paymaster | protocol | relay | flash_gas.
+    gas_mode: str = "protocol"
+    # How long the broadcast attempt took, in milliseconds.
+    broadcast_ms: float = 0.0
 
 
 @dataclass
@@ -197,7 +213,17 @@ class IntentResult:
     primitives_used: list[str] = field(default_factory=list)
     equations: list[str] = field(default_factory=list)
     elapsed_seconds: float = 0.0
+    # The loop never leaves work in the background: every request terminates
+    # with a proof. Kept for wire compatibility with older clients.
     background: bool = False
+    # Path source: "template" (instant) or "composed" (invented from a scan).
+    source: str = "composed"
+    # True only when the intent is mathematically unreachable in one atomic
+    # path (the prover returned UNSAT for the bound). This is a physical limit,
+    # not a technical failure.
+    absolute_limit: bool = False
+    # Per-stage timings in milliseconds, so latency is auditable.
+    timings_ms: dict[str, float] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -214,6 +240,9 @@ class IntentResult:
             "equations": self.equations,
             "elapsed_seconds": round(self.elapsed_seconds, 3),
             "background": self.background,
+            "source": self.source,
+            "absolute_limit": self.absolute_limit,
+            "timings_ms": {k: round(v, 3) for k, v in self.timings_ms.items()},
         }
 
     def to_json(self) -> str:

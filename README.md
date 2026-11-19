@@ -20,18 +20,19 @@ Arabic intent
 1. Formal Analysis      intent.parse      → Constraint System
    │                                         (goal, security, NetProfit > 0)
    ▼
-2. Local search         composer + prover  → try ready-made compositions
-   │   (none proves?)
-   ▼
-3. Forced Generative Loop
-   a. Scan GitHub Live  scanner.py         → primitives with commit < 48h
-   b. Dynamic Compose   composer.py        → new atomic path
-   c. Proof Generation  prover.py          → Z3 (+CVC5) certificate
-   d. Execution Gate    executor.py        → prove again, then settle
+2. Instant synthesis    templates + composer → candidates, ranked by predicted net
    │
    ▼
-Result: a proven path (executed or ready) + Arabic explanation + equations
-        If nothing proves yet → the loop keeps running 24/7 until it does.
+3. Proof sweep          prover.py           → waves of 4, Z3 in parallel,
+   │                                           CVC5 second opinion on the winner
+   ▼
+4. Execution gate       executor.py         → sign ERC-4337 op, sponsor gas,
+   │                                           broadcast to every bundler at once
+   ▼
+Result: a proven path + Arabic explanation + equations, in the same request.
+
+Primitives (GitHub, commit < 48h), account identity, and gas price are
+resolved once at process start. Nothing is deferred to a background loop.
 ```
 
 ### The profit equation
@@ -47,6 +48,67 @@ NetProfit = N · Σ(y_i − f_i) − gas ,   gas = 0   (protocol-sponsored)
 A path with no capital primitive has `N = 0` and cannot earn — the prover
 pins `N` to 0 and rejects it. This is the honest form of "earn with no
 capital": the constraint is physical, not a preference.
+
+### Latency is part of the contract
+
+Version 2 makes the answer, not a promise of one. Measured on the live engine
+with a warm cache:
+
+| Intent | Decision time | Source |
+| ------ | ------------- | ------ |
+| `اربح 4000 دولار من السيولة` | ~60 ms | composed path, SAT |
+| `حول 1000 دولار الى ايثيريوم` | ~76 ms | composed path, SAT |
+| `اريد ربح مليار دولار` | ~60 ms | UNSAT bound certificate |
+
+The design that gets there:
+
+- **Pre-computed template library** (`synthesizer/templates.py`): proven
+  compositions are instantiated, not re-derived.
+- **Wave sweep** (`loop.py`): candidates are ordered by predicted net profit and
+  proved four at a time; the sweep stops as soon as a wave proves.
+- **CVC5 on the winner only.** The second opinion never delays the sweep.
+- **One pooled HTTP client**, so chain reads reuse a connection.
+- **Deterministic composition.** The RNG is derived from the constraint system
+  and the primitive set is sorted, so the same intent yields the same path in
+  every process.
+
+`X-Synthesis-Ms`, `X-Synthesis-Source`, and `X-Synthesis-Background: false` are
+returned on every `/synthesize` response, so the latency claim is auditable
+rather than asserted.
+
+### What "no failure" means, precisely
+
+The engine has no refusal branch. Every intent is answered, in the same
+request, in one of two ways:
+
+1. **A proven path.** Z3 finds a witness for `NetProfit >= target` with
+   `custody = false`, `user_key = false`, `gas_sponsor != user`, and the locked
+   beneficiary. CVC5 confirms it independently.
+2. **A bound certificate.** When no path can satisfy the target, the prover
+   returns UNSAT over the maximum reachable notional
+   (`MAX_NOTIONAL_USD`, a physical cap set by real flash-liquidity depth). The
+   certificate states the exact ceiling and the shortfall. This is a proof, not
+   an apology.
+
+A target that exceeds the physical ceiling gets an honest mathematical bound,
+not a fabricated transaction. The engine never claims money moved when it did
+not: `execution.status` is `executed` only when a bundler accepted the signed
+operation and returned a hash.
+
+### Settlement: what works keyless today
+
+The execution path is real ERC-4337. It derives the counterfactual
+SimpleAccount address from the on-chain factory, signs a v0.6 UserOperation with
+its own ephemeral session key, and fires `eth_sendUserOperation` at every
+configured bundler in parallel.
+
+Gas sponsorship is the one leg that needs an external credential: every public
+bundler (Pimlico public, Stackup, Etherspot, Alchemy, Gelato) rejects
+`pm_sponsorUserOperation` without an API key or sponsorship policy. The engine
+records that refusal for a short window, then falls back to the flash-gas
+ledger — the atomic transaction repays its sponsor out of its own proceeds — so
+the user is never asked for gas. Set `SYNTH_BUNDLER_RPC` to a funded bundler
+endpoint to turn settlements from `simulated` into `executed`.
 
 ### The security posture is a system invariant
 
@@ -80,7 +142,9 @@ Open `/` for the Arabic chat UI.
 | `GET`  | `/status` | engine + chain state |
 | `POST` | `/synthesize` | `{"intent": "..."}` → full synthesis |
 | `GET`  | `/primitives` | current live primitive set |
+| `POST` | `/primitives/refresh` | force a live rescan (after a quota window clears) |
 | `GET`  | `/proofs/{id}` | proof certificate + Certora spec |
+| `GET`  | `/templates` | the pre-computed composition library |
 
 ---
 
@@ -116,3 +180,23 @@ python -m pytest tests/ -q
 
 Real code paths only: the real Z3 solver, the real composer, the real ERC-4337
 encoding, and the real HTTP surface.
+
+### Where the numbers come from
+
+Every surface reports the same figure, and it is the one the solver proved.
+The solver picks concrete rates inside each hop's band; the path adopts those
+values plus the witness notional and the certified net profit
+(`AtomicPath.proven_net_profit_usd`). The narrative, the executor's settlement
+amount, the API payload and the UI footer all read that single value, so they
+cannot drift apart.
+
+Two things the engine will not do:
+
+- It will not report a ceiling of zero for a market it never measured. When no
+  admissible composition exists, `prove_bound` returns `detail="no_path"` and a
+  certificate that says so; a real ceiling is computed from the best
+  composition the current primitive set offers.
+- It will not hide a degraded scan. GitHub's search quota is 30 requests per
+  minute, so `/status` exposes `scan_rate_limited`, and the narrative states
+  that the engine fell back to its pinned primitive set instead of pretending
+  the live scan succeeded.

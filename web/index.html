@@ -109,7 +109,8 @@ function showApiBar(show){
   if(bar) bar.style.display = show ? 'block' : 'none';
 }
 document.addEventListener('DOMContentLoaded',()=>{
-  if(!API_BASE) showApiBar(true);
+  // Same-origin is a valid backend: an empty API_BASE means "call this very
+  // host", so the connection bar stays hidden unless /status actually fails.
   const btn=$('apiset');
   if(btn) btn.addEventListener('click',()=>{
     const v=($('apiin').value||'').trim().replace(/\/$/,'');
@@ -125,7 +126,7 @@ async function loadStatus(){
     $('live').textContent = s.primitives_live+' / '+s.primitives_total;
     $('ben').textContent = (s.beneficiary||'').slice(0,6)+'…'+(s.beneficiary||'').slice(-4);
     showApiBar(false);
-  }catch(e){ if(!API_BASE) showApiBar(true); }
+  }catch(e){ showApiBar(true); }
 }
 async function loadPrims(){
   try{
@@ -149,14 +150,16 @@ $('f').addEventListener('submit',async e=>{
   const q=$('q').value.trim(); if(!q) return;
   bubble('me', q.replace(/</g,'&lt;'));
   $('q').value=''; $('go').disabled=true;
-  const wait=bubble('sys','<span class="tag">النظام</span><span class="spin"></span> أعمل الآن على التحليل الصوري، مسح GitHub الحيّ، التركيب الذري، وتوليد البرهان…');
+  const wait=bubble('sys','<span class="tag">النظام</span><span class="spin"></span> تحليل صوري ← استحضار قالب مُثبت ← برهان متوازٍ Z3+CVC5 ← تنفيذ ذري…');
   try{
+    const t0=performance.now();
     const r=await fetch(api('/synthesize'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({intent:q})});
     const d=await r.json();
+    d._rtt_ms = performance.now()-t0;
     wait.remove();
     render(d);
   }catch(err){
-    wait.innerHTML='<span class="tag">النظام</span>الحلقة تعمل في الخلفية 24/7 حتى يتحقق الشرط. أعِد المحاولة بعد لحظات.';
+    wait.innerHTML='<span class="tag">النظام</span>تعذّر بلوغ المحرك في هذه اللحظة؛ لم تُنفّذ أي عملية. تحقّق من اتصال الشبكة ثم أعِد الإرسال.';
   }finally{ $('go').disabled=false; loadStatus(); }
 });
 
@@ -168,10 +171,15 @@ function render(d){
     h += '<div class="eq">'+d.equations.map(escapeHtml).join('<br>')+'</div>';
   }
   h += '<div class="kv">';
-  if(p) h+=`المسار: <b>${p.path_id}</b> · الخطوات: <b>${p.steps.length}</b> · صافي: <b>${p.net_profit_usd} USDC</b><br>`;
-  if(pr) h+=`البرهان: <b>${pr.satisfied?'ناجح (SAT)':'غير مكتمل'}</b> · ${escapeHtml(pr.certificate||'')}<br>`;
+  const ms = d._rtt_ms ? d._rtt_ms.toFixed(0) : ((d.elapsed_seconds||0)*1000).toFixed(0);
+  const srcLabel = d.source==='template' ? 'قالب مُثبت مسبقاً'
+                 : d.source==='bound' ? 'برهان حد مطلق'
+                 : 'مسار مُخترع';
+  h += `زمن القرار: <b>${ms} مللي ثانية</b> · المصدر: <b>${srcLabel}</b> · خلفية: <b>لا</b><br>`;
+  if(p) h+=`المسار: <b>${p.path_id}</b> · الخطوات: <b>${p.steps.length}</b> · صافي: <b>${p.net_profit_usd} ${d.constraints?.goal?.asset||''}</b><br>`;
+  if(pr) h+=`البرهان: <b>${pr.satisfied?'ناجح (SAT)':'برهان حد (UNSAT)'}</b> · ${escapeHtml(pr.certificate||'')}<br>`;
   if(ex){
-    h+=`الحالة: <b>${ex.status}</b>`;
+    h+=`الحالة: <b>${ex.status}</b> · الغاز: <b>${ex.gas_mode}</b>`;
     if(ex.tx_hash) h+=` · المعرّف: <code>${ex.tx_hash.slice(0,26)}…</code>`;
     if(ex.explorer_url) h+=` · <a href="${ex.explorer_url}" target="_blank" rel="noopener">عرض في المستكشف ↗</a>`;
   }

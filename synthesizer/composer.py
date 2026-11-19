@@ -20,7 +20,7 @@ import random
 from dataclasses import dataclass
 
 from .config import SETTINGS
-from .models import AtomicPath, Constraints, PathStep, Primitive
+from .models import AtomicPath, Constraints, PathStep, Primitive, stable_hash
 
 CAPITAL_CATEGORIES = ("flash_mint", "flash_loan")
 
@@ -69,8 +69,14 @@ def _categories_for(objective: str) -> list[str]:
 
 
 def _by_category(primitives: list[Primitive]) -> dict[str, list[Primitive]]:
+    """Group primitives by category, ordered by name.
+
+    The live scan returns primitives in whatever order the sources answered.
+    Sorting here makes composition a pure function of the primitive *set*, so
+    the same intent on the same market always yields the same path.
+    """
     out: dict[str, list[Primitive]] = {}
-    for p in primitives:
+    for p in sorted(primitives, key=lambda x: (x.category, x.name)):
         out.setdefault(p.category, []).append(p)
     return out
 
@@ -89,12 +95,19 @@ class Composition:
 
 class Composer:
     def __init__(self, seed: int | None = None) -> None:
-        self.rng = random.Random(seed if seed is not None else 0x5EED)
+        self.seed = 0x5EED if seed is None else seed
 
     def propose(self, constraints: Constraints, primitives: list[Primitive],
                 attempt: int = 0) -> AtomicPath | None:
         pool = _by_category(primitives)
-        rng = random.Random(self.rng.random() + attempt)
+        # The rng is derived from the constraint system and the attempt index,
+        # never from call order: the same intent always yields the same path.
+        g = constraints.goal
+        digest = int(
+            stable_hash(g.objective, g.asset, f"{g.target_amount:.6f}", g.raw_intent)[:16],
+            16,
+        )
+        rng = random.Random(self.seed ^ digest ^ (attempt << 16))
 
         # 1) Uncollateralised capital primitive (mandatory for any profit).
         capital_cats = [c for c in CAPITAL_CATEGORIES if pool.get(c)]

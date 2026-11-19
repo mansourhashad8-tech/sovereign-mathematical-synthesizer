@@ -36,7 +36,8 @@ def public_url() -> str:
 def install() -> None:
     print("[1/4] installing dependencies…")
     subprocess.run(
-        [sys.executable, "-m", "pip", "install", "-q", "-r", "requirements.txt"],
+        [sys.executable, "-m", "pip", "install", "-q", "-r", "requirements.txt",
+         "-r", "requirements-eth.txt"],
         cwd=ROOT,
         check=False,
     )
@@ -72,18 +73,29 @@ def wait_health(timeout: int = 30) -> bool:
 
 def self_test() -> None:
     print("[4/4] self-test synthesis …")
-    try:
-        r = httpx.post(
-            f"http://localhost:{PORT}/synthesize",
-            json={"intent": "اريد ربح 3 دولار من سوق السيولة بدون مفتاح وبدون راس مال"},
-            timeout=120,
-        )
-        d = r.json()
-        proven = bool(d.get("proof") and d["proof"].get("satisfied"))
-        print(f"      proven={proven} attempts={d.get('attempts')} "
-              f"primitives={len(d.get('primitives_used', []))}")
-    except Exception as exc:  # noqa: BLE001
-        print(f"      self-test skipped: {type(exc).__name__}")
+    intents = [
+        "اريد ربح 3 دولار من سوق السيولة بدون مفتاح وبدون راس مال",
+        "اريد ربح 4000 دولار من السيولة",
+        "اريد ربح مليار دولار",
+    ]
+    for intent in intents:
+        try:
+            r = httpx.post(
+                f"http://localhost:{PORT}/synthesize",
+                json={"intent": intent},
+                timeout=120,
+            )
+            d = r.json()
+            ms = float(r.headers.get("X-Synthesis-Ms", "0"))
+            proven = bool(d.get("proof") and d["proof"].get("satisfied"))
+            ex = d.get("execution") or {}
+            print(
+                f"      {ms:7.0f}ms src={d.get('source'):9s} proven={proven} "
+                f"bg={d.get('background')} exec={ex.get('status')} "
+                f"gas={ex.get('gas_mode')}"
+            )
+        except Exception as exc:  # noqa: BLE001
+            print(f"      self-test skipped: {type(exc).__name__}")
 
 
 def main() -> int:

@@ -153,11 +153,35 @@ _SYSTEM = (
 )
 
 
-def parse(raw_intent: str, brain: Brain | None = None) -> tuple[Constraints, str]:
-    """Return (constraints, source) where source is 'deterministic' or 'llm+det'."""
+def _complete_json_within(brain: Brain, system: str, user: str,
+                          deadline_ms: int) -> dict | None:
+    """Run the model refinement under a hard deadline; None if it is slow."""
+    import concurrent.futures
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+        fut = pool.submit(brain.complete_json, system, user)
+        try:
+            return fut.result(timeout=deadline_ms / 1000.0)
+        except Exception:  # noqa: BLE001 - refinement is optional
+            return None
+
+
+def parse(raw_intent: str, brain: Brain | None = None,
+          deadline_ms: int | None = None) -> tuple[Constraints, str]:
+    """Return (constraints, source) where source is 'deterministic' or 'llm+det'.
+
+    The deterministic parse is the decision: it is offline and completes in
+    microseconds. The model pass only *refines* a reading, so it is given a
+    small deadline and is skipped when it is slow. A refinement that misses the
+    deadline never delays the answer.
+    """
     base = parse_deterministic(raw_intent)
     brain = brain or Brain()
-    data = brain.complete_json(_SYSTEM, raw_intent)
+    data = None
+    if deadline_ms is None:
+        data = brain.complete_json(_SYSTEM, raw_intent)
+    else:
+        data = _complete_json_within(brain, _SYSTEM, raw_intent, deadline_ms)
     if not data:
         return base, "deterministic"
 
