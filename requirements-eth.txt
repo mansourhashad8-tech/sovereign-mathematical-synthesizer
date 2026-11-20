@@ -1,6 +1,2 @@
 eth-account>=0.11
 web3>=6.20
-# py-evm runs the settlement tests against a real virtual machine. The
-# entanglement claim is about balances an EVM actually changed, so the suite
-# needs an EVM rather than a mock.
-py-evm>=0.11

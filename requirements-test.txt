@@ -1,0 +1,7 @@
+# Test-only dependencies. The runtime image serves the API and never imports
+# these; the settlement proof needs a real EVM to move real balances.
+-r requirements.txt
+-r requirements-eth.txt
+# py-evm has no stable release, so the specifier has to name a pre-release or
+# pip refuses to consider any of them.
+py-evm>=0.12.1b1

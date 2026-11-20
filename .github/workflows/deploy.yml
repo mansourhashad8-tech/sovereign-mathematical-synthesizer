@@ -33,7 +33,7 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-      - run: pip install -r requirements.txt -r requirements-eth.txt
+      - run: pip install -r requirements-test.txt
       - name: The suite gates the deploy
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
