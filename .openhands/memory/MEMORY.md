@@ -390,6 +390,18 @@ revenue path by Superteam Earn (below), which pays to a wallet.
   *demanded-category* product shipped: **keyless LLM inference** (`GET /paid/ai`,
   $0.05) via Pollinations' anonymous tier (`gpt-oss-20b`, 1 reply/45s/IP).
 
+## Settlement reality (2026-11-18) — the path pays, repeatedly
+`intent_id` was the CONSTANT beneficiary, and `GasValueLock.settled[intentId]`
+is one-shot, so only the first settlement ever landed and every later one
+reverted inside the lock while its tx mined status 1. Fixed in `de447b9` (loop
+stamps real iid; `_settlement_key()` fallback) plus `propose_deep` now carrying
+`proven_net_profit_usd` (it used to encode `execute(beneficiary,0,"0x")`).
+Verified: three consecutive Arabic intents delivered 63.21/39.58/117.60 USDC.
+`always_on` was reported but never consumed — real background retry added in
+`4f7177a`. Remaining wall is EXTERNAL: Candide's keyless paymaster quota is
+exhausted and every alternative is dead, so retries only re-report `simulated`.
+Detail: `2026-11-18.md`.
+
 ## Bounty-venue reality check (2026-11-16 run, $0 earned)
 Scanned Superteam, Frantic, Pacta, Opire, Algora, agentbounties.app, GitHub. Every
 open agent-completable slot this run was either taken, gated on a human, or a trap:
