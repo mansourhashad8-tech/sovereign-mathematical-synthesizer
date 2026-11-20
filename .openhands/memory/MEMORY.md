@@ -10,30 +10,19 @@ proof -> execution. Non-custodial; beneficiary locked to
 
 ## ZK settlement — the leg that completes without gas (`0164c97`,`bd5ceb3`,`6fbfc75`)
 Fork exec (py-evm, `base_fee=0`) -> measured balance delta -> Groth16 proof ->
-verifier contract inside the fork -> recorded settlement. Public signals
-`[ok, beneficiary, minProfit, delta, netProfit, commitment]`; `delta`/`netProfit`
-are public so the contract reads them from the proof, never the caller. Honest
-proof records at 325,716 gas; replay / inflated profit / wrong beneficiary /
-unregistered commitment are all rejected on chain.
-
-Three bugs each produced proofs that verified locally and failed on chain:
-**degenerate powers of tau** (no contribution -> every IC point is the identity),
-**stale `Verifier.sol`** (exported at 4 public signals, used with 6), and
+verifier inside the fork -> recorded settlement. Public signals
+`[ok, beneficiary, minProfit, delta, netProfit, commitment]`; the contract reads
+`delta`/`netProfit` from the proof, never the caller. Honest proof records at
+325,716 gas; replay / inflated profit / wrong beneficiary / unregistered
+commitment all revert. Three bugs gave proofs that verified locally and failed on
+chain: **degenerate powers of tau** (no contribution -> IC points are the
+identity), **stale `Verifier.sol`** (exported at 4 signals, used with 6), and
 **G2 coordinate order** (never hand-encode points; use snarkjs
 `zkey export soliditycalldata`).
-
-**Honesty is the load-bearing part, not the cryptography.** The fork mints its
-own working capital, so a valid proof says nothing about value. Every result
-carries `money_is_real=False` and `value_unit=FSU`; working capital is capped
-(1,000 FSU); a floor above capacity records **no settlement**. "Earn a million
-from nothing" returns `unsettled_value`, 0 delivered. When the engine can mint
-what it measures, the number is not evidence.
-
-**Container:** `py-evm` was never in the requirements (dev-sandbox only), node
-and `generate_witness.js` were missing, and the wasm alone cannot make a
-witness. Bake the Groth16 key into the image — a rebuild yields a key the
-committed verifier rejects. No Fly/Render/Vercel credentials exist here, so
-deploy is a handover; the Docker image is verified working.
+**Honesty is load-bearing, not the cryptography.** The fork mints its own working
+capital, so a valid proof says nothing about value: results carry
+`money_is_real=False`, `value_unit=FSU`, working capital capped at 1,000 FSU, and
+a floor above capacity records **no** settlement.
 
 ## Hard rules learned (do not re-litigate)
 - Security flags (no custody / no user key / no user gas) are **system
@@ -78,6 +67,21 @@ Fuel is now the **primary** settlement leg; the sponsored EVM ladder is fallback
   runtime state (`sway/chain/genesis/`, `contract_id.txt`, `settlements.json`) is
   gitignored while the compiled ledger artifacts are committed.
 Detail: `2026-11-18.md`.
+
+## Deploying the container — two defects only a container reveals (2026-11-18)
+Building the image is not testing it. Run the built image with no node and no state.
+- **Missing binaries:** the image had no `fuel-core`, so the primary leg could only
+  ever report a fallback. A `debian:bookworm-slim` build stage downloads the release
+  and copies `fuel-core*` into `/usr/local/bin`; `sway/` must also be `COPY`d because
+  the leg shells out to `sway/chain/settle.mjs`.
+- **Baked runtime state:** `COPY sway ./sway` shipped `contract_id.txt` and
+  `sway/chain/genesis/` from the build machine. The container's node starts a
+  *different* chain, so the cached id named a contract that did not exist and every
+  settlement failed `InputContractDoesNotExist`. Exclude that state in
+  `.dockerignore`, and never trust the file: `FuelHand.verified_contract_id()` reads
+  the ledger's storage and returns the id only if the chain answers for it.
+- Lesson generalises: any id/hash cached on disk describes *the chain it was written
+  for*, not "the deployment". Verify against the live chain before use.
 
 ## Older detail — archived, read on demand
 `archive-2026-11-18-full-index.md` holds the previous full index (gas flywheel
