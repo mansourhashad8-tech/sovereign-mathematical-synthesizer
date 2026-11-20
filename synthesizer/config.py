@@ -143,6 +143,16 @@ class Settings:
     # The gas reserve takes this slice of every settled profit, so the agent
     # becomes self-funding instead of depending on a faucet or a sponsor.
     gas_reserve_bps: int = _env_int("SYNTH_GAS_RESERVE_BPS", 500)
+    # A paymaster that accepts the value token itself as gas, if one is ever
+    # configured. Empty means the token leg is unavailable: a sponsor that pays
+    # in native coin does not let the engine spend USDC on gas, and pretending
+    # otherwise would promise a payment the chain would reject.
+    token_paymaster_url: str = _env("SYNTH_TOKEN_PAYMASTER_URL", "")
+    # Whether an external paymaster may be asked for gas at all. Off by
+    # default: the engine funds itself, and a third party's quota must never
+    # decide whether a settlement happens. Turning this on is an explicit
+    # bootstrap decision, not the normal path.
+    allow_external_sponsor: bool = _env_bool("SYNTH_ALLOW_EXTERNAL_SPONSOR", False)
     # The token the lock settles in. USDC is what the profit is denominated in.
     value_token: str = _env(
         "SYNTH_VALUE_TOKEN", "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"

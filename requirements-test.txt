@@ -4,4 +4,6 @@
 -r requirements-eth.txt
 # py-evm has no stable release, so the specifier has to name a pre-release or
 # pip refuses to consider any of them.
+# The local chain harness needs the tester facade, not just py-evm.
+eth-tester[py-evm]>=0.11
 py-evm>=0.12.1b1

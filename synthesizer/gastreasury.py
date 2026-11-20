@@ -18,14 +18,29 @@ funding legs that need no external permission:
    engine earned, and it is what makes later settlements independent of any
    sponsor.
 
-The honest limit, measured rather than assumed: a leg can only pay gas if the
-chain will accept a transaction from this account. On every testnet measured
-on 2026-11-20, a zero-price transaction is rejected with ``insufficient funds``,
-and the EntryPoint deposit, the token leg and the reserve all require one
-native transaction to move value into them in the first place. That first
-native unit is the bootstrap, and it is tracked here as an explicit shortfall
-instead of being hidden behind a failed broadcast. Once a single unit exists,
-every leg below it works and the engine never asks again.
+Two further legs exist in principle and are measured here rather than assumed:
+
+5. **Flash-loan for gas** (``flash``). Borrow the gas asset inside the atomic
+   transaction, settle, repay from the same transaction's proceeds. This pays
+   the *value* leg of a settlement, but not its *fee* leg: the borrow itself is
+   a transaction, and the chain charges the fee in native coin before any of the
+   borrowed funds exist. So a flash loan can only be opened by an account that
+   can already pay for one transaction. It is recorded as ``flash_ready`` when a
+   lender with liquidity exists on the chain, which is the only part the engine
+   can verify without spending anything.
+6. **Token gas** (``token``). ERC-4337 lets an operation pay its bundler in an
+   ERC-20, but the token is only spendable through a paymaster that has agreed
+   to accept it. Without such a counterparty the leg is an intention, not a
+   payment, so the quote records whether one exists.
+
+The honest limit, measured rather than assumed: every leg above is ultimately
+denominated in one native unit of the chain's coin, because the chain charges
+its fee before any contract code runs. On every chain measured on 2026-11-18 —
+including Gnosis Chiado and Linea Sepolia, whose gas price is 7 wei — a
+zero-balance account is rejected. That first native unit is the bootstrap, and
+it is tracked here as an explicit shortfall instead of being hidden behind a
+failed broadcast. Once a single unit exists, every leg below it works and the
+engine never asks again.
 
 What this module never does: claim gas is available when it is not, or move
 value out of the beneficiary's locked address. It reads, it prices, and it
@@ -58,7 +73,20 @@ SETTLE_TOTAL_GAS = (
 # A native transfer that moves value into a gas leg (approve, deposit).
 APPROVE_GAS = 55_000
 
-LEGS = ("native", "deposit", "token", "reinvest")
+LEGS = ("native", "deposit", "reinvest", "flash", "token")
+
+# Aave V3 pools, per chain. A flash loan can only be opened where a lender with
+# liquidity is deployed, so the leg is gated on the pool having code rather
+# than on the engine's wish to borrow.
+FLASH_LENDERS: dict[int, str] = {
+    8453: "0xA238Dd80C259a72e81d7e4664a9801593F98d1c5",     # Base
+    84532: "0x07eA79F68B2B3df564D0A34F8e19D9B1e339814b",    # Base Sepolia
+    42161: "0x794a61358D6845594F94dc1DB02A252b5b4814aD",    # Arbitrum One
+    421614: "0xB50201558B00496A145fE76f7424749556E000e8",   # Arbitrum Sepolia
+    10: "0x794a61358D6845594F94dc1DB02A252b5b4814aD",       # Optimism
+    11155420: "0xb50201558b00496a145fe76f7424749556e000e8", # Optimism Sepolia
+}
+
 
 
 def _hex(data: bytes) -> str:
@@ -102,6 +130,14 @@ class GasQuote:
     gas_price_wei: int = 0
     # The single native unit that would unlock every leg.
     bootstrap_wei: int = 0
+    # Whether a flash lender with code is deployed on this chain. A lender that
+    # exists still cannot be borrowed from by an account that cannot pay the
+    # fee for the borrowing transaction, so this is capability, not solvency.
+    flash_ready: bool = False
+    flash_lender: str = ""
+    # Whether some paymaster on this chain accepts the value token as gas. The
+    # token leg is only real when this is true.
+    token_gas_ready: bool = False
     reason: str = ""
     measured_at: float = field(default_factory=time.time)
 
@@ -123,6 +159,9 @@ class GasQuote:
             "shortfall_wei": self.shortfall_wei,
             "gas_price_wei": self.gas_price_wei,
             "bootstrap_wei": self.bootstrap_wei,
+            "flash_ready": self.flash_ready,
+            "flash_lender": self.flash_lender,
+            "token_gas_ready": self.token_gas_ready,
             "reason": self.reason,
         }
 
@@ -208,6 +247,19 @@ class InternalGasTreasury:
         except (TypeError, ValueError):
             return 0
 
+    def _has_code(self, net, address: str) -> bool:
+        """Whether ``address`` has bytecode on ``net``.
+
+        A lender or paymaster that is not deployed cannot serve a loan or a
+        sponsorship, and asking it would produce an error that looks like a
+        transient failure instead of the permanent absence it is.
+        """
+        if not address:
+            return False
+        data = _rpc(net.rpc_url, "eth_getCode", [address, "latest"])
+        code = (data or {}).get("result") or "0x"
+        return len(code) > 2
+
     def quote(self, net, account: str, force: bool = False) -> GasQuote:
         """Price one settlement on ``net`` and pick the leg that can pay it."""
         if not force:
@@ -225,6 +277,15 @@ class InternalGasTreasury:
             q.token_units = self._token_balance(net, token, account)
             q.reserve_units = self._reserve(net, token)
 
+        lender = FLASH_LENDERS.get(net.chain_id, "")
+        q.flash_lender = lender
+        q.flash_ready = self._has_code(net, lender)
+        # A token leg is only real when a paymaster that accepts this token is
+        # deployed and configured. A generic sponsor does not imply one: Candide
+        # sponsors in native coin, not in USDC. So the leg stays off until a
+        # token-accepting paymaster is named, and the reason says which.
+        q.token_gas_ready = bool(SETTINGS.token_paymaster_url) and bool(token)
+
         # Cheapest first. A leg that can pay in full wins immediately, because
         # every later leg is strictly more complicated.
         if q.native_wei >= q.cost_wei and q.cost_wei > 0:
@@ -233,22 +294,29 @@ class InternalGasTreasury:
         elif q.deposit_wei >= q.cost_wei and q.cost_wei > 0:
             q.leg = "deposit"
             q.reason = "entrypoint_deposit_covers_gas"
-        elif q.reserve_units > 0:
+        elif q.reserve_units > 0 and q.token_gas_ready:
             # The reserve is denominated in the token, not in wei. It can carry
-            # an operation only if a relayer accepts the token, which the token
-            # leg is exactly. Record it as a candidate and let the token
-            # valuation decide below.
+            # an operation only if a counterparty accepts the token, which is
+            # exactly what the token leg is for.
             q.leg = "reinvest"
             q.reason = "lock_reserve_holds_earned_gas_value"
             q.shortfall_wei = max(q.cost_wei - q.native_wei, 0)
-        elif q.token_units > 0:
+        elif q.token_units > 0 and q.token_gas_ready:
             q.leg = "token"
-            q.reason = "account_holds_value_token_but_no_native_gas"
+            q.reason = "account_holds_value_token_and_a_paymaster_takes_it"
             q.shortfall_wei = max(q.cost_wei - q.native_wei, 0)
         else:
             q.leg = ""
             q.shortfall_wei = max(q.cost_wei - q.native_wei, 0)
-            q.reason = "no_gas_leg_has_value"
+            # The reason names the most useful next step rather than only the
+            # absence. A flash lender that exists is still blocked on the fee
+            # for opening the loan, so the shortfall stays the bootstrap.
+            if q.flash_ready:
+                q.reason = "flash_lender_present_but_fee_needs_one_native_unit"
+            elif q.token_units > 0 or q.reserve_units > 0:
+                q.reason = "token_held_but_no_paymaster_accepts_it"
+            else:
+                q.reason = "no_gas_leg_has_value"
 
         # The bootstrap is the native unit that turns every later leg on. When a
         # leg already pays, nothing is owed.
@@ -317,6 +385,12 @@ class InternalGasTreasury:
             "reinvested_units": self.reinvested_units,
             "bootstrap_wei": cheapest.bootstrap_wei if cheapest else 0,
             "bootstrap_network": cheapest.network if cheapest else "",
+            "flash_lenders": [
+                {"network": q.network, "lender": q.flash_lender,
+                 "ready": q.flash_ready}
+                for q in quotes if q.flash_lender
+            ],
+            "token_gas_ready": any(q.token_gas_ready for q in quotes),
             "quotes": [q.as_dict() for q in quotes],
             "ledger": self.ledger[-8:],
         }

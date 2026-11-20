@@ -170,13 +170,13 @@ def test_executor_settles_to_locked_beneficiary():
     assert res.beneficiary == BENEFICIARY
     # A mined operation is never reported as plain success unless the
     # beneficiary's balance actually grew. Gate A alone is not enough.
-    assert res.status in ("executed", "simulated", "REVERTED_VALUE")
+    assert res.status in ("executed", "pending", "unsettled_value")
     if res.status == "executed":
         assert res.value_transferred is True
-    if res.status == "REVERTED_VALUE":
+    if res.status == "unsettled_value":
         assert res.value_transferred is False
         assert res.tx_hash.startswith("0x")  # the tx is real; the value is not
-    assert res.tx_hash.startswith("0x") or res.status == "simulated"
+    assert res.tx_hash.startswith("0x") or res.status == "pending"
 
 
 def test_value_actually_landed_on_beneficiary():
@@ -211,7 +211,7 @@ def test_value_actually_landed_on_beneficiary():
     assert landed_ok is True
     assert "balance_grew" in evidence_ok
 
-    # End to end: a mined-but-valueless settlement is REVERTED_VALUE, never
+    # End to end: a mined-but-valueless settlement is unsettled_value, never
     # "executed" with value_transferred inferred from the receipt.
     c = parse_deterministic("اربح 5 دولار من السيولة")
     path = Composer().propose(c, _primitives(), attempt=0)
@@ -219,7 +219,7 @@ def test_value_actually_landed_on_beneficiary():
     if res.status == "executed":
         assert res.value_transferred is True, "executed implies measured value"
         assert res.amount_usd > 0
-    if res.status == "REVERTED_VALUE":
+    if res.status == "unsettled_value":
         assert res.value_transferred is False
         assert res.amount_usd == 0.0, "no value moved, so no profit is claimed"
         assert res.tx_hash.startswith("0x"), "the real tx hash is still reported"
@@ -437,9 +437,9 @@ def test_executor_tries_every_bundler_then_falls_back_honestly(monkeypatch):
     path.proven_net_profit_usd = 5.0
     res = ex.settle(path, c)
 
-    assert res.status == "simulated"
-    assert res.simulated is True
-    # A simulated settlement carries no transaction hash, because none exists.
+    assert res.status == "pending"
+    assert res.simulated is False
+    # A pending settlement carries no transaction hash, because none exists.
     assert res.tx_hash == ""
     assert res.explorer_url == ""
     assert res.beneficiary == BENEFICIARY
@@ -472,7 +472,7 @@ def test_api_exposes_the_template_library():
     assert all(t["primitives"] for t in body["templates"])
 
 
-def test_narrative_never_claims_execution_when_settlement_was_simulated():
+def test_narrative_never_claims_execution_when_settlement_is_pending():
     """The Arabic answer must match the real settlement status."""
     from synthesizer.loop import Synthesizer
     from synthesizer.models import ExecutionResult
@@ -482,9 +482,9 @@ def test_narrative_never_claims_execution_when_settlement_was_simulated():
     path = Composer().propose(c, _primitives(), attempt=0)
     assert path is not None
     proof = synth.prover.prove(path, c)
-    simulated = ExecutionResult(
-        status="simulated",
-        simulated=True,
+    pending = ExecutionResult(
+        status="pending",
+        simulated=False,
         beneficiary=BENEFICIARY,
         gas_mode="paymaster",
         reason="no_network_settled",
@@ -492,11 +492,11 @@ def test_narrative_never_claims_execution_when_settlement_was_simulated():
 
     narrative, _ = synth._narrate(
         c, path, proof, False, type("S", (), {"attempts": 1, "live_primitives": 1,
-                                             "started_at": 0})(), None, False, simulated,
+                                             "started_at": 0})(), None, False, pending,
     )
 
     assert "نُفّذ المسار الذري" not in narrative
-    assert "لم تُبَثّ" in narrative
+    assert "لم يتحرك أي مال" in narrative
     assert "لا يُطلب من المستخدم غاز" in narrative
 
 
@@ -549,8 +549,8 @@ def test_a_mined_settlement_upgrades_the_answer_with_its_real_hash():
     assert ex.block_number == 60_977_110
     assert tx in synth._results["iid"].narrative_ar
     # A receipt alone is not a payout. With no measured balance growth this
-    # must land as REVERTED_VALUE, never as "executed".
-    assert ex.status == "REVERTED_VALUE"
+    # must land as unsettled_value, never as "executed".
+    assert ex.status == "unsettled_value"
     assert ex.value_transferred is False
     assert ex.amount_usd == 0.0
 
@@ -579,12 +579,12 @@ def test_a_failed_settlement_leaves_no_hash_behind():
     )
 
     synth._apply_settlement("iid2", GasSettlement(
-        status="simulated", reason="no_network_settled",
+        status="unsettled", reason="no_network_settled",
     ))
 
     ex = synth._results["iid2"].execution
-    assert ex.status == "simulated"
-    assert ex.simulated is True
+    assert ex.status == "pending"
+    assert ex.simulated is False
     assert ex.tx_hash == ""
     assert ex.explorer_url == ""
 
@@ -770,7 +770,7 @@ def test_a_settlement_without_a_receipt_is_reported_as_submitted_not_failed():
     result = ExecutionResult(status="submitted", tx_hash="0x" + "cd" * 32,
                              simulated=False, gas_paid_by="paymaster")
     assert result.simulated is False
-    assert result.status != "simulated"
+    assert result.status != "unsettled"
     assert result.tx_hash.startswith("0x")
     # The executor exposes one owner of the callData the watchdog must replay.
     c = parse_deterministic("اربح 500 دولار من السيولة")
@@ -779,8 +779,8 @@ def test_a_settlement_without_a_receipt_is_reported_as_submitted_not_failed():
     assert ex.settlement_call_data(path) == ex.settlement_call_data(path)
 
 
-def test_the_watchdog_upgrades_a_simulated_result_when_a_retry_lands():
-    """A simulated settlement is a to-do: the watch must finish it unattended."""
+def test_the_watchdog_upgrades_an_unsettled_result_when_a_retry_lands():
+    """An unsettled settlement is a to-do: the watch must finish it unattended."""
     from synthesizer.gasflywheel import GasSettlement
     from synthesizer.loop import Synthesizer
     from synthesizer.models import ExecutionResult, IntentResult
@@ -794,7 +794,7 @@ def test_the_watchdog_upgrades_a_simulated_result_when_a_retry_lands():
     synth._results["w1"] = IntentResult(
         intent_id="w1", raw_intent=c.goal.raw_intent, constraints=c,
         chosen_path=path, proof=proof,
-        execution=ExecutionResult(status="simulated", simulated=True,
+        execution=ExecutionResult(status="pending", simulated=False,
                                   beneficiary=BENEFICIARY, gas_mode="paymaster"),
         narrative_ar="", invented=False, attempts=1, primitives_used=path.primitives,
         equations=[], elapsed_seconds=0.01, background=False, source="proved",
@@ -810,7 +810,7 @@ def test_the_watchdog_upgrades_a_simulated_result_when_a_retry_lands():
     ex = synth._results["w1"].execution
     # The retry's hash is real and recorded; the payout is judged separately.
     assert ex.tx_hash == "0x" + "ef" * 32
-    assert ex.status in ("executed", "REVERTED_VALUE")
+    assert ex.status in ("executed", "unsettled_value")
     if ex.status == "executed":
         assert ex.value_transferred is True
     else:
@@ -963,7 +963,7 @@ def test_unsettled_lists_only_intents_that_have_not_paid():
     )
     synth._results["owed"] = IntentResult(
         intent_id="owed", raw_intent="x", constraints=c, chosen_path=None,
-        proof=None, execution=ExecutionResult(status="REVERTED_VALUE"),
+        proof=None, execution=ExecutionResult(status="unsettled_value"),
         narrative_ar="", invented=False, attempts=1,
     )
     synth._results["limit"] = IntentResult(

@@ -459,10 +459,9 @@ class Executor:
         """Grant the lock an allowance for the amount it is about to pull.
 
         The lock settles with ``transferFrom``, so a settlement without an
-        allowance reverts inside the account and the paymaster declines to
-        sponsor it. That refusal surfaces as ``no_sponsorship``, which points at
-        the paymaster instead of at the missing approval, so the approval is
-        made here rather than left to chance.
+        allowance reverts inside the account. That revert looks like a gas
+        failure from the outside, which points at the wrong cause, so the
+        approval is made here rather than left to chance.
 
         Returns whether an allowance is in place. A failure to approve is not
         fatal: the settlement attempt that follows reports its own outcome.
@@ -626,9 +625,10 @@ class Executor:
                 # Gate A passed but Gate B failed: the transaction executed and
                 # moved nothing. Calling that "executed" would be a claim about
                 # money that never moved, so it is labelled for what it is and
-                # handed to the watchdog for a deeper path.
+                # handed to the flywheel for a deeper path. The label names the
+                # next step rather than declaring the intent lost.
                 return ExecutionResult(
-                    status="REVERTED_VALUE",
+                    status="unsettled_value",
                     tx_hash=settlement.tx_hash,
                     amount_usd=0.0,
                     reason=(
@@ -636,6 +636,13 @@ class Executor:
                         f"gas_paid_by={settlement.gas_paid_by}"
                     ),
                     **common,
+                )
+            # The settlement paid for itself and the beneficiary gained value.
+            # Fold the reserve slice into the reinvestment loop so the next
+            # settlement draws on gas this one earned.
+            if self.flywheel is not None:
+                self.flywheel.record_settlement_gas(
+                    settlement.actual_gas_cost_wei, path, landed=True
                 )
             return ExecutionResult(
                 status="executed",
@@ -661,12 +668,13 @@ class Executor:
                 **common,
             )
 
-        # Nothing settled. Report it plainly; the watchdog will retry.
+        # Nothing settled on any chain this pass. The operation is not lost: it
+        # is waiting on the internal gas balance, and the flywheel keeps trying.
         return ExecutionResult(
-            status="simulated",
+            status="pending",
             tx_hash="",
             amount_usd=round(path.net_profit_usd, 6),
-            simulated=True,
+            simulated=False,
             reason=settlement.reason,
             **common,
         )

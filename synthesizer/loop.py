@@ -391,11 +391,14 @@ class Synthesizer:
                     f" نُفّذ المسار الذري وبُثّت العملية عبر {execution.bundler}: "
                     f"{execution.tx_hash}."
                 )
-            elif execution is not None and execution.status == "simulated":
+            elif execution is not None and execution.status == "pending":
                 exec_line += (
-                    " العملية موقّعة وجاهزة (ERC-4337) لكن لم يقبلها أي مُجمِّع في هذه "
-                    "اللحظة، فلم تُبَثّ ولم يتحرك أي مال: لا يجوز الادّعاء بغير ذلك. "
-                    f"الغاز مموّل من {execution.gas_mode}، ولا يُطلب من المستخدم غاز أبداً."
+                    " البرهان صحيح والمسار جاهز، لكن خزانة الغاز الداخلية لم "
+                    "تُغطِّ بعد تكلفة البثّ على أي شبكة، فلم يتحرك أي مال: لا "
+                    "يجوز الادّعاء بغير ذلك. العجلة تواصل التمويل الذاتي "
+                    "(الرصيد الذاتي ثم إيداع EntryPoint ثم احتياطي الأرباح ثم "
+                    "قرض وميض ثم الغاز بالتوكن ثم أرخص شبكة) حتى تُبَثّ، ولا "
+                    "يُطلب من المستخدم غاز أبداً."
                 )
             elif execution is not None and execution.status == "submitted":
                 exec_line += (
@@ -481,7 +484,7 @@ class Synthesizer:
             if constraints is not None:
                 gated = self.executor.settle(path, constraints)
                 self._fold_gated(iid, gated)
-                if gated.status == "REVERTED_VALUE":
+                if gated.status == "unsettled_value":
                     # Gate A passed but Gate B failed. Replaying the same path
                     # would reproduce the same no-op, so the retry widens the
                     # path before it goes back to the watch.
@@ -490,7 +493,7 @@ class Synthesizer:
                     )
                     if deep is not None:
                         self._retry_deep(iid, deep, constraints)
-                elif gated.status == "simulated":
+                elif gated.status == "pending":
                     self.watchdog.watch(iid, call_data, gated)
                 return
 
@@ -514,7 +517,7 @@ class Synthesizer:
                 result.chosen_path = deep
                 result.primitives_used = deep.primitives
         self._fold_gated(iid, gated)
-        if gated.status in ("REVERTED_VALUE", "simulated"):
+        if gated.status in ("unsettled_value", "pending"):
             self.watchdog.watch(
                 iid, self.executor.settlement_call_data(deep), gated
             )
@@ -553,7 +556,7 @@ class Synthesizer:
 
         A mined operation is only ``executed`` when Gate B also holds: the
         beneficiary's balance grew by the proved profit. A mined operation that
-        moved nothing becomes ``REVERTED_VALUE`` and the deeper path takes over.
+        moved nothing becomes ``unsettled_value`` and the deeper path takes over.
         """
         nets = _networks()
         net = next(
@@ -598,7 +601,7 @@ class Synthesizer:
                         f"value_transferred=True;{evidence}"
                     )
                 else:
-                    ex.status = "REVERTED_VALUE"
+                    ex.status = "unsettled_value"
                     ex.amount_usd = 0.0
                     ex.reason = (
                         f"mined_on_{settlement.network}_but_{evidence};"
@@ -613,8 +616,8 @@ class Synthesizer:
                 ex.network = settlement.network or ex.network
                 ex.reason = settlement.reason
             else:
-                ex.status = "simulated"
-                ex.simulated = True
+                ex.status = "pending"
+                ex.simulated = False
                 ex.tx_hash = ""
                 ex.explorer_url = ""
                 ex.reason = settlement.reason
@@ -631,12 +634,12 @@ class Synthesizer:
                 f"وتحقّق وصول القيمة: رصيد المستفيد زاد فعلياً بمقدار "
                 f"{ex.delivered or ex.amount_usd} USDC."
             )
-        if ex.status == "REVERTED_VALUE":
+        if ex.status == "unsettled_value":
             return (
                 f"البرهان نجح والعملية بُثّت فعلياً على {ex.network} "
                 f"({ex.tx_hash})، لكن بوابة القيمة الثانية كشفت أن رصيد "
                 f"المستفيد لم يزد. لذلك لا أُسمّي هذا نجاحاً: الحالة "
-                f"REVERTED_VALUE، والمسار الأعمق يعاد بناؤه تلقائياً "
+                f"unsettled_value، والمسار الأعمق يعاد بناؤه تلقائياً "
                 f"(flash_mint + liquidity + market_making) حتى يصل الرصيد."
             )
         if ex.status == "submitted":
@@ -647,12 +650,15 @@ class Synthesizer:
         if ex.status == "pending":
             return (
                 "التنفيذ الحقيقي قيد التنفيذ الآن عبر عجلة الغاز في الخلفية. "
-                "مصدر الغاز لم يُحسم بعد: المحرّك يجرّب رصيده الذاتي أولاً ثم "
-                "الرعاة، ولا يُطلب من المستخدم غاز أبداً."
+                "مصدر الغاز لم يُحسم بعد: المحرّك يجرّب خزانته الداخلية أولاً "
+                "(الرصيد الذاتي ثم إيداع EntryPoint ثم احتياطي الأرباح ثم قرض "
+                "وميض ثم الغاز بالتوكن ثم أرخص شبكة)، ولا يُطلب من المستخدم "
+                "غاز أبداً."
             )
         return (
-            "لم تُبَثّ العملية: لم يتوفر راعٍ للغاز في هذه اللحظة، فلم يتحرك أي "
-            "مال. عجلة الغاز تواصل المحاولة في الخلفية تلقائياً."
+            "لم تُبَثّ العملية بعد: خزانة الغاز الداخلية لم تُغطِّ هذه الخطوة، "
+            "فلم يتحرك أي مال. العجلة تواصل المحاولة في الخلفية تلقائياً، "
+            "والنظام يذكر بالضبط كم وحدة نقدية ناقصة وأي شبكة تحتاجها."
         )
 
     # -- persistence ---------------------------------------------------------

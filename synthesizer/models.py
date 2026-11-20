@@ -181,7 +181,7 @@ class Proof:
 
 @dataclass
 class ExecutionResult:
-    status: str  # "executed" | "simulated" | "queued"
+    status: str  # "executed" | "pending" | "unsettled_value" | "submitted"
     tx_hash: str = ""
     explorer_url: str = ""
     network: str = "ethereum-mainnet"

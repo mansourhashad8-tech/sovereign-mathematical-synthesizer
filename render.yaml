@@ -10,3 +10,6 @@ services:
         value: "8000"
       - key: SYNTH_ALWAYS_ON
         value: "true"
+      # Gas is internal. An external sponsor is a bootstrap switch, not the path.
+      - key: SYNTH_ALLOW_EXTERNAL_SPONSOR
+        value: "false"

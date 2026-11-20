@@ -1,8 +1,8 @@
 """The settlement watchdog.
 
-The rule the engine holds itself to is that a simulated settlement is not an
+The rule the engine holds itself to is that an unsettled settlement is not an
 answer, it is a to-do. This module enforces that: it watches settlements that
-came back simulated and re-drives them through the gas flywheel without waiting
+came back unsettled and re-drives them through the gas flywheel without waiting
 for the user to ask again.
 
 It is deliberately small. The flywheel already tries every network on every
@@ -43,7 +43,7 @@ class RetryRecord:
 
 
 class SettlementWatchdog:
-    """Re-drives simulated settlements until one is mined, or attempts run out.
+    """Re-drives unsettled settlements until one is mined, or attempts run out.
 
     Runs in a background daemon thread so a request can still answer inside its
     latency budget: the answer carries the first honest result, and the watch
@@ -61,7 +61,7 @@ class SettlementWatchdog:
     # -- public API --------------------------------------------------------
 
     def watch(self, key: str, call_data: str, result: ExecutionResult) -> None:
-        """Register a settlement for retry when it came back simulated."""
+        """Register a settlement for retry when it came back unsettled."""
         if result.status in ("executed", "submitted"):
             return
         with self._lock:

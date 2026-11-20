@@ -129,6 +129,10 @@ async def status() -> dict:
             "chain_id": SETTINGS.chain_id,
             "fallback_networks": len(SETTINGS.fallback_networks),
             "user_pays_gas": False,
+            # The self-sponsored model: gas is internal, and an external
+            # sponsor is a switch the operator turns on, not the default.
+            "external_sponsor_allowed": SETTINGS.allow_external_sponsor,
+            "internal_balance": synth.executor.flywheel.gas_report(),
             "watchdog": synth.watchdog.status(),
         },
         "genesis": _genesis_state(),

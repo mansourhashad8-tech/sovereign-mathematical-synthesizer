@@ -254,7 +254,7 @@ MAINNET = Network(
 class GasSettlement:
     """The outcome of one attempt to settle an operation with sponsored gas."""
 
-    status: str  # "executed" | "submitted" | "simulated"
+    status: str  # "executed" | "submitted" | "unsettled" | "reverted"
     network: str = ""
     chain_id: int = 0
     # The real on-chain transaction hash, once the operation is mined.
@@ -329,6 +329,11 @@ class GasFlywheel:
         # funded intent die at the broadcast step.
         self.reserve = ReserveAccumulator()
         self.relay_log: list[str] = []
+        # The internal gas balance, as the engine sees it: what it has spent on
+        # its own settlements and how many landed. Together with ``reserve``
+        # this is the profit-reinvestment loop's state.
+        self.gas_spent_wei: int = 0
+        self.settlements_landed: int = 0
 
     # -- relayers ----------------------------------------------------------
 
@@ -416,6 +421,41 @@ class GasFlywheel:
             "relayers": [r.as_dict() for r in probes],
             "reachable": [r.name for r in probes if r.reachable],
             "mainnet_sponsors": [r.name for r in probes if r.mainnet_sponsors],
+            "reserve": self.reserve.summary(),
+        }
+
+    def record_settlement_gas(self, gas_cost_wei: int, path=None,
+                              landed: bool = False) -> None:
+        """Close the profit-reinvestment loop for one settled operation.
+
+        Gas that a settlement paid is deducted from the running balance, and the
+        reserve slice the lock set aside is credited back. The two together are
+        what makes the next settlement independent: it draws on gas this engine
+        already earned instead of asking a sponsor for it.
+        """
+        if gas_cost_wei > 0:
+            self.gas_spent_wei += int(gas_cost_wei)
+        self.settlements_landed += 1 if landed else 0
+        # The lock's own reserve grows by ``gas_reserve_bps`` of the settled
+        # value. Crediting the same bps here keeps the engine's accounting and
+        # the chain's in step, so a later quote does not promise a reserve the
+        # contract does not hold.
+        if landed and path is not None:
+            try:
+                profit_units = int(path.proven_net_profit_usd * 1e18)
+            except (TypeError, ValueError):
+                profit_units = 0
+            if profit_units > 0:
+                self.reserve.refill_from(
+                    profit_units * SETTINGS.gas_reserve_bps // 10_000
+                )
+
+    def gas_report(self) -> dict:
+        """How the engine has funded its own gas so far."""
+        return {
+            "gas_spent_wei": self.gas_spent_wei,
+            "settlements_landed": self.settlements_landed,
+            "external_sponsor_allowed": SETTINGS.allow_external_sponsor,
             "reserve": self.reserve.summary(),
         }
 
@@ -742,12 +782,12 @@ class GasFlywheel:
         balance = self.native_balance(net)
         if price <= 0:
             return GasSettlement(
-                status="simulated", network=net.name, chain_id=net.chain_id,
+                status="unsettled", network=net.name, chain_id=net.chain_id,
                 reason=f"{net.name}: no_gas_price", gas_paid_by="none",
             )
         if balance < price * gas_limit:
             return GasSettlement(
-                status="simulated", network=net.name, chain_id=net.chain_id,
+                status="unsettled", network=net.name, chain_id=net.chain_id,
                 reason=(
                     f"{net.name}: native_shortfall("
                     f"have={balance},need={price * gas_limit})"
@@ -771,7 +811,7 @@ class GasFlywheel:
             raw = signed.raw_transaction.hex()
         except Exception as exc:  # noqa: BLE001 - signing is local and total
             return GasSettlement(
-                status="simulated", network=net.name, chain_id=net.chain_id,
+                status="unsettled", network=net.name, chain_id=net.chain_id,
                 reason=f"{net.name}: sign_failed:{type(exc).__name__}",
                 gas_paid_by="none",
             )
@@ -783,7 +823,7 @@ class GasFlywheel:
         if not isinstance(tx_hash, str):
             err = ((data or {}).get("error") or {}).get("message", "")
             return GasSettlement(
-                status="simulated", network=net.name, chain_id=net.chain_id,
+                status="unsettled", network=net.name, chain_id=net.chain_id,
                 reason=f"{net.name}: rejected:{str(err)[:120]}",
                 gas_paid_by="none",
                 elapsed_ms=(time.time() - started) * 1000.0,
@@ -806,7 +846,7 @@ class GasFlywheel:
         success = int(str(receipt.get("status", "0x0")), 16) == 1
         used = int(str(receipt.get("gasUsed", "0x0")), 16)
         return GasSettlement(
-            status="executed" if success else "simulated",
+            status="executed" if success else "reverted",
             network=net.name,
             chain_id=net.chain_id,
             tx_hash=tx_hash,
@@ -906,14 +946,14 @@ class GasFlywheel:
         account = self.account_for(net)
         if not account:
             return GasSettlement(
-                status="simulated", network=net.name, chain_id=net.chain_id,
+                status="unsettled", network=net.name, chain_id=net.chain_id,
                 reason=f"{net.name}: no_account", gas_paid_by="none",
             )
 
         price = self.native_gas_price(net)
         if price <= 0:
             return GasSettlement(
-                status="simulated", network=net.name, chain_id=net.chain_id,
+                status="unsettled", network=net.name, chain_id=net.chain_id,
                 reason=f"{net.name}: no_gas_price", gas_paid_by="none",
             )
 
@@ -922,7 +962,7 @@ class GasFlywheel:
         op = self._build_op(net, call_data)
         if op is None:
             return GasSettlement(
-                status="simulated", network=net.name, chain_id=net.chain_id,
+                status="unsettled", network=net.name, chain_id=net.chain_id,
                 reason=f"{net.name}: no_op", gas_paid_by="none",
             )
         op["maxFeePerGas"] = hex(price)
@@ -953,7 +993,7 @@ class GasFlywheel:
         overhead = price * (DEPOSIT_TX_GAS + gas_limit)
         if eoa_balance < overhead + max(required - deposit, 0):
             return GasSettlement(
-                status="simulated", network=net.name, chain_id=net.chain_id,
+                status="unsettled", network=net.name, chain_id=net.chain_id,
                 reason=(
                     f"{net.name}: native_shortfall(have={eoa_balance},"
                     f"need={overhead + max(required - deposit, 0)})"
@@ -972,14 +1012,14 @@ class GasFlywheel:
             if not tx:
                 log.append(f"deposit:{err}")
                 return GasSettlement(
-                    status="simulated", network=net.name, chain_id=net.chain_id,
+                    status="unsettled", network=net.name, chain_id=net.chain_id,
                     reason=err, gas_paid_by="none", attempts=log,
                 )
             ok, why = self._wait_success(net, tx)
             log.append(f"deposit:{tx[:18]}:{why}")
             if not ok:
                 return GasSettlement(
-                    status="simulated", network=net.name, chain_id=net.chain_id,
+                    status="unsettled", network=net.name, chain_id=net.chain_id,
                     reason=f"deposit_failed:{why}", gas_paid_by="none",
                     attempts=log,
                 )
@@ -1008,7 +1048,7 @@ class GasFlywheel:
         if not tx:
             log.append(f"handleOps:{err}")
             return GasSettlement(
-                status="simulated", network=net.name, chain_id=net.chain_id,
+                status="unsettled", network=net.name, chain_id=net.chain_id,
                 reason=err, gas_paid_by="none", attempts=log,
                 elapsed_ms=(time.time() - started) * 1000.0,
             )
@@ -1027,7 +1067,7 @@ class GasFlywheel:
         used = int(str(receipt.get("gasUsed", "0x0")), 16)
         log.append(f"handleOps:{tx[:18]}:{'mined' if success else 'reverted'}")
         return GasSettlement(
-            status="executed" if success else "simulated",
+            status="executed" if success else "reverted",
             network=net.name, chain_id=net.chain_id, tx_hash=tx,
             explorer_url=f"{net.explorer_base}{tx}", account=account,
             gas_paid_by="self_deposit",
@@ -1095,28 +1135,52 @@ class GasFlywheel:
 
     # -- the flywheel ------------------------------------------------------
 
+    def _networks_by_cost(self) -> list[Network]:
+        """The configured networks, cheapest measured gas first.
+
+        Network-agnostic execution: the engine should settle on the chain that
+        charges least, not on whichever one happens to be listed first. Price is
+        read live, and a chain that will not answer sorts last rather than
+        disappearing, so it is still attempted when nothing cheaper works.
+        """
+        nets = _networks()
+        priced: list[tuple[int, int, Network]] = []
+        for index, net in enumerate(nets):
+            try:
+                data = _rpc(net.rpc_url, "eth_gasPrice", [], timeout=8)
+                raw = (data or {}).get("result")
+                price = int(raw, 16) if raw else 0
+            except Exception:  # noqa: BLE001 - an unreadable price is not fatal
+                price = 0
+            priced.append((price or 1 << 62, index, net))
+        priced.sort(key=lambda item: (item[0], item[1]))
+        return [net for _, _, net in priced]
+
     def settle(self, call_data: str, attempts: list[str] | None = None,
                direct_to: str = "", direct_data: str = "") -> GasSettlement:
         """Settle one call, paying gas from the engine's own resources first.
 
-        The order is deliberate and is the whole point of this module's
-        redesign. Sponsorship used to be rung one, which made every settlement
-        depend on a third party's quota. It is now the *last* rung:
+        The order is the whole point of the self-sponsored design. Gas is an
+        internal asset: the engine spends what it holds before it asks anyone.
 
         1. **self-funded** — deposit into the EntryPoint and call ``handleOps``
            directly. No paymaster, no bundler, no permission.
         2. **self-signed native** — a plain transaction carrying the call. The
            cheapest of all, used when the call needs no account abstraction.
-        3. **paymaster** — kept only for the case where the account holds no
-           native coin at all. It is a fallback, not a dependency.
+        3. **external sponsor** — only when ``SYNTH_ALLOW_EXTERNAL_SPONSOR`` is
+           set. Off by default: the engine must not depend on a third party's
+           quota, and a sponsor is a bridge to the first native unit, not a
+           permanent source of gas.
 
-        Each network is tried in turn and the first mined settlement wins.
+        Each network is tried in turn and the first mined settlement wins. The
+        chains are ordered by measured cost, so the cheapest payable one is
+        reached first rather than whichever happened to be configured first.
         """
         started = time.time()
         log = attempts if attempts is not None else []
         accepted: GasSettlement | None = None
 
-        for net in _networks():
+        for net in self._networks_by_cost():
             if not self._target_has_code(net, call_data):
                 # Nothing to call here. Settling anyway would produce a mined
                 # transaction that moved nothing, so this chain is skipped
@@ -1151,7 +1215,11 @@ class GasFlywheel:
                 if native.status == "submitted":
                     accepted = accepted or native
 
-            # -- rung 3: a sponsor, only when the account holds no coin -----
+            # -- rung 3: an external sponsor, only when explicitly allowed --
+            if not SETTINGS.allow_external_sponsor:
+                log.append(f"{net.name}: external_sponsor_disabled")
+                continue
+
             op = self._build_op(net, call_data)
             if op is None:
                 log.append(f"{net.name}: no_account")
@@ -1161,7 +1229,7 @@ class GasFlywheel:
             op["signature"] = self._sign_op(op, net.chain_id)
             offer = self._sponsor(net, op)
             if offer is None:
-                log.append(f"{net.name}: no_sponsorship")
+                log.append(f"{net.name}: sponsor_declined")
                 continue
             self._apply_sponsorship(op, offer)
 
@@ -1196,7 +1264,7 @@ class GasFlywheel:
             success = bool(receipt.get("success", True))
             log.append(f"{net.name}: mined:{tx_hash[:18]}")
             return GasSettlement(
-                status="executed" if success else "simulated",
+                status="executed" if success else "reverted",
                 network=net.name,
                 chain_id=net.chain_id,
                 tx_hash=tx_hash,
@@ -1221,7 +1289,7 @@ class GasFlywheel:
             return accepted
 
         return GasSettlement(
-            status="simulated",
+            status="unsettled",
             reason="no_network_settled:" + ";".join(log[-3:]) if log else "no_network_settled",
             attempts=log,
             elapsed_ms=(time.time() - started) * 1000.0,
