@@ -1,2 +1,6 @@
 eth-account>=0.11
 web3>=6.20
+# The settlement engine executes on a real EVM. py-evm is what makes the fork a
+# chain rather than a simulation, so it belongs in the runtime image, not only
+# in the dev sandbox.
+py-evm>=0.12.0b1

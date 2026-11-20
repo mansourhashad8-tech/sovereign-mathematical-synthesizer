@@ -1,0 +1,14 @@
+node_modules
+build/zk/pot12*.ptau
+build/zk/settlement_js/*.sym
+build/zk/*.zkey
+!build/zk/settlement_0.zkey
+build/zk/Verifier.sol
+build/zk/work
+.git
+__pycache__
+*.pyc
+.pytest_cache
+.venv
+evidence/*.jsonl
+.synth

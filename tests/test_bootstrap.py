@@ -181,3 +181,21 @@ def test_floor_above_capacity_is_not_settled():
     assert not result.delivered
     assert result.settlement is None
     assert any("below the requested floor" in n for n in result.notes)
+
+
+def test_api_bootstrap_reports_the_chain_outcome():
+    from fastapi.testclient import TestClient
+
+    from synthesizer.api import app
+
+    client = TestClient(app)
+    r = client.post("/bootstrap", json={"intent_id": "intent-api", "min_profit": 1_000_000, "notional": 5_000_000})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["delivered"] is True
+    assert body["verified_onchain"] is True
+    # The response must say the unit is not money; that flag is the whole
+    # reason the delta can be shown without being read as a payout.
+    assert body["money_is_real"] is False
+    assert r.headers["X-Bootstrap-Delivered"] == "true"
+    assert r.headers["X-Bootstrap-Verified"] == "true"

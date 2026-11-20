@@ -22,4 +22,6 @@ build/zk/*
 !build/zk/settlement_js/
 build/zk/settlement_js/*
 !build/zk/settlement_js/settlement.wasm
+!build/zk/settlement_js/generate_witness.js
+!build/zk/settlement_js/witness_calculator.js
 node_modules/
