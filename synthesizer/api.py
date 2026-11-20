@@ -25,6 +25,7 @@ from pydantic import BaseModel
 from . import __version__
 from .config import SETTINGS
 from .genesis import GenesisMesh
+from .gasflywheel import _networks
 from .loop import Synthesizer
 from .templates import TEMPLATES
 
@@ -121,6 +122,7 @@ async def status() -> dict:
         "unsettled": len(synth.unsettled()),
         "keepalive_seconds": SETTINGS.keepalive_seconds,
         "treasury": await _treasury_state(),
+        "gas_treasury": _gas_treasury_state(synth),
         "gas": {
             "paymaster": SETTINGS.paymaster_url,
             "chain": SETTINGS.settlement_chain,
@@ -287,6 +289,21 @@ async def proof(iid: str) -> JSONResponse:
 @app.get("/", response_class=HTMLResponse)
 def index() -> str:
     return (WEB_DIR / "index.html").read_text(encoding="utf-8")
+
+
+def _gas_treasury_state(synth) -> dict:
+    """The engine's internal gas position, measured per network.
+
+    This replaces the old "which sponsor answered" report. It states which of
+    the four funding legs can pay, what a settlement costs, and — when none can
+    pay — the exact wei bootstrap that would turn every leg on.
+    """
+    try:
+        return synth.treasury.summary(
+            _networks(), lambda n: synth.executor.flywheel.account_for(n)
+        )
+    except Exception as exc:  # noqa: BLE001 - a report must never 500 the app
+        return {"error": type(exc).__name__, "legs": []}
 
 
 async def _treasury_state() -> dict:

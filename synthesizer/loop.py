@@ -40,6 +40,7 @@ from .models import AtomicPath, Constraints, ExecutionResult, IntentResult, Proo
 from .prover import Prover
 from .scanner import GitHubScanner
 from .templates import templates_for
+from .gastreasury import InternalGasTreasury
 from .gasflywheel import _networks
 from .genesis import GenesisMesh
 from .watchdog import SettlementWatchdog
@@ -70,6 +71,9 @@ class Synthesizer:
         self.prover = Prover()
         self.executor = Executor()
         self.watchdog = SettlementWatchdog(self.executor.flywheel)
+        # Gas is an internal asset: the treasury measures what the engine can
+        # pay from its own resources before any external sponsor is considered.
+        self.treasury = InternalGasTreasury(self.executor.flywheel)
         self._results: dict[str, IntentResult] = {}
         self._results_lock = threading.Lock()
         # A small pool: settlements are I/O-bound and a burst of intents should
@@ -156,7 +160,10 @@ class Synthesizer:
                 status="pending",
                 beneficiary=SETTINGS.beneficiary,
                 amount_usd=round(chosen.net_profit_usd, 6),
-                gas_mode="paymaster",
+                # Unknown until a leg actually pays. Claiming a sponsor here
+                # would be a statement about the market rather than about this
+                # intent, and every sponsor leg is currently refused.
+                gas_mode="pending",
                 reason="settlement_dispatched_to_flywheel",
             )
             # The baseline is captured here, before any broadcast, so Gate B
@@ -398,7 +405,9 @@ class Synthesizer:
             elif execution is not None and execution.status == "pending":
                 exec_line += (
                     " أُرسل التنفيذ الحقيقي إلى عجلة الغاز في الخلفية الآن، "
-                    "وسيظهر txHash حال تأكيده. الغاز مموّل من paymaster."
+                    "وسيظهر txHash حال تأكيده. مصدر الغاز لم يُحسم بعد: "
+                    "المحرّك يجرّب رصيده الذاتي أولاً، ثم الرعاة، ولن يُطلب من "
+                    "المستخدم غاز أبداً."
                 )
             else:
                 exec_line += " لم تُنفّذ بعد: البرهان جاهز والتنفيذ ينتظر قبول مُجمِّع."
@@ -633,10 +642,14 @@ class Synthesizer:
         if ex.status == "submitted":
             return (
                 "قبِل المُجمِّع العملية الموقّعة وهي في طابور التجميع الآن: "
-                f"userOpHash = {ex.user_op_hash}. الغاز مموّل من paymaster."
+                f"userOpHash = {ex.user_op_hash}. مصدر الغاز: {ex.gas_mode}."
             )
         if ex.status == "pending":
-            return "التنفيذ الحقيقي قيد التنفيذ الآن عبر عجلة الغاز في الخلفية."
+            return (
+                "التنفيذ الحقيقي قيد التنفيذ الآن عبر عجلة الغاز في الخلفية. "
+                "مصدر الغاز لم يُحسم بعد: المحرّك يجرّب رصيده الذاتي أولاً ثم "
+                "الرعاة، ولا يُطلب من المستخدم غاز أبداً."
+            )
         return (
             "لم تُبَثّ العملية: لم يتوفر راعٍ للغاز في هذه اللحظة، فلم يتحرك أي "
             "مال. عجلة الغاز تواصل المحاولة في الخلفية تلقائياً."

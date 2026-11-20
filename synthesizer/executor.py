@@ -578,7 +578,17 @@ class Executor:
         if transfers_value and SETTINGS.gas_value_lock:
             self._ensure_lock_allowance(pre_net, path)
 
-        settlement = self.flywheel.settle(call_data)
+        # The direct leg addresses the lock itself, so it is given the lock
+        # call rather than the account wrapper. Without this the plain signed
+        # transaction would carry the wrapper's calldata to the lock, which
+        # would not decode as a settlement.
+        direct_to, direct_data = "", ""
+        if SETTINGS.gas_value_lock and self._lock_settles_in_token(path):
+            direct_to = SETTINGS.gas_value_lock
+            direct_data = self._lock_call_data(path)
+        settlement = self.flywheel.settle(
+            call_data, direct_to=direct_to, direct_data=direct_data
+        )
         elapsed_ms = (time.time() - started) * 1000.0
 
         explorer = settlement.explorer_url or ""
