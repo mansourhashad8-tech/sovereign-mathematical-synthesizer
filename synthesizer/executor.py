@@ -312,7 +312,13 @@ class Executor:
     # -- main entry ----------------------------------------------------------
 
     def _can_fund(self, path: AtomicPath) -> bool:
-        """Whether the smart account holds the value this transfer would move."""
+        """Whether the smart account holds the value this settlement would move.
+
+        A lock settlement moves an ERC20 amount, so the funding check has to
+        read that token. Reading native balance for a token settlement reports
+        zero for an account that is in fact funded, which would suppress a
+        settlement that could have succeeded.
+        """
         nets = _networks()
         if not nets:
             return False
@@ -320,10 +326,21 @@ class Executor:
         account = self.flywheel.account_for(net)
         if not account:
             return False
+        if SETTINGS.gas_value_lock:
+            held = self.flywheel.token_balance_of(net, SETTINGS.value_token, account)
+            return held >= int(path.proven_net_profit_usd * 1e6)
         return self.flywheel.balance_of(net, account) >= int(path.proven_net_profit_usd * 1e18)
 
     def _beneficiary_balance(self, net) -> int:
-        """The beneficiary's native balance, the quantity the sweep is judged on."""
+        """The beneficiary's balance, in whatever unit the settlement moves.
+
+        Gate B compares this before and after, so it has to measure the same
+        asset the settlement transfers. A token settlement judged against the
+        native balance would always read zero growth and mislabel a real payout
+        as a reverted one.
+        """
+        if SETTINGS.gas_value_lock:
+            return self.flywheel.token_balance_of(net, SETTINGS.value_token, SETTINGS.beneficiary)
         return self.flywheel.balance_of(net, SETTINGS.beneficiary)
 
     def sweep_landed(self, net, before: int, expected_wei: int) -> tuple[bool, str]:
@@ -348,7 +365,16 @@ class Executor:
 
         Owned here so the watchdog retries the same operation the executor
         built, rather than a reconstruction that might differ.
+
+        When a GasValueLock is configured the settlement is expressed as a call
+        into that contract instead of a bare transfer. The lock is what makes
+        gas and value one indivisible step: it pays the relayer out of the
+        settled value and sends the remainder to the locked beneficiary, or
+        reverts and moves nothing.
         """
+        if SETTINGS.gas_value_lock and self._lock_settles_in_token(path):
+            return self._lock_call_data(path)
+
         value_wei = 0
         if (
             path.proven_net_profit_usd
@@ -357,6 +383,56 @@ class Executor:
         ):
             value_wei = int(path.proven_net_profit_usd * 1e18)
         return self.flywheel.call_data(SETTINGS.beneficiary, value_wei)
+
+    def _lock_settles_in_token(self, path: AtomicPath) -> bool:
+        """Whether this path can settle through the lock.
+
+        The lock settles an ERC20 profit, so it only applies to a proved,
+        positive amount and only once the account actually holds that value.
+        Claiming a lock settlement for a balance the account does not have
+        would revert, which is worse than a sponsored no-op because it burns
+        the relayer's gas for nothing.
+        """
+        if not path.proven_net_profit_usd or path.proven_net_profit_usd <= 0:
+            return False
+        nets = _networks()
+        if not nets:
+            return False
+        account = self.flywheel.account_for(nets[0])
+        if not account:
+            return False
+        held = self.flywheel.token_balance_of(
+            nets[0], SETTINGS.value_token, account
+        )
+        return held >= int(path.proven_net_profit_usd * 1e6)
+
+    def _lock_call_data(self, path: AtomicPath) -> str:
+        """Settlement calldata targeting the lock, with the proved split.
+
+        The relayer fee is priced in value from the expected gas, so the
+        contract's ``netProfit > relayerFee`` guard reflects a real cost rather
+        than an arbitrary constant.
+        """
+        from .valuegas import build_settle_calldata, estimate_relayer_fee, split_value
+
+        net_profit = int(path.proven_net_profit_usd * 1e6)
+        fee = estimate_relayer_fee(200_000, 10**9, 3000.0)
+        # Never let the fee consume the whole profit; if the estimate would,
+        # take a slice small enough to leave the beneficiary a positive amount.
+        fee = min(fee, max(net_profit // 10, 1))
+        split = split_value(net_profit, fee, SETTINGS.gas_reserve_bps)
+        inner = build_settle_calldata(
+            intent_id=path.intent_id or path.id,
+            token=SETTINGS.value_token,
+            relayer=SETTINGS.beneficiary,
+            net_profit=net_profit,
+            relayer_fee=fee,
+            reserve_bps=SETTINGS.gas_reserve_bps,
+            proof_satisfied=bool(path.simulation_ok and split.is_positive),
+        )
+        # The smart account calls the lock; value stays in the account until
+        # the lock pulls it, so the outer call carries no native value.
+        return self.flywheel.call_data(SETTINGS.gas_value_lock, 0, inner)
 
     def settle(self, path: AtomicPath, constraints: Constraints) -> ExecutionResult:
         """Settle the proved path with gas paid by someone else.

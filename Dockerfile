@@ -14,6 +14,7 @@ COPY requirements.txt requirements-eth.txt ./
 RUN pip install --no-cache-dir -r requirements.txt -r requirements-eth.txt
 
 COPY synthesizer ./synthesizer
+COPY contracts ./contracts
 COPY web ./web
 COPY scripts ./scripts
 COPY config ./config

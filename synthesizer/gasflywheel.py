@@ -43,6 +43,7 @@ from eth_account.messages import encode_defunct
 from eth_utils import keccak
 
 from .config import SETTINGS
+from .valuegas import ReserveAccumulator
 
 # The canonical ERC-4337 v0.6 entry point and SimpleAccountFactory. Both are
 # deployed on every major testnet, so the initCode we sign is real.
@@ -54,6 +55,54 @@ SIMPLE_ACCOUNT_FACTORY = "0x9406Cc6185a346906296840746125a0E44976454"
 DEFAULT_CALL_GAS = 200_000
 DEFAULT_VERIFICATION_GAS = 200_000
 DEFAULT_PRE_VERIFICATION_GAS = 50_000
+
+@dataclass
+class Relayer:
+    """A gas provider the engine can hand a settlement to.
+
+    ``reachable`` is discovered, never assumed. A relayer that cannot be
+    contacted is recorded as such so the report says which rungs were actually
+    available and which were not, instead of implying a sponsorship that never
+    existed.
+    """
+
+    name: str
+    kind: str  # "sponsor" | "relay" | "automation"
+    endpoint: str
+    reachable: bool = False
+    detail: str = ""
+    mainnet_sponsors: bool = False
+
+    def as_dict(self) -> dict:
+        return {
+            "name": self.name,
+            "kind": self.kind,
+            "endpoint": self.endpoint,
+            "reachable": self.reachable,
+            "detail": self.detail,
+            "mainnet_sponsors": self.mainnet_sponsors,
+        }
+
+
+# The three named relayers, plus the two paths the engine already uses. The
+# order is the order they are tried: cheap and keyless first, key-gated last.
+RELAYERS: tuple[Relayer, ...] = (
+    Relayer(
+        name="candide",
+        kind="sponsor",
+        endpoint="https://api.candide.dev/public/v3/8453",
+    ),
+    Relayer(
+        name="gelato",
+        kind="relay",
+        endpoint="https://relay.gelato.digital",
+    ),
+    Relayer(
+        name="chainlink-automation",
+        kind="automation",
+        endpoint="https://automation.chain.link/base",
+    ),
+)
 
 
 def _hex(data: bytes) -> str:
@@ -113,6 +162,18 @@ class Network:
     paymaster_url: str
 
 
+# Base mainnet. Value has to land somewhere real, so the engine always knows
+# how to reach it even when the configured primary is a testnet.
+MAINNET_CHAIN_ID = 8453
+MAINNET = Network(
+    name="base-mainnet",
+    chain_id=MAINNET_CHAIN_ID,
+    rpc_url="https://mainnet.base.org",
+    explorer_base="https://basescan.org/tx/",
+    paymaster_url="",
+)
+
+
 @dataclass
 class GasSettlement:
     """The outcome of one attempt to settle an operation with sponsored gas."""
@@ -141,7 +202,12 @@ class GasSettlement:
 
 
 def _networks() -> list[Network]:
-    """The primary network first, then every configured fallback."""
+    """The primary network first, then every configured fallback.
+
+    Base mainnet is always appended when it is not already primary. Without it
+    the engine can settle on a testnet but has nowhere to put real value, which
+    is the exact split this module exists to close.
+    """
     nets = [
         Network(
             name=SETTINGS.settlement_chain,
@@ -168,6 +234,9 @@ def _networks() -> list[Network]:
             )
         except ValueError:
             continue
+
+    if not any(net.chain_id == MAINNET_CHAIN_ID for net in nets):
+        nets.append(MAINNET)
     return nets
 
 
@@ -179,6 +248,100 @@ class GasFlywheel:
         self._session_address = Account.from_key(session_key).address
         self._account_hint = account_address
         self._account_cache: dict[int, str] = {}
+        # The self-funding reserve. Its whole purpose is to stop the engine
+        # from ever being unable to pay for gas, which is what used to make a
+        # funded intent die at the broadcast step.
+        self.reserve = ReserveAccumulator()
+        self.relay_log: list[str] = []
+
+    # -- relayers ----------------------------------------------------------
+
+    def probe_relayers(self, timeout: float = 6.0) -> list[Relayer]:
+        """Discover which relayers actually answer right now.
+
+        Registration with a relayer is a network fact, not a configuration
+        value, so it is measured. Each probe records what came back. A relayer
+        that is DNS-dead or returns a non-API page is marked unreachable with
+        the reason, because claiming a sponsorship that was never granted is
+        the same lie as inventing a transaction hash.
+        """
+        results: list[Relayer] = []
+        for spec in RELAYERS:
+            relay = Relayer(
+                name=spec.name,
+                kind=spec.kind,
+                endpoint=spec.endpoint,
+            )
+            try:
+                if spec.kind == "sponsor":
+                    relay.reachable, relay.mainnet_sponsors, relay.detail = (
+                        self._probe_sponsorship(spec.endpoint, timeout)
+                    )
+                else:
+                    resp = httpx.get(spec.endpoint, timeout=timeout, follow_redirects=True)
+                    # A marketing page is not an API. Only treat a JSON answer
+                    # as a usable relay endpoint.
+                    is_json = resp.headers.get("content-type", "").startswith(
+                        "application/json"
+                    )
+                    relay.reachable = resp.status_code == 200 and is_json
+                    relay.detail = (
+                        f"http_{resp.status_code}_json" if is_json
+                        else f"http_{resp.status_code}_html_not_api"
+                    )
+            except httpx.HTTPError as exc:
+                relay.reachable = False
+                relay.detail = f"unreachable:{type(exc).__name__}"
+            except Exception as exc:  # noqa: BLE001 - probe must never raise
+                relay.reachable = False
+                relay.detail = f"error:{type(exc).__name__}"
+            results.append(relay)
+        self.relay_log = [f"{r.name}:{r.detail}" for r in results]
+        return results
+
+    def _probe_sponsorship(
+        self, url: str, timeout: float
+    ) -> tuple[bool, bool, str]:
+        """Ask a paymaster for a real sponsorship on mainnet.
+
+        Supporting the entry point is not the same as agreeing to pay. A
+        paymaster can advertise the entry point and still refuse every
+        operation by policy, which is exactly what Candide does on Base
+        mainnet. The only honest test is to submit an operation and read the
+        answer, so this does that and reports the refusal verbatim.
+        """
+        try:
+            net = MAINNET
+            op = self._build_op(net, "0x")
+            if op is None:
+                return False, False, "no_account"
+            op["signature"] = self._sign_op(op, net.chain_id)
+            data = _rpc(
+                url,
+                "pm_sponsorUserOperation",
+                [op, ENTRY_POINT, {"chainId": hex(net.chain_id)}],
+                timeout=timeout,
+            )
+            if not data:
+                return False, False, "no_answer"
+            if data.get("result"):
+                return True, True, "sponsored"
+            error = data.get("error") or {}
+            code = error.get("code", "?")
+            message = str(error.get("message", ""))[:80]
+            return True, False, f"refused:{code}:{message}"
+        except Exception as exc:  # noqa: BLE001 - probe must never raise
+            return False, False, f"error:{type(exc).__name__}"
+
+    def relay_report(self) -> dict:
+        """The relayer picture, for the delivery report."""
+        probes = self.probe_relayers()
+        return {
+            "relayers": [r.as_dict() for r in probes],
+            "reachable": [r.name for r in probes if r.reachable],
+            "mainnet_sponsors": [r.name for r in probes if r.mainnet_sponsors],
+            "reserve": self.reserve.summary(),
+        }
 
     # -- account -----------------------------------------------------------
 
@@ -317,6 +480,29 @@ class GasFlywheel:
             _selector("execute(address,uint256,bytes)")
             + abi_encode(["address", "uint256", "bytes"], [beneficiary, value_wei, inner])
         )
+
+    def token_balance_of(self, net: Network, token: str, address: str) -> int:
+        """ERC20 balance in base units, read from the node.
+
+        The value leg settles in a token, not in native ETH, so the funding
+        check has to read the token. Reading native balance here would report
+        zero for an account that is holding the value it is about to deliver.
+        """
+        data = _hex(
+            keccak(text="balanceOf(address)")[:4]
+            + abi_encode(["address"], [address])
+        )
+        result = _rpc(
+            net.rpc_url,
+            "eth_call",
+            [{"to": token, "data": data}, "latest"],
+            timeout=15,
+        )
+        raw = (result or {}).get("result", "0x0")
+        try:
+            return int(str(raw), 16)
+        except (TypeError, ValueError):
+            return 0
 
     def _build_op(self, net: Network, call_data: str) -> dict | None:
         sender = self.account_for(net)

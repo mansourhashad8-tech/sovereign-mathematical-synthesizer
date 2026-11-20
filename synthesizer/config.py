@@ -128,6 +128,15 @@ class Settings:
     # from this key, so a per-process key is an account that can never
     # accumulate value.
     session_key_path: str = _env("SYNTH_SESSION_KEY_PATH", ".synth/session.key")
+    # The gas reserve takes this slice of every settled profit, so the agent
+    # becomes self-funding instead of depending on a faucet or a sponsor.
+    gas_reserve_bps: int = _env_int("SYNTH_GAS_RESERVE_BPS", 500)
+    # The token the lock settles in. USDC is what the profit is denominated in.
+    value_token: str = _env(
+        "SYNTH_VALUE_TOKEN", "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+    )
+    # Address of the deployed GasValueLock, once it exists on a chain.
+    gas_value_lock: str = _env("SYNTH_GAS_VALUE_LOCK", "")
     # Whether a settlement should encode the proven profit as a real value
     # transfer. Off by default: the engine holds no capital, so a sponsored
     # no-op is the honest settlement until a funded route exists. The gas path

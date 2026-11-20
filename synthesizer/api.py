@@ -104,6 +104,36 @@ async def status() -> dict:
     }
 
 
+@app.get("/relayers")
+def relayers() -> dict:
+    """Which gas relayers actually answer, and whether they sponsor on mainnet.
+
+    Measured, not declared. A relayer that is DNS-dead or refuses by policy is
+    reported with the reason, so a sponsorship claim in this payload always
+    corresponds to a sponsorship the relayer actually granted.
+    """
+    report = synth.executor.flywheel.relay_report()
+    report["reserve"] = synth.executor.flywheel.reserve.summary()
+    return report
+
+
+@app.get("/valuegas")
+def valuegas_report() -> dict:
+    """The value-gas entanglement contract and its settlement split."""
+    from . import valuegas
+
+    return {
+        "contract": SETTINGS.gas_value_lock or "(not yet deployed)",
+        "beneficiary": valuegas.BENEFICIARY,
+        "value_token": SETTINGS.value_token,
+        "gas_reserve_bps": SETTINGS.gas_reserve_bps,
+        "settle_selector": "0x" + valuegas.SEL_SETTLE.hex(),
+        "settle_with_permit_selector": "0x" + valuegas.SEL_SETTLE_PERMIT.hex(),
+        "zero_eth_settlement": True,
+        "user_pays_gas": False,
+    }
+
+
 @app.get("/genesis")
 def genesis() -> dict:
     """The genesis mesh: every incentive source and whether an agent can claim it."""
