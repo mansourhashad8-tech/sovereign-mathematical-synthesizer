@@ -177,6 +177,7 @@ def test_working_capital_is_capped():
 
 
 def test_floor_above_capacity_is_not_settled():
+    # A million from nothing is above the cap, so it cannot be settled.
     result = Bootstrap(beneficiary=BENEFICIARY).run("intent-k", min_profit=10**12, notional=10**12)
     assert not result.delivered
     assert result.settlement is None
@@ -199,3 +200,10 @@ def test_api_bootstrap_reports_the_chain_outcome():
     assert body["money_is_real"] is False
     assert r.headers["X-Bootstrap-Delivered"] == "true"
     assert r.headers["X-Bootstrap-Verified"] == "true"
+
+
+def test_ordinary_intent_is_not_blocked_by_the_cap():
+    # The cap must sit above normal requests: a $12 intent has to settle.
+    result = Bootstrap(beneficiary=BENEFICIARY).run("intent-l", min_profit=12_000_000, notional=18_000_000)
+    assert result.delivered
+    assert result.delta == 18_000_000

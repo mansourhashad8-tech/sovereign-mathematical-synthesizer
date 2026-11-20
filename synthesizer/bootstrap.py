@@ -28,9 +28,12 @@ from .zkproof import prove_settlement
 
 CONTRACTS = Path(__file__).resolve().parent.parent / "contracts"
 
-# Six-decimal units. The cap keeps the arithmetic honest: the fork can mint any
-# number, so a larger figure would only be a larger claim, not a larger result.
-MAX_NOTIONAL_UNITS = 10_000_000
+# Six-decimal units, so this is 1,000 FSU. The cap exists to stop a request from
+# scaling the reported figure without limit: the fork mints its own capital, so a
+# larger number is only a larger claim. It is set well above ordinary intents so
+# a normal request settles, and far below the "earn a million from nothing" range
+# so that one cannot.
+MAX_NOTIONAL_UNITS = 1_000_000_000
 
 
 @dataclass
