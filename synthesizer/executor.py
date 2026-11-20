@@ -346,7 +346,7 @@ class Executor:
             return self.flywheel.token_balance_of(net, SETTINGS.value_token, SETTINGS.beneficiary)
         return self.flywheel.balance_of(net, SETTINGS.beneficiary)
 
-    def sweep_landed(self, net, before: int, expected_wei: int) -> tuple[bool, str]:
+    def sweep_landed(self, net, before: int, expected: int) -> tuple[bool, str]:
         """Gate B: did the beneficiary's balance actually grow by the profit?
 
         Gate A (``receipt.status == 1``) only proves the operation executed. It
@@ -359,8 +359,8 @@ class Executor:
         delta = after - before
         if delta <= 0:
             return False, f"balance_unchanged(before={before},after={after})"
-        if expected_wei > 0 and delta < expected_wei:
-            return False, f"balance_short(delta={delta},expected={expected_wei})"
+        if expected > 0 and delta < expected:
+            return False, f"balance_short(delta={delta},expected={expected})"
         return True, f"balance_grew(delta={delta})"
 
     def settlement_call_data(self, path: AtomicPath) -> str:
@@ -437,6 +437,60 @@ class Executor:
         # the lock pulls it, so the outer call carries no native value.
         return self.flywheel.call_data(SETTINGS.gas_value_lock, 0, inner)
 
+    def _ensure_lock_allowance(self, net, path: AtomicPath) -> bool:
+        """Grant the lock an allowance for the amount it is about to pull.
+
+        The lock settles with ``transferFrom``, so a settlement without an
+        allowance reverts inside the account and the paymaster declines to
+        sponsor it. That refusal surfaces as ``no_sponsorship``, which points at
+        the paymaster instead of at the missing approval, so the approval is
+        made here rather than left to chance.
+
+        Returns whether an allowance is in place. A failure to approve is not
+        fatal: the settlement attempt that follows reports its own outcome.
+        """
+        if net is None or not SETTINGS.gas_value_lock or not SETTINGS.value_token:
+            return False
+        account = self.flywheel.account_for(net)
+        if not account:
+            return False
+        needed = int(path.proven_net_profit_usd * 1e6)
+        if needed <= 0:
+            return False
+        if self.flywheel.token_allowance(net, SETTINGS.value_token, account,
+                                         SETTINGS.gas_value_lock) >= needed:
+            return True
+        approve = (
+            keccak(text="approve(address,uint256)")[:4]
+            + abi_encode(["address", "uint256"], [SETTINGS.gas_value_lock, needed])
+        )
+        step = self.flywheel.settle(
+            self.flywheel.call_data(SETTINGS.value_token, 0, approve)
+        )
+        return step.mined
+
+    def expected_beneficiary_delta(self, path: AtomicPath, transfers_value: bool) -> int:
+        """What the beneficiary's balance should grow by, in the settled unit.
+
+        Gate B compares this against a measured delta, so the expectation has to
+        be denominated in the same asset and net of the same deductions the
+        contract makes. Comparing a token delta against a wei expectation, or
+        against the gross profit, marks a correct settlement as short.
+        """
+        if not transfers_value or not path.proven_net_profit_usd:
+            return 0
+        from .valuegas import estimate_relayer_fee, split_value
+
+        if SETTINGS.gas_value_lock:
+            net_profit = int(path.proven_net_profit_usd * 1e6)
+            fee = estimate_relayer_fee(200_000, 10**9, 3000.0)
+            fee = min(fee, max(net_profit // 10, 1))
+            split = split_value(net_profit, fee, SETTINGS.gas_reserve_bps)
+            # The relayer fee is paid to SETTINGS.beneficiary, so it lands in
+            # the same balance the gate measures.
+            return split.to_beneficiary + split.relayer_fee
+        return int(path.proven_net_profit_usd * 1e18)
+
     def settle(self, path: AtomicPath, constraints: Constraints) -> ExecutionResult:
         """Settle the proved path with gas paid by someone else.
 
@@ -488,6 +542,14 @@ class Executor:
         nets = _networks()
         pre_net = nets[0] if nets else None
         balance_before = self._beneficiary_balance(pre_net) if pre_net else 0
+
+        # The lock pulls value with transferFrom, so it needs an allowance the
+        # account has granted. Without one the pull reverts and the paymaster
+        # refuses to sponsor, which reads as "no sponsorship" rather than the
+        # missing approval it really is. Approve first, then settle.
+        if transfers_value and SETTINGS.gas_value_lock:
+            self._ensure_lock_allowance(pre_net, path)
+
         settlement = self.flywheel.settle(call_data)
         elapsed_ms = (time.time() - started) * 1000.0
 
@@ -511,9 +573,9 @@ class Executor:
             net = next(
                 (n for n in _networks() if n.chain_id == settlement.chain_id), pre_net
             )
-            expected_wei = int(path.proven_net_profit_usd * 1e18) if transfers_value else 0
+            expected = self.expected_beneficiary_delta(path, transfers_value)
             landed, evidence = (
-                self.sweep_landed(net, balance_before, expected_wei)
+                self.sweep_landed(net, balance_before, expected)
                 if net else (False, "no_network")
             )
             common["value_transferred"] = landed

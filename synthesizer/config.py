@@ -73,6 +73,18 @@ class Settings:
         "SYNTH_EXPLORER", "https://sepolia.basescan.org/tx/"
     )
     rpc_url: str = _env("SYNTH_RPC_URL", "https://sepolia.base.org")
+    # Extra endpoints for the same chain. A public node answers "0x" for state
+    # it has not indexed yet, so an empty read is confirmed against a mirror
+    # before the engine concludes a contract is missing.
+    rpc_mirrors: list[str] = field(
+        default_factory=lambda: [
+            u.strip()
+            for u in _env(
+                "SYNTH_RPC_MIRRORS", "https://base-sepolia-rpc.publicnode.com"
+            ).split(",")
+            if u.strip()
+        ]
+    )
     # How long a bundler's sponsorship refusal is trusted before re-asking.
     # Candidates proved per parallel wave. A wave that proves anything ends the
     # sweep, so a small wave keeps the common case fast and still widens the

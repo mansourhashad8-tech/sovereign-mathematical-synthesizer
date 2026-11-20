@@ -32,7 +32,14 @@ class RetryRecord:
     call_data: str
     attempts: int = 0
     settled: bool = False
+    # Attempts ran out without a mined transaction. Kept distinct from
+    # ``settled`` so a failed watch is never counted as a payout.
+    exhausted: bool = False
     history: list[str] = field(default_factory=list)
+
+    @property
+    def done(self) -> bool:
+        return self.settled or self.exhausted
 
 
 class SettlementWatchdog:
@@ -71,10 +78,12 @@ class SettlementWatchdog:
 
     def status(self) -> dict:
         with self._lock:
+            records = list(self._records.values())
             return {
-                "watched": len(self._records),
-                "settled": sum(1 for r in self._records.values() if r.settled),
-                "pending": sum(1 for r in self._records.values() if not r.settled),
+                "watched": len(records),
+                "settled": sum(1 for r in records if r.settled),
+                "exhausted": sum(1 for r in records if r.exhausted),
+                "pending": sum(1 for r in records if not r.done),
             }
 
     def results(self) -> dict[str, RetryRecord]:
@@ -98,7 +107,7 @@ class SettlementWatchdog:
 
     def _pending(self) -> list[RetryRecord]:
         with self._lock:
-            return [r for r in self._records.values() if not r.settled]
+            return [r for r in self._records.values() if not r.done]
 
     def _run(self) -> None:
         # Back off between rounds so a chain that is briefly unavailable does
@@ -116,8 +125,10 @@ class SettlementWatchdog:
                 if self._stop.is_set():
                     return
                 if rec.attempts >= SETTINGS.watchdog_attempts:
+                    # Out of attempts, not settled. Marking this settled would
+                    # report a failed watch as a payout.
                     with self._lock:
-                        rec.settled = True  # exhausted; stop watching it
+                        rec.exhausted = True
                     continue
                 rec.attempts += 1
                 settlement = self.flywheel.settle(rec.call_data)

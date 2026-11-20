@@ -37,6 +37,7 @@ import time
 from dataclasses import dataclass, field
 
 import httpx
+from eth_abi import decode
 from eth_abi import encode as abi_encode
 from eth_account import Account
 from eth_account.messages import encode_defunct
@@ -149,6 +150,37 @@ def _rpc(url: str, method: str, params: list, timeout: float = 12.0) -> dict | N
         return r.json()
     except Exception:  # noqa: BLE001 - an unreachable source is not a failure
         return None
+
+
+# Public endpoints answer ``"0x"`` for state they simply have not indexed yet.
+# An empty result is therefore not evidence of absence, and code that treats it
+# as such will conclude a deployed contract does not exist.
+def _read_state(url: str, method: str, params: list, timeout: float = 12.0,
+                attempts: int = 3) -> str | None:
+    """A state read that distinguishes "absent" from "not answered yet".
+
+    Returns the hex result, or None when no endpoint produced a usable answer.
+    A caller that gets None must not conclude the state is empty; it must treat
+    the chain as unreadable, which is a different thing.
+    """
+    for attempt in range(attempts):
+        data = _rpc(url, method, params, timeout=timeout)
+        result = (data or {}).get("result")
+        if isinstance(result, str) and result.startswith("0x"):
+            if result != "0x":
+                return result
+            # "0x" may be a genuine empty result or a lagging node. Confirm
+            # with a second endpoint before believing it.
+            for mirror in SETTINGS.rpc_mirrors:
+                if mirror == url:
+                    continue
+                mirror_data = _rpc(mirror, method, params, timeout=timeout)
+                mirror_result = (mirror_data or {}).get("result")
+                if isinstance(mirror_result, str) and mirror_result.startswith("0x"):
+                    return mirror_result
+            return result
+        time.sleep(0.4 * (attempt + 1))
+    return None
 
 
 @dataclass
@@ -427,12 +459,11 @@ class GasFlywheel:
             return 0
 
     def _deployed(self, net: Network, sender: str) -> bool:
-        result = _rpc(net.rpc_url, "eth_getCode", [sender, "latest"])
-        code = (result or {}).get("result", "0x")
-        return isinstance(code, str) and len(code) > 2
+        code = _read_state(net.rpc_url, "eth_getCode", [sender, "latest"])
+        return code is not None and len(code) > 2
 
     def _target_has_code(self, net: Network, call_data: str) -> bool:
-        """Whether the call's target is a contract on this chain.
+        """Whether this call needs a contract that exists on this chain.
 
         A call to an address with no code succeeds and does nothing. The EVM
         reports status 1, the bundler reports success, and the settlement looks
@@ -440,20 +471,30 @@ class GasFlywheel:
         engine can produce, because it is indistinguishable from a real payout
         in every receipt field.
 
-        Deployments are exempt: a userOp whose target is the factory has no
-        code to check, so an empty target or a bare deployment is allowed.
+        The check applies only when the call carries inner calldata. A plain
+        value transfer to an EOA has an empty payload and no code to find, so
+        requiring code there would reject every ordinary payout.
         """
-        if len(call_data) < 10:
+        try:
+            raw = bytes.fromhex(call_data[2:] if call_data.startswith("0x") else call_data)
+        except ValueError:
             return True
-        # The address is an ABI-encoded word, so it is left-padded to 32 bytes;
-        # eth_getCode wants the 20-byte address, i.e. the last 40 hex chars.
-        target = "0x" + call_data[10:74][-40:]
+        if len(raw) < 4:
+            return True
+        try:
+            target, _value, inner = decode(
+                ["address", "uint256", "bytes"], raw[4:], strict=False
+            )
+        except Exception:  # noqa: BLE001 - unknown shape, do not block settlement
+            return True
+        if not inner:
+            return True
         if int(target, 16) == 0:
             return True
-        code = (_rpc(net.rpc_url, "eth_getCode", [target, "latest"]) or {}).get(
-            "result", "0x"
-        )
-        return isinstance(code, str) and len(code) > 2
+        code = _read_state(net.rpc_url, "eth_getCode", [target, "latest"])
+        # None means no endpoint could answer. Refusing to settle is the safe
+        # reading: settling on an unread chain risks the no-op this guards.
+        return code is not None and len(code) > 2
 
     # -- encoding ----------------------------------------------------------
 
@@ -516,13 +557,29 @@ class GasFlywheel:
             keccak(text="balanceOf(address)")[:4]
             + abi_encode(["address"], [address])
         )
-        result = _rpc(
-            net.rpc_url,
-            "eth_call",
-            [{"to": token, "data": data}, "latest"],
+        raw = _read_state(
+            net.rpc_url, "eth_call", [{"to": token, "data": data}, "latest"],
             timeout=15,
         )
-        raw = (result or {}).get("result", "0x0")
+        try:
+            return int(str(raw), 16)
+        except (TypeError, ValueError):
+            return 0
+
+    def token_allowance(self, net: Network, token: str, owner: str, spender: str) -> int:
+        """How much ``spender`` may pull from ``owner``, in base units.
+
+        A lock settlement is a ``transferFrom``, so this is the gate that
+        decides whether the pull can succeed at all.
+        """
+        data = _hex(
+            keccak(text="allowance(address,address)")[:4]
+            + abi_encode(["address", "address"], [owner, spender])
+        )
+        raw = _read_state(
+            net.rpc_url, "eth_call", [{"to": token, "data": data}, "latest"],
+            timeout=15,
+        )
         try:
             return int(str(raw), 16)
         except (TypeError, ValueError):

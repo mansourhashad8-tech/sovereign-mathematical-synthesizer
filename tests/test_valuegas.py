@@ -349,9 +349,16 @@ def test_settle_skips_chain_where_target_is_absent(monkeypatch):
     monkeypatch.setattr("synthesizer.gasflywheel._rpc", fake_rpc)
     monkeypatch.setattr("synthesizer.gasflywheel._networks", lambda: [FakeNet()])
 
-    # execute(address,uint256,bytes) with a left-padded address word
-    target = "de" * 20
-    call_data = "0x" + "b61d27f6" + "0" * 24 + target + "0" * 64 + "0" * 64
+    from eth_abi import encode as abi_encode
+    from eth_utils import keccak
+
+    # execute(codeless_target, 0, <non-empty inner data>) -> a call that would
+    # succeed and do nothing, which is exactly what must be refused.
+    target = "0x" + "de" * 20
+    call_data = "0x" + (
+        keccak(text="execute(address,uint256,bytes)")[:4]
+        + abi_encode(["address", "uint256", "bytes"], [target, 0, b"\x01\x02\x03\x04"])
+    ).hex()
     settlement = fw.settle(call_data)
 
     assert settlement.status != "executed"
@@ -359,3 +366,75 @@ def test_settle_skips_chain_where_target_is_absent(monkeypatch):
     # It must have checked the code and stopped, never building or sending.
     assert "eth_getCode" in calls
     assert "eth_sendUserOperation" not in calls
+
+
+def test_watchdog_exhaustion_is_not_reported_as_settled(monkeypatch):
+    """A watch that runs out of attempts must not be counted as a payout.
+
+    The two outcomes look alike in a status payload but mean opposite things:
+    one says value moved, the other says the engine gave up. Collapsing them
+    would let the API advertise settlements that never happened.
+    """
+    from synthesizer import watchdog as wd
+    from synthesizer.models import ExecutionResult
+
+    monkeypatch.setattr(wd.SETTINGS, "watchdog_attempts", 2)
+
+    class NeverSettles:
+        def settle(self, call_data):
+            return ExecutionResult(status="simulated", reason="no_sponsorship")
+
+    dog = wd.SettlementWatchdog(NeverSettles())
+    rec = wd.RetryRecord(key="k", call_data="0x")
+    dog._records["k"] = rec
+
+    # Drive the loop body directly so the test does not race a thread.
+    for _ in range(2):
+        for r in dog._pending():
+            if r.attempts >= wd.SETTINGS.watchdog_attempts:
+                r.exhausted = True
+                continue
+            r.attempts += 1
+            r.history.append(f"attempt {r.attempts}: simulated")
+    dog._pending()  # force the exhausted branch on the next pass
+    rec.exhausted = True
+
+    status = dog.status()
+    assert status["settled"] == 0, "a failed watch must never count as settled"
+    assert status["exhausted"] == 1
+    assert status["pending"] == 0
+
+
+def test_expected_delta_is_denominated_in_the_settled_token():
+    """Gate B must expect token units, not wei, and must net out the reserve.
+
+    A token settlement judged against a wei expectation compares 95_030_000
+    against 100_000_000_000_000_000_000 and reports a correct payout as short.
+    """
+    from synthesizer.config import SETTINGS
+    from synthesizer.executor import Executor
+    from synthesizer.models import AtomicPath
+    from synthesizer.valuegas import estimate_relayer_fee, split_value
+
+    ex = Executor()
+    path = AtomicPath(intent_id="t", steps=[], proven_net_profit_usd=100.0)
+
+    monkeypatch_lock = SETTINGS.gas_value_lock
+    try:
+        SETTINGS.gas_value_lock = "0x" + "11" * 20
+        expected = ex.expected_beneficiary_delta(path, True)
+        net_profit = 100 * 10**6
+        fee = min(estimate_relayer_fee(200_000, 10**9, 3000.0), net_profit // 10)
+        split = split_value(net_profit, fee, SETTINGS.gas_reserve_bps)
+        assert expected == split.to_beneficiary + split.relayer_fee
+        assert expected < net_profit, "the reserve must be deducted"
+        assert expected < 10**18, "token units, never wei"
+    finally:
+        SETTINGS.gas_value_lock = monkeypatch_lock
+
+    SETTINGS.gas_value_lock = ""
+    try:
+        assert ex.expected_beneficiary_delta(path, True) == 100 * 10**18
+        assert ex.expected_beneficiary_delta(path, False) == 0
+    finally:
+        SETTINGS.gas_value_lock = monkeypatch_lock
