@@ -431,6 +431,30 @@ class GasFlywheel:
         code = (result or {}).get("result", "0x")
         return isinstance(code, str) and len(code) > 2
 
+    def _target_has_code(self, net: Network, call_data: str) -> bool:
+        """Whether the call's target is a contract on this chain.
+
+        A call to an address with no code succeeds and does nothing. The EVM
+        reports status 1, the bundler reports success, and the settlement looks
+        mined while no value moved. That is the most dangerous failure this
+        engine can produce, because it is indistinguishable from a real payout
+        in every receipt field.
+
+        Deployments are exempt: a userOp whose target is the factory has no
+        code to check, so an empty target or a bare deployment is allowed.
+        """
+        if len(call_data) < 10:
+            return True
+        # The address is an ABI-encoded word, so it is left-padded to 32 bytes;
+        # eth_getCode wants the 20-byte address, i.e. the last 40 hex chars.
+        target = "0x" + call_data[10:74][-40:]
+        if int(target, 16) == 0:
+            return True
+        code = (_rpc(net.rpc_url, "eth_getCode", [target, "latest"]) or {}).get(
+            "result", "0x"
+        )
+        return isinstance(code, str) and len(code) > 2
+
     # -- encoding ----------------------------------------------------------
 
     @staticmethod
@@ -610,6 +634,13 @@ class GasFlywheel:
         accepted: GasSettlement | None = None
 
         for net in _networks():
+            if not self._target_has_code(net, call_data):
+                # Nothing to call here. Settling anyway would produce a mined
+                # transaction that moved nothing, so this chain is skipped
+                # rather than allowed to report a phantom success.
+                log.append(f"{net.name}: target_absent")
+                continue
+
             op = self._build_op(net, call_data)
             if op is None:
                 log.append(f"{net.name}: no_account")

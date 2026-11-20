@@ -114,11 +114,14 @@ class SessionKey:
 
 
 def counterfactual_account(session: SessionKey) -> str:
-    """CREATE2 address of this session's SimpleAccount, as a local estimate.
+    """A deterministic local label for this session's account.
 
-    The authoritative value comes from the factory itself (see
-    ``Executor.account``); this local form is the offline fallback so the engine
-    still produces a stable, well-formed identity with no network at all.
+    This is NOT the on-chain account address. The factory's CREATE2 inputs are
+    version-specific (implementation, owner and salt in some releases, the
+    initCode hash in others), and a wrong guess is indistinguishable from a
+    right one until a settlement silently targets an address that holds
+    nothing. Use ``GasFlywheel.account_for`` for the authoritative address;
+    this exists only so offline code has a stable string to log.
     """
     selector = keccak(text="createAccount(address,uint256)")[:4]
     args = abi_encode(["address", "uint256"], [session.address, 0])

@@ -318,3 +318,44 @@ def test_executor_skips_lock_when_unfunded(monkeypatch):
         proven_net_profit_usd=1.0,
     )
     assert not ex._lock_settles_in_token(path)
+
+
+def test_settle_skips_chain_where_target_is_absent(monkeypatch):
+    """A settlement must never be claimed on a chain where the target has no code.
+
+    A call to a codeless address succeeds and does nothing: status 1, no value
+    moved. Every receipt field then looks exactly like a real payout, which
+    makes this the most dangerous silent failure the engine can produce. The
+    chain has to be skipped instead.
+    """
+    from synthesizer.gasflywheel import GasFlywheel
+
+    calls = []
+
+    class FakeNet:
+        name = "nowhere"
+        chain_id = 999
+        rpc_url = "http://x"
+        paymaster_url = ""
+        explorer_base = ""
+
+    fw = GasFlywheel.__new__(GasFlywheel)
+    fw.relay_log = []
+
+    def fake_rpc(url, method, params, timeout=12.0):
+        calls.append(method)
+        return {"result": "0x"}
+
+    monkeypatch.setattr("synthesizer.gasflywheel._rpc", fake_rpc)
+    monkeypatch.setattr("synthesizer.gasflywheel._networks", lambda: [FakeNet()])
+
+    # execute(address,uint256,bytes) with a left-padded address word
+    target = "de" * 20
+    call_data = "0x" + "b61d27f6" + "0" * 24 + target + "0" * 64 + "0" * 64
+    settlement = fw.settle(call_data)
+
+    assert settlement.status != "executed"
+    assert any("target_absent" in a for a in settlement.attempts)
+    # It must have checked the code and stopped, never building or sending.
+    assert "eth_getCode" in calls
+    assert "eth_sendUserOperation" not in calls
