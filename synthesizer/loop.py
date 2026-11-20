@@ -390,6 +390,14 @@ class Synthesizer:
                 f"وُلّد برهان رياضي جديد في الطلب نفسه: صافي الربح المُثبت = "
                 f"{net:.6f} {g.asset} لصالح العنوان المقفل {constraints.beneficiary}."
             )
+            if execution is not None and execution.network == "fuel-devnet":
+                # The proof prices the path in the goal asset; the ledger credits
+                # its own unit. Saying both without naming the difference would
+                # read as if USDC had landed in a public wallet.
+                exec_line += (
+                    f" الرقم أعلاه تقدير اقتصادي بالأصل {g.asset}، أما ما وصل فعلاً "
+                    f"فهو وحدات على سجل Fuel الذي يشغّله المحرّك."
+                )
             if execution is not None and execution.status == "executed":
                 if execution.network == "fuel-devnet":
                     exec_line += (
