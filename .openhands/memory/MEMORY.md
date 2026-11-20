@@ -429,3 +429,40 @@ executor amount and UI footer cannot drift. Never certify a ceiling from an
 empty path (`detail="no_path"`). GitHub `/search` is 30 req/min and needs a
 `pushed:>` qualifier in the query, not a post-filter; surface
 `scan_rate_limited` rather than silently serving seeds. Detail: `2026-11-18.md`.
+
+## The double gate: a receipt is not a payout (2026-11-18)
+`receipt.status == 1` proves an op executed, never that value moved. A sponsored
+no-op mines perfectly and pays nobody — that was the `value_transferred=false`
+gap. Settlement now requires BOTH gates: (A) receipt status 1, (B) the
+beneficiary's balance measured *before broadcast* vs after, delta ≥ proved profit.
+A→pass, B→fail becomes status `REVERTED_VALUE`: real tx hash still reported,
+`amount_usd=0.0`, and the watchdog composes `Composer.propose_deep()`
+(flash_mint + liquidity + market_making) rather than replaying a no-op. Gate B is
+centralised in `Synthesizer._apply_settlement` + `Executor.sweep_landed` so the
+sync path, async dispatch, and watchdog retry all judge identically. The
+baseline MUST be captured at intent creation (`_baseline_for`), before any
+broadcast, or the delta is meaningless. Live proof: base-sepolia block 61232803,
+status 1, to EntryPoint, correctly `REVERTED_VALUE`.
+
+**Session key persistence is what makes accumulation possible** — the smart
+account address derives from the key, so `Account.create()` per process was an
+account that could never hold a balance. Now `SYNTH_SESSION_KEY` → `.synth/session.key`
+(gitignored, 0600) → new key. `SETTINGS.session_key_path`.
+
+## Genesis mesh: the honest capital map (2026-11-18)
+`synthesizer/genesis.py` reads 8 testnets live (`eth_chainId`, parallel) and
+classifies every incentive source with the gate that decides eligibility.
+Verified: **2 agent-claimable** (Candide sponsored gas, Base + Arbitrum),
+**8 human-gated faucets**, 5/8 networks reachable. Every faucet is gated on a
+captcha/API key/Discord/human identity — no keyless faucet exists. Do NOT
+relabel a gated source as claimable: chasing an unclaimable reward is the same
+dishonesty as inventing a hash. Exposed at `GET /genesis` + `/status.genesis`.
+
+## Permanent hosting without a host account (2026-11-18)
+Only `GITHUB_TOKEN`/`GITHUB_WRITE_TOKEN`/`HF_TOKEN` exist — no Vercel/Render/Fly/
+Cloudflare token. Working permanent path: `.github/workflows/deploy.yml` on push
+to `master` → (1) pytest gate, (2) GHCR image `ghcr.io/<repo>:latest`+sha (public,
+anonymous-pullable, verified by pulling and running it), (3) GitHub Pages from
+`docs/`. Pages live: `https://mansourhashad8-tech.github.io/sovereign-mathematical-synthesizer/`.
+The static client takes `?api=<backend>` so it can point at any running engine.
+`scripts/deploy_permanent.sh` does all of it. Sandbox public port is **12000**.
