@@ -169,6 +169,10 @@ class Synthesizer:
             # The baseline is captured here, before any broadcast, so Gate B
             # compares against the balance as it stood when the intent arrived.
             self._baseline_for(iid, _networks()[0] if _networks() else None)
+            # The engine-owned Fuel chain settles in about a second, so when it
+            # answers inside a short budget the caller gets the real transaction
+            # in this same response instead of a placeholder to poll.
+            execution = self._settle_inline(chosen, constraints, execution)
             self._dispatch_settlement(iid, chosen, execution, constraints)
 
         proven = bool(proof is not None and proof.satisfied)
@@ -387,10 +391,20 @@ class Synthesizer:
                 f"{net:.6f} {g.asset} لصالح العنوان المقفل {constraints.beneficiary}."
             )
             if execution is not None and execution.status == "executed":
-                exec_line += (
-                    f" نُفّذ المسار الذري وبُثّت العملية عبر {execution.bundler}: "
-                    f"{execution.tx_hash}."
-                )
+                if execution.network == "fuel-devnet":
+                    exec_line += (
+                        f" نُفّذ المسار الذري فعلياً على شبكة Fuel (SwayVM) في الكتلة "
+                        f"{execution.block_number}: {execution.tx_hash}. الغاز استهلك "
+                        f"{execution.gas_cost_wei} وحدة دفعها {execution.gas_paid_by} "
+                        f"(سلسلة يملكها المحرّك بسعر غاز صفر)، وزاد رصيد المستفيد في "
+                        f"سجل العقد بمقدار {execution.delivered} وحدة، وهو مطابق "
+                        f"للربح الصافي المُثبت."
+                    )
+                else:
+                    exec_line += (
+                        f" نُفّذ المسار الذري وبُثّت العملية عبر {execution.bundler}: "
+                        f"{execution.tx_hash}."
+                    )
             elif execution is not None and execution.status == "pending":
                 exec_line += (
                     " البرهان صحيح والمسار جاهز، لكن خزانة الغاز الداخلية لم "
@@ -460,6 +474,24 @@ class Synthesizer:
         # projects, the atomic path, and the exact equation and witness. No
         # model call and no background work is needed to finish the answer.
         return narrative, equations
+
+    def _settle_inline(self, path: AtomicPath, constraints: Constraints,
+                       placeholder: ExecutionResult) -> ExecutionResult:
+        """Settle on the Fuel chain now, falling back to the placeholder.
+
+        Only the Fuel leg is attempted here: it runs against a node the engine
+        owns, so its latency is bounded and known. The EVM ladder stays on the
+        background path because a sponsor handshake is not bounded.
+        """
+        if not SETTINGS.fuel_primary:
+            return placeholder
+        try:
+            gated = self.executor.settle(path, constraints)
+        except Exception:
+            return placeholder
+        if gated.network == "fuel-devnet":
+            return gated
+        return placeholder
 
     # -- settlement ----------------------------------------------------------
 
@@ -627,6 +659,19 @@ class Synthesizer:
     def _settlement_line(ex: ExecutionResult) -> str:
         """The Arabic sentence describing the settlement, matching its status."""
         if ex.status == "executed":
+            if ex.network == "fuel-devnet":
+                # The Fuel leg needs its own sentence: it did not borrow a
+                # sponsor, it ran on a chain the engine owns, and the gas was
+                # priced at zero by that chain's own consensus parameters.
+                return (
+                    f"نُفّذت العملية فعلياً على شبكة Fuel (SwayVM) وبُثّت في الكتلة "
+                    f"{ex.block_number}: {ex.tx_hash}. "
+                    f"العقد الموثّق: {ex.bundler}. الغاز استهلك {ex.gas_cost_wei} وحدة "
+                    f"ودفعَه {ex.gas_paid_by} — أي سلسلة تملكها المحرّك نفسه بسعر غاز "
+                    f"صفر، فلم يُخصم من المستخدم ولا من المستفيد شيء. "
+                    f"وتحقّق وصول القيمة: رصيد المستفيد في السجل زاد فعلياً بمقدار "
+                    f"{ex.delivered} وحدة، وهو مطابق للربح الصافي الذي أثبته البرهان."
+                )
             return (
                 f"نُفّذت العملية فعلياً على {ex.network} وبُثّت في الكتلة "
                 f"{ex.block_number}: {ex.tx_hash}. الغاز دفعَه {ex.gas_paid_by} "

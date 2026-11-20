@@ -123,7 +123,9 @@ document.addEventListener('DOMContentLoaded',()=>{
 async function loadStatus(){
   try{
     const s=await (await fetch(api('/status'))).json();
-    $('net').textContent = (s.treasury&&s.treasury.network)||'base-mainnet';
+    // Name the chain that actually settles: the Fuel leg is primary, so reading
+  // the EVM treasury network here would label the page with a fallback.
+  $('net').textContent = (s.gas&&s.gas.chain)||(s.treasury&&s.treasury.network)||'fuel-devnet';
     $('prover').textContent = s.prover||'z3';
     $('live').textContent = s.primitives_live+' / '+s.primitives_total;
     $('ben').textContent = (s.beneficiary||'').slice(0,6)+'…'+(s.beneficiary||'').slice(-4);
@@ -190,16 +192,27 @@ function render(d){
 
 function execLine(ex){
   if(!ex) return 'التنفيذ: <b>لا يوجد</b>';
-  const labels={executed:'منفّذة على الشبكة',submitted:'مقبولة في طابور التجميع',
+  // A fork settlement is real execution with a real proof, but it is not a
+  // public-chain payout. The two are labelled separately so a reader is never
+  // told that money landed on a chain it never touched.
+  const onFork = ex.network === 'local-fork';
+  const labels={executed:'منفّذة بالكامل',submitted:'مقبولة في طابور التجميع',
                 pending:'قيد التنفيذ الحقيقي الآن',simulated:'لم تُبَثّ'};
-  let s=`التنفيذ: <b>${labels[ex.status]||ex.status}</b> · الغاز: <b>${ex.gas_mode==='paymaster'?'مدفوع من راعٍ (paymaster)':ex.gas_mode}</b>`;
+  let s=`التنفيذ: <b>${labels[ex.status]||ex.status}</b>`;
+  s+=onFork?` · المسار: <b>سلسلة محلية موقّعة ببرهان</b>`:` · الغاز: <b>${ex.gas_mode==='paymaster'?'مدفوع من راعٍ (paymaster)':ex.gas_mode}</b>`;
   if(ex.gas_paid_by) s+=` · دافع الغاز: <b>${ex.gas_paid_by}</b>`;
   if(ex.block_number) s+=` · الكتلة: <b>${ex.block_number}</b>`;
   if(ex.tx_hash) s+=`<br>المعرّف: <code>${ex.tx_hash}</code>`;
-  if(ex.explorer_url) s+=`<br><a href="${ex.explorer_url}" target="_blank" rel="noopener">عرض في المستكشف ↗</a>`;
+  if(ex.explorer_url && !onFork){
+    // The Fuel chain is engine-owned, so its receipt is served by the engine
+    // and verified against the node; calling it a public explorer would be
+    // misleading, and calling it a plain link would hide that it is checkable.
+    const fuel=ex.network==='fuel-devnet';
+    s+=`<br><a href="${ex.explorer_url}" target="_blank" rel="noopener">${fuel?'إيصال قابل للتحقق من العقدة ↗':'عرض في المستكشف ↗'}</a>`;
+  }
   if(ex.status==='simulated') s+=`<br><span class="warn">لم يتحرك أي مال. عجلة الغاز تواصل المحاولة تلقائياً في الخلفية.</span>`;
   if(ex.status==='executed') s+=ex.value_transferred
-    ? `<br>القيمة وصلت للمستفيد: <b>${ex.amount_usd} USD</b>`
+    ? `<br>القيمة وصلت للمستفيد: <b>${ex.delivered||ex.amount_usd} ${ex.network==='fuel-devnet'?'وحدة على سجل Fuel':'FSU'}</b>${onFork?' <span class="warn">(وحدة داخل السلسلة المحلية، مُثبتة ببرهان Groth16 على العقد؛ وليست تحويلاً على شبكة عامة)</span>':''}`
     : `<br><span class="warn">العملية نُفّذت والغاز مدفوع من راعٍ، لكن القيمة لم تُحوّل: حساب الوكيل رصيده صفر، والغاز وحده هو ما يُموّل خارجياً. القانون المالي (حفظ القيمة) لا يُخرقه المحرك.</span>`;
   return s;
 }

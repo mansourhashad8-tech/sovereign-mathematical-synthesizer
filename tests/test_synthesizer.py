@@ -430,9 +430,10 @@ def test_executor_tries_every_bundler_then_falls_back_honestly(monkeypatch):
     monkeypatch.setattr(SETTINGS, "extra_paymasters", [])
     monkeypatch.setattr(SETTINGS, "fallback_networks", [])
     monkeypatch.setattr(SETTINGS, "receipt_timeout_seconds", 0.1)
-    # This test is about the public path. The fork fallback is a separate leg
-    # with its own test, so it is switched off here.
+    # This test is about the public path. The fork fallback and the Fuel leg are
+    # separate legs with their own tests, so they are switched off here.
     monkeypatch.setattr(SETTINGS, "settle_on_fork", False)
+    monkeypatch.setattr(SETTINGS, "fuel_primary", False)
 
     ex = Executor()
     c = parse_deterministic("اربح 5 دولار من السيولة")
@@ -980,8 +981,12 @@ def test_unsettled_lists_only_intents_that_have_not_paid():
 
 def test_the_background_pass_retries_every_unsettled_intent(monkeypatch):
     """always_on has to mean a repeated attempt, not a flag in the payload."""
+    from synthesizer.config import SETTINGS
     from synthesizer.loop import Synthesizer
 
+    # These tests are about the retry bookkeeping, so the leg that settles
+    # inline is switched off and the intent is left owing value on purpose.
+    monkeypatch.setattr(SETTINGS, "fuel_primary", False)
     synth = Synthesizer()
     synth.synthesize_sync("اربح 12 دولار من السيولة")
     tried: list[str] = []
@@ -994,8 +999,10 @@ def test_the_background_pass_retries_every_unsettled_intent(monkeypatch):
 
 
 def test_one_failing_intent_does_not_stop_the_others(monkeypatch):
+    from synthesizer.config import SETTINGS
     from synthesizer.loop import Synthesizer
 
+    monkeypatch.setattr(SETTINGS, "fuel_primary", False)
     synth = Synthesizer()
     synth.synthesize_sync("اربح 12 دولار من السيولة")
     calls: list[str] = []

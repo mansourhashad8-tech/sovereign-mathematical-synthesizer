@@ -118,6 +118,17 @@ class Settings:
             u.strip() for u in _env("SYNTH_PAYMASTERS", "").split(",") if u.strip()
         ]
     )
+    # Fuel: the engine-owned SwayVM chain that replaced the sponsored EVM leg.
+    # These point at a locally supervised node, so nothing here is a third party.
+    fuel_rpc_url: str = _env("FUEL_RPC_URL", "http://127.0.0.1:4000/v1/graphql")
+    fuel_port: int = _env_int("FUEL_PORT", 4000)
+    fuel_core_bin: str = _env("FUEL_CORE_BIN", "")
+    forc_bin: str = _env("FORC_BIN", "")
+    fuel_consensus_key: str = _env("FUEL_CONSENSUS_KEY", "")
+    # The Fuel leg is the primary settlement path; the EVM ladder stays as a
+    # fallback for networks the engine already proved against.
+    fuel_primary: bool = _env("SYNTH_FUEL_PRIMARY", "1") not in ("0", "false", "False", "")
+
     # Fallback networks, tried in order when the primary chain cannot settle.
     # Each entry is "name|chain_id|rpc|explorer|paymaster".
     fallback_networks: list[str] = field(

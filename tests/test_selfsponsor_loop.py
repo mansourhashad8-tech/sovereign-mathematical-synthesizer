@@ -181,6 +181,10 @@ def test_a_mined_no_op_is_not_a_settlement(chain, monkeypatch):
     executor = Executor()
     flywheel = executor.flywheel
     net = _net(chain)
+    # This test drives the EVM ladder; the Fuel leg has its own tests.
+    from synthesizer.config import SETTINGS as _S
+
+    monkeypatch.setattr(_S, "fuel_primary", False)
 
     monkeypatch.setattr("synthesizer.executor._networks", lambda: [net])
     settlement = GasSettlement(

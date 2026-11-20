@@ -3,6 +3,7 @@
     "circom2": "^0.2.23",
     "circomlib": "^2.0.0",
     "circomlibjs": "^0.1.7",
+    "fuels": "^0.103.0",
     "snarkjs": "^0.7.6",
     "solc": "^0.8.26"
   }
