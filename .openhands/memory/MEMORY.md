@@ -321,6 +321,26 @@ needs neither signup, KYC, key, nor capital, and pays USDC straight to a wallet,
   DRY_RUN default; `test_shipped_settings_default_to_dry_run` caught it. Stage named files.
 - Suite: **200 passed, 1 skipped, 7 deselected**.
 
+## Gas is internal, not sponsored (commit `8f36541`, branch `sovereign-mathematical-synthesizer`)
+The ladder is now internal-first: native balance -> EntryPoint deposit -> earned
+reserve -> flash loan -> token gas. An external paymaster is an **opt-in switch,
+default off** (`SYNTH_ALLOW_EXTERNAL_SPONSOR=false`); it is no longer rung one.
+The profit-reinvestment loop is real: `GasFlywheel.record_settlement_gas` records
+gas spent and credits `net_profit_units * gas_reserve_bps // 10_000` back into
+`ReserveAccumulator`, and `executor.settle()` calls it on every landed settlement.
+Before this it was declared but never called. Chains are ordered cheapest-first by
+live `eth_gasPrice`. Detail: `2026-11-18.md`.
+
+**Still the one wall:** every leg is denominated in one native unit, because the
+chain charges its fee before contract code runs. No zero-gas-price chain exists
+(cheapest measured Gnosis Chiado = 7 wei, still rejects a zero-balance sender),
+and a flash loan cannot pay the fee for opening itself. `/status` reports the
+exact `bootstrap_wei` instead of hiding it.
+
+**Lesson worth keeping:** Candide sponsors in *native coin*, not USDC. A generic
+sponsor never implies a token-gas leg; conflating them promises a payment the
+chain rejects.
+
 ## The venue that pays US — Superteam Earn (commit `fbb2c09`)
 `earn.superteam.fun` is a funded, agent-native bounty marketplace (sponsors escrow USDC,
 `agentAccess: AGENT_ALLOWED`, official Agent API at `https://superteam.fun/api/agents`).
@@ -346,24 +366,21 @@ with `python scripts/go_live.py`, so an empty sandbox is recoverable in one comm
   by the operator. HF Static cannot hold a key (`window.huggingface.variables` is inlined verbatim).
 - BENEFICIARY / treasury = `0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47`.
 
-## Gas flywheel — keyless sponsored settlement (commit `e8abe8f`)
-The engine really executes. `synthesizer/gasflywheel.py` builds a real ERC-4337
-op, **Candide's public InstaGas paymaster sponsors it keylessly**
-(`https://api.candide.dev/public/v3/<chainId>`, no key, no policy), it is signed
-with the agent's session key, broadcast, and mined. Verified on chain:
-base-sepolia blocks 60976052/60981511/60982043, arbitrum-sepolia 330832694.
-- Every other keyless sponsor is dead (Pimlico 403 policy, Etherspot/Stackup/
-  Gelato/Biconomy refuse, no keyless faucet exists).
-- Rungs: Base Sepolia primary, **Arbitrum Sepolia** fallback. Ethereum Sepolia is
-  NOT usable (bundler caps userOp at 15M gas) and was removed.
-- The three ERC-4337 traps — `AA20`, `AA14`, `AA23` — and their fixes are in
-  `2026-11-18.md`. The hash must cover every gas field + paymasterAndData and
-  signing is two-phase (sign → sponsor → re-sign).
-- Proof ~90ms, settlement ~2.4s: settle in a background pool, upgrade the
-  stored result in place, `GET /intent/{id}` exposes it. Never block `/synthesize`.
-- **Gas is sponsored; value is not.** The smart account holds 0 ETH, so
+## Gas flywheel — history (commit `e8abe8f`; SUPERSEDED by `8f36541`)
+**Do not re-derive this as the current design.** The engine used to depend on
+Candide's public InstaGas paymaster (`https://api.candide.dev/public/v3/<chainId>`)
+as rung one. That made every settlement depend on a third party's quota, and it is
+now an opt-in switch, off by default. Current model: see "Gas is internal" above.
+Kept because the ERC-4337 mechanics are still true and still used:
+- The three traps — `AA20`, `AA14`, `AA23` — and their fixes are in `2026-11-18.md`.
+  The op hash must cover every gas field + paymasterAndData, and signing is
+  two-phase (sign → sponsor → re-sign).
+- Proof ~90ms, settlement ~2.4s: settle in a background pool, upgrade the stored
+  result in place, `GET /intent/{id}` exposes it. Never block `/synthesize`.
+- Ethereum Sepolia is NOT usable (bundler caps a userOp at 15M gas).
+- **Value is not sponsored.** The smart account holds no funds, so
   `value_transferred` is false after a real balance check. Claim execution and
-  sponsored gas, never a payout that did not happen.
+  funded gas, never a payout that did not happen.
 
 ## Tender desk (finished 2026-11-06, commit `c2c11f1`)
 Public-procurement desk; detail in `2026-10-31.md`/`2026-11-06.md`. Superseded as the
