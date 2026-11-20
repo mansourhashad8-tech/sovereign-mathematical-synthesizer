@@ -945,3 +945,62 @@ def test_the_loop_gives_the_chosen_path_the_real_intent_id():
     assert result.chosen_path.intent_id != BENEFICIARY
     if result.chosen_path.intent_id:
         assert result.chosen_path.intent_id == intent_id(c)
+
+
+def test_unsettled_lists_only_intents_that_have_not_paid():
+    """The background pass works what is still owed, not what already paid."""
+    from synthesizer.loop import Synthesizer
+    from synthesizer.models import ExecutionResult, IntentResult, Constraints, Goal
+
+    synth = Synthesizer()
+    c = Constraints(goal=Goal(objective="x", asset="USDC", target_amount=10.0,
+                              raw_intent="x"), net_profit_usd_min=10.0,
+                    beneficiary=BENEFICIARY)
+    synth._results["paid"] = IntentResult(
+        intent_id="paid", raw_intent="x", constraints=c, chosen_path=None,
+        proof=None, execution=ExecutionResult(status="executed"), narrative_ar="",
+        invented=False, attempts=1,
+    )
+    synth._results["owed"] = IntentResult(
+        intent_id="owed", raw_intent="x", constraints=c, chosen_path=None,
+        proof=None, execution=ExecutionResult(status="REVERTED_VALUE"),
+        narrative_ar="", invented=False, attempts=1,
+    )
+    synth._results["limit"] = IntentResult(
+        intent_id="limit", raw_intent="x", constraints=c, chosen_path=None,
+        proof=None, execution=None, narrative_ar="", invented=False,
+        attempts=1, absolute_limit=True,
+    )
+
+    assert [r.intent_id for r in synth.unsettled()] == ["owed"]
+
+
+def test_the_background_pass_retries_every_unsettled_intent(monkeypatch):
+    """always_on has to mean a repeated attempt, not a flag in the payload."""
+    from synthesizer.loop import Synthesizer
+
+    synth = Synthesizer()
+    synth.synthesize_sync("اربح 12 دولار من السيولة")
+    tried: list[str] = []
+    monkeypatch.setattr(synth, "synthesize_sync",
+                        lambda raw, budget=None: tried.append(raw))
+
+    count = synth.retry_unsettled()
+    assert count == len(synth.unsettled()) >= 1
+    assert len(tried) == count
+
+
+def test_one_failing_intent_does_not_stop_the_others(monkeypatch):
+    from synthesizer.loop import Synthesizer
+
+    synth = Synthesizer()
+    synth.synthesize_sync("اربح 12 دولار من السيولة")
+    calls: list[str] = []
+
+    def flaky(raw, budget=None):
+        calls.append(raw)
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(synth, "synthesize_sync", flaky)
+    assert synth.retry_unsettled() == 1  # raised internally, still counted
+    assert len(calls) == 1

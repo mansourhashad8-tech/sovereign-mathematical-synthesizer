@@ -202,6 +202,38 @@ class Synthesizer:
     def latest(self, iid: str) -> IntentResult | None:
         return self._results.get(iid)
 
+    def unsettled(self) -> list[IntentResult]:
+        """Intents whose value has not reached the beneficiary yet.
+
+        The loop's contract is that an intent keeps working until it pays, so
+        the ones that have not paid are exactly the ones still owed a
+        settlement. An intent at a proved physical limit is excluded: repeating
+        it would re-derive the same UNSAT bound, which is not a settlement
+        attempt.
+        """
+        with self._results_lock:
+            return [
+                r for r in self._results.values()
+                if not r.absolute_limit
+                and (r.execution is None or r.execution.status != "executed")
+            ]
+
+    def retry_unsettled(self) -> int:
+        """Re-compose and re-settle every intent that has not paid yet.
+
+        Each pass re-reads the primitive scan, so a component that appeared
+        since the last attempt can enter the path. Returns how many intents
+        were retried.
+        """
+        pending = self.unsettled()
+        for result in pending:
+            try:
+                self.synthesize_sync(result.raw_intent)
+            except Exception:
+                # One intent's failure must not stop the others from retrying.
+                continue
+        return len(pending)
+
     # -- instant synthesis ---------------------------------------------------
 
     def _candidates(self, constraints: Constraints,

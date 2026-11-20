@@ -183,6 +183,8 @@ class Settings:
     # When true the loop keeps running after a request returns, 24/7, until the
     # intent's constraints are provable.
     always_on: bool = _env_bool("SYNTH_ALWAYS_ON", True)
+    # How long the background pass waits between attempts at unsettled intents.
+    keepalive_seconds: float = float(_env("SYNTH_KEEPALIVE_SECONDS", "120"))
 
     evidence_dir: str = _env("SYNTH_EVIDENCE_DIR", "evidence")
 

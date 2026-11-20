@@ -43,7 +43,33 @@ async def lifespan(_app: FastAPI):
     """
     await asyncio.to_thread(synth.executor.prewarm)
     await asyncio.to_thread(synth.scanner.scan)
-    yield
+    keeper = asyncio.create_task(_keep_settling()) if SETTINGS.always_on else None
+    try:
+        yield
+    finally:
+        if keeper is not None:
+            keeper.cancel()
+
+
+async def _keep_settling() -> None:
+    """Keep working every intent that has not paid yet.
+
+    The engine's contract is that an intent terminates in a settlement, so an
+    intent that has not paid is unfinished work rather than a closed request.
+    This pass re-scans for components that appeared since the last attempt and
+    re-settles, forever. It is what makes ``always_on`` a behaviour instead of
+    a field in the status payload.
+    """
+    while True:
+        try:
+            await asyncio.sleep(SETTINGS.keepalive_seconds)
+            await asyncio.to_thread(synth.retry_unsettled)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            # A failed pass is not a reason to stop keeping the shop open; the
+            # next pass retries with a fresh scan.
+            continue
 
 
 app = FastAPI(
@@ -91,6 +117,9 @@ async def status() -> dict:
         "lookback_hours": SETTINGS.github_lookback_hours,
         "loop_budget_seconds": SETTINGS.loop_budget_seconds,
         "always_on": SETTINGS.always_on,
+        # Work the background pass still owes: intents that have not paid yet.
+        "unsettled": len(synth.unsettled()),
+        "keepalive_seconds": SETTINGS.keepalive_seconds,
         "treasury": await _treasury_state(),
         "gas": {
             "paymaster": SETTINGS.paymaster_url,
