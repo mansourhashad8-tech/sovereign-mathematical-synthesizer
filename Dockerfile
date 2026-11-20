@@ -5,6 +5,22 @@
 # proving key and circuit are baked in rather than rebuilt at boot: rebuilding
 # them would produce a different key than the one the verifier bytecode encodes,
 # and every proof would then be rejected on chain.
+# The settlement leg runs its own fuel-core node, so the node binaries are
+# fetched in a throwaway stage and copied in. Keeping them out of the final
+# layer keeps the runtime image from carrying the download tooling.
+FROM debian:bookworm-slim AS fuel
+
+ARG FUEL_CORE_VERSION=0.47.1
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends curl ca-certificates tar \
+ && curl -sSL -o /tmp/fuel.tar.gz \
+      "https://github.com/FuelLabs/fuel-core/releases/download/v${FUEL_CORE_VERSION}/fuel-core-${FUEL_CORE_VERSION}-x86_64-unknown-linux-gnu.tar.gz" \
+ && tar xzf /tmp/fuel.tar.gz -C /tmp \
+ && mkdir -p /opt/fuel \
+ && cp /tmp/fuel-core-${FUEL_CORE_VERSION}-x86_64-unknown-linux-gnu/fuel-core* /opt/fuel/ \
+ && chmod 0755 /opt/fuel/fuel-core*
+
 FROM python:3.12-slim
 
 RUN apt-get update \
@@ -28,6 +44,10 @@ RUN pip install --no-cache-dir -r requirements.txt -r requirements-eth.txt
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --no-audit --no-fund
 
+# fuel-core plus its keygen; the settlement leg starts the node itself, so the
+# binaries have to be present or that leg can only ever report a fallback.
+COPY --from=fuel /opt/fuel/ /usr/local/bin/
+
 COPY synthesizer ./synthesizer
 COPY contracts ./contracts
 COPY circuits ./circuits
@@ -35,6 +55,9 @@ COPY build/zk/settlement.r1cs build/zk/settlement_0.zkey ./build/zk/
 # The whole js bundle is needed: generate_witness.js drives the wasm, and the
 # wasm alone cannot produce a witness.
 COPY build/zk/settlement_js ./build/zk/settlement_js
+# The Sway ledger, its compiled artifacts, and the runner script the settlement
+# leg shells out to. Without these the leg has a node but nothing to deploy.
+COPY sway ./sway
 COPY web ./web
 COPY scripts ./scripts
 COPY config ./config

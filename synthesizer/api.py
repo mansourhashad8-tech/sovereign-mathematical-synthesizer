@@ -259,9 +259,11 @@ def fuel_state() -> dict:
 
         hand = FuelHand(node)
     if hand:
-        cid = hand.contract_id()
+        # Report the id the chain answers for. A cached id from another chain
+        # would read as a healthy ledger that this node cannot serve.
+        cid = hand.verified_contract_id()
         payload["contract_id"] = cid
-        state = hand._run("state", {"beneficiary": "0x" + "00" * 12 + BENEFICIARY[2:]})
+        state = hand._run("state", {"beneficiary": "0x" + "00" * 12 + BENEFICIARY[2:]}) if cid else None
         if state:
             payload["locked_beneficiary"] = state.get("locked", "")
             totals = state.get("totals", ["0", "0"])

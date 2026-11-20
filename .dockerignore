@@ -12,3 +12,9 @@ __pycache__
 .venv
 evidence/*.jsonl
 .synth
+
+# Fuel runtime state is per-chain. Shipping the id from another machine makes the
+# container point at a contract its own chain has never seen.
+sway/chain/genesis
+sway/chain/contract_id.txt
+sway/chain/settlements.json

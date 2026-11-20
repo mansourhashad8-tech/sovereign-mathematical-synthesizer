@@ -304,6 +304,22 @@ class FuelHand:
             self._contract_id = path.read_text().strip()
         return self._contract_id
 
+    def verified_contract_id(self) -> str:
+        """Return the ledger id only if the running chain actually has it.
+
+        The id is cached in a file, and a file can outlive the chain it was
+        written for: an image built on one machine, a fresh genesis on another.
+        Reading storage is what separates "deployed somewhere" from "deployed
+        here", so an id that fails this check is not returned at all.
+        """
+        candidate = self.contract_id()
+        if not candidate:
+            return ""
+        state = self._run("state", {}, timeout=60)
+        if state and state.get("contractId") == candidate:
+            return candidate
+        return ""
+
     def available(self) -> bool:
         if not _node_binary():
             return False
@@ -344,7 +360,9 @@ class FuelHand:
                 status="unavailable",
                 reason="fuel-core node is not reachable and could not be started",
             )
-        contract = self.contract_id() or self.deploy()
+        # Ask the chain, not the file: a stale id would make every settlement
+        # fail against a contract this node never deployed.
+        contract = self.verified_contract_id() or self.deploy()
         if not contract:
             return FuelSettlement(
                 status="unavailable",

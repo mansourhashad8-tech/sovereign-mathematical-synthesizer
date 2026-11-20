@@ -6,7 +6,7 @@ Repo: `mansourhashad8-tech/sovereign-mathematical-synthesizer`, branch
 Pages: `https://mansourhashad8-tech.github.io/sovereign-mathematical-synthesizer/`.
 Arabic NL intent -> formal constraints -> live primitive composition -> Z3/CVC5
 proof -> execution. Non-custodial; beneficiary locked to
-`0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47`. 103 tests pass.
+`0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47`. 112 tests pass.
 
 ## ZK settlement — the leg that completes without gas (`0164c97`,`bd5ceb3`,`6fbfc75`)
 Fork exec (py-evm, `base_fee=0`) -> measured balance delta -> Groth16 proof ->
@@ -60,6 +60,24 @@ optimism-sepolia and eth-sepolia, and every keyless sponsor is exhausted or
 gated. The fork leg proves the full mechanics end to end but its unit has no
 market value. Reliable external bounties are human-gated by design. Detail in
 `2026-11-18.md`, `2026-11-16.md`, `2026-11-09.md`.
+
+## Settlement leg — engine-owned Fuel chain (commit `e9c5b5a`, 2026-11-18)
+Fuel is now the **primary** settlement leg; the sponsored EVM ladder is fallback.
+- `fuel-core 0.47.1` + Sway contract `sway/settlement_ledger`: beneficiary locked
+  as a compile-time constant, a commitment already settled is rejected.
+  `synthesizer/fuel.py` supervises the node.
+- **Why gasless is true:** the node runs `--min-gas-price 0`, so the only input a
+  tx needs is a genesis UTXO. No sponsor, no user funds, external spend = 0.
+- Settlement is **inline** (~1s), so the Arabic answer carries a real tx id, the
+  block, the measured gas, and the exact delta credited.
+- Endpoints: `/fuel` (ledger state), `/fuel/tx/{id}` (receipt re-queried from the
+  node, because a public explorer has no record of a local chain).
+- **Honesty boundary:** delivered amounts are ledger units on an engine-owned local
+  chain, not withdrawable USDC. Never describe them as public-network money.
+- Gotchas: block field is `transactionIds`; a replay must report the *original* tx;
+  runtime state (`sway/chain/genesis/`, `contract_id.txt`, `settlements.json`) is
+  gitignored while the compiled ledger artifacts are committed.
+Detail: `2026-11-18.md`.
 
 ## Older detail — archived, read on demand
 `archive-2026-11-18-full-index.md` holds the previous full index (gas flywheel

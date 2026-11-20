@@ -155,3 +155,24 @@ def test_a_replay_reports_the_original_transaction():
     assert replayed.tx_id == first.tx_id
     assert replayed.paid
     assert replayed.detail["replayed"] is True
+
+
+@needs_node
+def test_a_contract_id_from_another_chain_is_not_trusted():
+    """A cached id must be confirmed by the chain before it is used.
+
+    This is the deployed-container failure: the image carried a contract id
+    written on a different machine, so every settlement was assembled against a
+    contract the node had never seen and failed with InputContractDoesNotExist.
+    An id the chain does not answer for has to be treated as absent.
+    """
+    hand = FuelHand()
+    if not hand.node.ensure_running():
+        pytest.skip("node unavailable")
+
+    hand._contract_id = "0x" + "ab" * 32
+    assert hand.verified_contract_id() == ""
+
+    deployed = hand.deploy()
+    assert deployed and deployed != "0x" + "ab" * 32
+    assert hand.verified_contract_id() == deployed
