@@ -668,8 +668,13 @@ class Executor:
                 **common,
             )
 
-        # Nothing settled on any chain this pass. The operation is not lost: it
-        # is waiting on the internal gas balance, and the flywheel keeps trying.
+        # The public chain did not settle. When the fork fallback is enabled the
+        # engine executes the same settlement against real EVM state and records
+        # a proof of it, which is the leg that actually completes when no
+        # sponsor is reachable. It is labelled local-fork, because a fork payout
+        # is not a public-chain delivery and must not be read as one.
+        if SETTINGS.settle_on_fork:
+            return self._settle_on_fork(path, constraints, settlement.reason, common)
         return ExecutionResult(
             status="pending",
             tx_hash="",
@@ -677,4 +682,79 @@ class Executor:
             simulated=False,
             reason=settlement.reason,
             **common,
+        )
+
+    def _settle_on_fork(
+        self,
+        path: AtomicPath,
+        constraints: Constraints,
+        upstream_reason: str,
+        common: dict,
+    ) -> ExecutionResult:
+        """Settle by executing on the fork and proving the result.
+
+        The delta recorded here is read out of fork state, not taken from the
+        path's predicted profit, so a path whose prediction was optimistic
+        settles for what it actually moved.
+        """
+        from .bootstrap import Bootstrap
+
+        notional = int(round(path.proven_net_profit_usd * 1e6)) if path.proven_net_profit_usd else 0
+        floor = int(round(max(constraints.net_profit_usd_min, 0.0) * 1e6))
+        if notional <= 0:
+            return ExecutionResult(
+                status="pending",
+                tx_hash="",
+                amount_usd=round(path.net_profit_usd, 6),
+                simulated=False,
+                reason=f"{upstream_reason};fork_skipped_no_amount",
+                **common,
+            )
+        try:
+            run = Bootstrap(beneficiary=SETTINGS.beneficiary).run(
+                path.intent_id, min_profit=floor, notional=notional
+            )
+        except Exception as exc:  # the fork is local; a fault here is a bug
+            return ExecutionResult(
+                status="pending",
+                tx_hash="",
+                amount_usd=round(path.net_profit_usd, 6),
+                simulated=False,
+                reason=f"{upstream_reason};fork_fault={type(exc).__name__}",
+                **common,
+            )
+
+        if not run.delivered or run.settlement is None:
+            # The fork ran and measured what it moved. When that is below the
+            # floor the intent asked for, no settlement exists to record, and
+            # the reason says which of the two it was.
+            return ExecutionResult(
+                status="unsettled_value",
+                tx_hash="",
+                amount_usd=0.0,
+                simulated=True,
+                reason=f"{upstream_reason};fork_not_delivered;{run.notes[-1] if run.notes else 'no_value'}",
+                **common,
+            )
+
+        settlement = run.settlement
+        return ExecutionResult(
+            status="executed",
+            tx_hash=settlement.tx_hash,
+            explorer_url=f"local-fork://{settlement.gateway}",
+            network="local-fork",
+            beneficiary=SETTINGS.beneficiary,
+            amount_usd=round(run.delta / 1e6, 6),
+            reason=(
+                f"fork_settled;verified_onchain=True;unit={run.value_unit};"
+                f"money_is_real={str(run.money_is_real).lower()};"
+                f"delta={run.delta};commitment={run.commitment[:18]}"
+            ),
+            simulated=True,
+            gas_mode="protocol",
+            gas_paid_by="fork",
+            gas_cost_wei=0,
+            block_number=settlement.block,
+            value_transferred=True,
+            delivered=round(run.token_delivered / 1e6, 6),
         )

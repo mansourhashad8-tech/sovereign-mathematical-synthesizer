@@ -23,6 +23,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
 
 from . import __version__
+from .bootstrap import Bootstrap
 from .config import SETTINGS
 from .genesis import GenesisMesh
 from .gasflywheel import _networks
@@ -232,6 +233,31 @@ async def synthesize(body: IntentBody) -> JSONResponse:
     if result.execution is not None:
         headers["X-Execution-Status"] = result.execution.status
         headers["X-Gas-Mode"] = result.execution.gas_mode
+    return JSONResponse(payload, headers=headers)
+
+
+class BootstrapBody(BaseModel):
+    intent_id: str = "intent"
+    min_profit: int = 1_000_000
+    notional: int = 5_000_000
+
+
+@app.post("/bootstrap")
+async def bootstrap(body: BootstrapBody) -> JSONResponse:
+    """Run the fork -> proof -> chain path and report what the chain recorded.
+
+    The work happens in a worker thread because proving is CPU bound, and the
+    result is returned as produced: if the chain rejected the proof the response
+    says so rather than describing an intention.
+    """
+    result = await asyncio.to_thread(
+        Bootstrap().run, body.intent_id, body.min_profit, body.notional
+    )
+    payload = result.to_dict()
+    headers = {
+        "X-Bootstrap-Delivered": str(result.delivered).lower(),
+        "X-Bootstrap-Verified": str(result.verified_onchain).lower(),
+    }
     return JSONResponse(payload, headers=headers)
 
 

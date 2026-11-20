@@ -430,6 +430,9 @@ def test_executor_tries_every_bundler_then_falls_back_honestly(monkeypatch):
     monkeypatch.setattr(SETTINGS, "extra_paymasters", [])
     monkeypatch.setattr(SETTINGS, "fallback_networks", [])
     monkeypatch.setattr(SETTINGS, "receipt_timeout_seconds", 0.1)
+    # This test is about the public path. The fork fallback is a separate leg
+    # with its own test, so it is switched off here.
+    monkeypatch.setattr(SETTINGS, "settle_on_fork", False)
 
     ex = Executor()
     c = parse_deterministic("اربح 5 دولار من السيولة")

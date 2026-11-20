@@ -178,6 +178,11 @@ class Settings:
     # no-op is the honest settlement until a funded route exists. The gas path
     # itself is proved either way.
     transfer_settlement_value: bool = _env_bool("SYNTH_TRANSFER_VALUE", False)
+    # When no public gas source is reachable, the engine can still execute and
+    # prove the settlement on the local fork. That is real execution with a real
+    # proof, but it is not a public-chain payout, so it is reported under its
+    # own network label and never as an on-chain delivery.
+    settle_on_fork: bool = _env_bool("SYNTH_SETTLE_ON_FORK", True)
     # Concurrent background settlements. Settlement is I/O-bound; a small pool
     # keeps a burst of intents from opening unbounded sponsor handshakes.
     settlement_workers: int = _env_int("SYNTH_SETTLE_WORKERS", 4)
