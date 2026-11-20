@@ -38,6 +38,13 @@ def _env_bool(name: str, default: bool) -> bool:
     return _env(name, str(default)).strip().lower() in ("1", "true", "yes", "on")
 
 
+def _env_float(name: str, default: float) -> float:
+    try:
+        return float(_env(name, str(default)))
+    except ValueError:
+        return default
+
+
 @dataclass
 class Settings:
     # --- identity ---
@@ -133,8 +140,15 @@ class Settings:
     # accepted-but-not-yet-mined (which is still a real submission).
     receipt_timeout_seconds: float = float(_env("SYNTH_RECEIPT_TIMEOUT", "20"))
     receipt_poll_seconds: float = float(_env("SYNTH_RECEIPT_POLL", "1.5"))
-    # A watchdog re-attempts any settlement that came back simulated.
-    watchdog_attempts: int = _env_int("SYNTH_WATCHDOG_ATTEMPTS", 3)
+    # A watchdog re-attempts any settlement that came back unsettled. Zero
+    # means no cap: the engine keeps trying until the gas balance allows the
+    # settlement, which is the whole promise. A positive value is a deliberate
+    # cap for tests and for operators who want a bounded run.
+    watchdog_attempts: int = _env_int("SYNTH_WATCHDOG_ATTEMPTS", 0)
+    # The ceiling on the backoff between rounds, in seconds. A long wait is
+    # correct here: the thing being waited for is an external balance change,
+    # and hammering a chain that cannot pay only burns quota.
+    watchdog_max_delay: float = _env_float("SYNTH_WATCHDOG_MAX_DELAY", 300.0)
     # Where the agent's own signing key lives. A stable identity is a
     # prerequisite for holding a balance: the smart account address is derived
     # from this key, so a per-process key is an account that can never

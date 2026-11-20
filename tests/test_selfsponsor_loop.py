@@ -19,7 +19,7 @@ from eth_account import Account
 
 from synthesizer.config import SETTINGS
 from synthesizer.gasflywheel import GasFlywheel, Network, GasSettlement
-from synthesizer.models import AtomicPath, Constraints, Goal
+from synthesizer.models import AtomicPath, Constraints, ExecutionResult, Goal
 
 from .localchain import Chain
 
@@ -211,3 +211,47 @@ def test_a_mined_no_op_is_not_a_settlement(chain, monkeypatch):
     assert result.status == "unsettled_value"
     assert result.amount_usd == 0.0
     assert result.value_transferred is False
+
+
+# -- 5. the watch persists, because the promise is 24/7 -------------------
+
+
+def test_the_watch_does_not_give_up_by_default(chain, monkeypatch):
+    """An unsettled settlement stays watched until it mines, with no cap.
+
+    The engine promises to keep working until the intent pays, so a bounded
+    retry count would break that promise. This checks the default is unbounded
+    and that a settlement which cannot pay yet is still marked pending, not
+    exhausted.
+    """
+    from synthesizer.watchdog import SettlementWatchdog
+
+    assert SETTINGS.watchdog_attempts == 0, "the default must not cap retries"
+
+    key = chain.session_key
+    flywheel = GasFlywheel(key, Account.from_key(key).address)
+    dog = SettlementWatchdog(flywheel)
+    monkeypatch.setattr(SETTINGS, "watchdog_max_delay", 0.01)
+
+    # Every attempt comes back unsettled, as it would while the account holds
+    # no native coin.
+    calls = {"n": 0}
+
+    def never_pays(call_data):
+        calls["n"] += 1
+        return GasSettlement(status="unsettled", reason="no_gas_leg_has_value")
+
+    monkeypatch.setattr(flywheel, "settle", never_pays)
+
+    dog.watch("k", "0x", ExecutionResult(status="pending", tx_hash="",
+                                         amount_usd=0.0))
+    import time
+    deadline = time.time() + 5
+    while time.time() < deadline and calls["n"] < 4:
+        time.sleep(0.05)
+    dog.stop()
+
+    assert calls["n"] >= 4, "the watch stopped retrying before the deadline"
+    state = dog.status()
+    assert state["exhausted"] == 0, "an unbounded watch must never exhaust"
+    assert state["pending"] == 1, "the settlement is still owed, so still pending"

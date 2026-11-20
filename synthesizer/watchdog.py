@@ -124,7 +124,12 @@ class SettlementWatchdog:
             for rec in pending:
                 if self._stop.is_set():
                     return
-                if rec.attempts >= SETTINGS.watchdog_attempts:
+                # Zero means no cap: the watch runs until the settlement
+                # mines, which is the promise the engine makes. A positive
+                # value bounds the run for tests and for operators who ask
+                # for it.
+                cap = SETTINGS.watchdog_attempts
+                if cap > 0 and rec.attempts >= cap:
                     # Out of attempts, not settled. Marking this settled would
                     # report a failed watch as a payout.
                     with self._lock:
@@ -141,5 +146,5 @@ class SettlementWatchdog:
                         except Exception:  # noqa: BLE001 - a hook must not kill the watch
                             pass
 
-            delay = min(delay * 1.5, 30.0)
+            delay = min(delay * 1.5, SETTINGS.watchdog_max_delay)
             self._stop.wait(delay)
