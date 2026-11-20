@@ -29,29 +29,7 @@ def _load() -> tuple[list, str]:
     return abi, code
 
 
-ERC20_SRC = """
-// SPDX-License-Identifier: MIT
-pragma solidity 0.8.24;
-contract Token {
-    mapping(address => uint256) public balanceOf;
-    mapping(address => mapping(address => uint256)) public allowance;
-    uint256 public totalSupply;
-    event Transfer(address indexed from, address indexed to, uint256 value);
-    event Approval(address indexed owner, address indexed spender, uint256 value);
-    function mint(address to, uint256 a) external { balanceOf[to] += a; totalSupply += a; emit Transfer(address(0), to, a); }
-    function approve(address s, uint256 a) external returns (bool) { allowance[msg.sender][s] = a; emit Approval(msg.sender, s, a); return true; }
-    function transfer(address to, uint256 a) external returns (bool) {
-        require(balanceOf[msg.sender] >= a, "balance");
-        balanceOf[msg.sender] -= a; balanceOf[to] += a; emit Transfer(msg.sender, to, a); return true;
-    }
-    function transferFrom(address f, address to, uint256 a) external returns (bool) {
-        require(balanceOf[f] >= a, "balance");
-        require(allowance[f][msg.sender] >= a, "allowance");
-        allowance[f][msg.sender] -= a; balanceOf[f] -= a; balanceOf[to] += a;
-        emit Transfer(f, to, a); return true;
-    }
-}
-"""
+
 
 
 def _evm():
@@ -146,63 +124,28 @@ def call(chain, sender_key: str, to: str, data: bytes, gas: int = 3_000_000):
     return _send(chain, sender_key, bytes.fromhex(to[2:]), data, gas)
 
 
-PERMIT_TOKEN_SRC = """
-// SPDX-License-Identifier: MIT
-pragma solidity 0.8.24;
-contract Token {
-    string public name = "SovereignUSD"; string public version = "1";
-    mapping(address => uint256) public balanceOf;
-    mapping(address => mapping(address => uint256)) public allowance;
-    mapping(address => uint256) public nonces;
-    bytes32 public DOMAIN_SEPARATOR;
-    bytes32 constant PERMIT_TYPEHASH =
-        keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)");
-    event Transfer(address indexed from, address indexed to, uint256 value);
-    constructor() {
-        DOMAIN_SEPARATOR = keccak256(abi.encode(
-            keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
-            keccak256(bytes(name)), keccak256(bytes(version)), block.chainid, address(this)));
-    }
-    function mint(address to, uint256 a) external { balanceOf[to] += a; emit Transfer(address(0), to, a); }
-    function approve(address s, uint256 a) external returns (bool) { allowance[msg.sender][s] = a; return true; }
-    function transfer(address to, uint256 a) external returns (bool) {
-        require(balanceOf[msg.sender] >= a, "balance");
-        balanceOf[msg.sender] -= a; balanceOf[to] += a; emit Transfer(msg.sender, to, a); return true;
-    }
-    function transferFrom(address f, address to, uint256 a) external returns (bool) {
-        require(balanceOf[f] >= a, "balance"); require(allowance[f][msg.sender] >= a, "allowance");
-        allowance[f][msg.sender] -= a; balanceOf[f] -= a; balanceOf[to] += a;
-        emit Transfer(f, to, a); return true;
-    }
-    function permit(address o, address sp, uint256 v, uint256 d, uint8 vv, bytes32 r, bytes32 s) external {
-        bytes32 h = keccak256(abi.encode(PERMIT_TYPEHASH, o, sp, v, nonces[o]++, d));
-        bytes32 dig = keccak256(abi.encodePacked(bytes2(0x1901), DOMAIN_SEPARATOR, h));
-        address rec = ecrecover(dig, vv, r, s);
-        require(rec == o && rec != address(0), "permit");
-        allowance[o][sp] = v;
-    }
-}
-"""
+
 
 
 def build_permit() -> dict:
-    """Deploy the permit-capable token plus GasValueLock on a real EVM."""
-    import solcx
+    """Deploy the permit-capable token plus GasValueLock on a real EVM.
 
-    tok = solcx.compile_source(
-        PERMIT_TOKEN_SRC, output_values=["abi", "bin"], solc_version="0.8.24"
-    )
-    tkey = [k for k in tok if k.endswith(":Token")][0]
+    Both contracts are loaded from committed artifacts, so the tests need no
+    Solidity compiler. Compiling in CI would make the suite depend on solc
+    being downloadable, and a settlement proof that cannot run is not a proof.
+    """
+    token_abi = json.loads((CONTRACTS / "TestValueToken.abi.json").read_text())
+    token_bin = (CONTRACTS / "TestValueToken.bin").read_text().strip()
     abi, code = _load()
     chain = _evm()
     deployer = "0x" + "11" * 31 + "12"
     agent = "0x" + "22" * 31 + "23"
     relayer = "0x" + "33" * 31 + "34"
     outsider = "0x" + "44" * 31 + "45"
-    token = deploy(chain, deployer, tok[tkey]["abi"], tok[tkey]["bin"])
+    token = deploy(chain, deployer, token_abi, token_bin)
     lock = deploy(chain, deployer, abi, code)
     return {
-        "chain": chain, "abi": abi, "token_abi": tok[tkey]["abi"],
+        "chain": chain, "abi": abi, "token_abi": token_abi,
         "token": token, "lock": lock,
         "agent": agent, "agent_addr": Account.from_key(agent).address,
         "relayer": relayer, "relayer_addr": Account.from_key(relayer).address,
@@ -213,13 +156,8 @@ def build_permit() -> dict:
 
 def build() -> dict:
     """Compile the token, deploy both contracts, and return the handles."""
-    import solcx
-
-    tok = solcx.compile_source(
-        ERC20_SRC, output_values=["abi", "bin"], solc_version="0.8.24"
-    )
-    tkey = [k for k in tok if k.endswith(":Token")][0]
-    tok_abi, tok_bin = tok[tkey]["abi"], tok[tkey]["bin"]
+    tok_abi = json.loads((CONTRACTS / "TestValueToken.abi.json").read_text())
+    tok_bin = (CONTRACTS / "TestValueToken.bin").read_text().strip()
 
     abi, code = _load()
     chain = _evm()
