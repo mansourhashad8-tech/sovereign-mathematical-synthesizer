@@ -208,6 +208,11 @@ class ExecutionResult:
     # no-op executes but transfers nothing, and saying otherwise would be a
     # lie about money that never moved.
     value_transferred: bool = False
+    # The beneficiary's measured balance gain, in the settled unit. Distinct
+    # from amount_usd, which is the proved gross: the lock deducts a reserve
+    # and the relayer fee before the remainder reaches the beneficiary, so
+    # reporting the gross as the amount delivered overstates the payout.
+    delivered: float = 0.0
 
 
 @dataclass

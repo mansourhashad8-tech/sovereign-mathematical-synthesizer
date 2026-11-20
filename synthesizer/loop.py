@@ -120,6 +120,11 @@ class Synthesizer:
         # UI) differs from the profit that was actually proved.
         if chosen is not None and proof is not None and proof.satisfied:
             self._align_to_witness(chosen, proof)
+            # The lock settles each intentId once. Seeding the path with the
+            # beneficiary address gave every intent the same key, so only the
+            # first settlement could ever succeed and every later one reverted
+            # inside the lock while its transaction still mined.
+            chosen.intent_id = iid
 
         # Absolute-limit certificate when nothing proved. The bound must be
         # computed over the best composition the market actually offers: a
@@ -522,13 +527,18 @@ class Synthesizer:
                 return
             ex = result.execution
             if settlement.mined:
-                expected = 0
-                if ex.value_transferred and ex.amount_usd:
-                    expected = int(ex.amount_usd * 1e18)
-                landed, evidence = (
+                # The expectation has to be in the settled unit and net of the
+                # contract's own deductions; a wei figure would mark a correct
+                # token payout as short.
+                expected = self.executor.expected_beneficiary_delta(
+                    result.chosen_path, bool(ex.value_transferred)
+                ) if result.chosen_path else 0
+                landed, evidence, delta = (
                     self.executor.sweep_landed(net, baseline, expected)
-                    if net else (False, "no_network")
+                    if net else (False, "no_network", 0)
                 )
+                scale = 1e6 if SETTINGS.gas_value_lock else 1e18
+                ex.delivered = round(max(delta, 0) / scale, 6)
                 ex.simulated = False
                 ex.tx_hash = settlement.tx_hash
                 ex.explorer_url = settlement.explorer_url
@@ -578,7 +588,7 @@ class Synthesizer:
                 f"{ex.block_number}: {ex.tx_hash}. الغاز دفعَه {ex.gas_paid_by} "
                 f"({ex.bundler})، ولم يُخصم من رصيد المستفيد شيء. "
                 f"وتحقّق وصول القيمة: رصيد المستفيد زاد فعلياً بمقدار "
-                f"{ex.amount_usd} USDC."
+                f"{ex.delivered or ex.amount_usd} USDC."
             )
         if ex.status == "REVERTED_VALUE":
             return (

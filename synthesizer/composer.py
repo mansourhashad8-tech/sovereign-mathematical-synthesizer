@@ -157,13 +157,17 @@ class Composer:
             notional = 0.0
 
         return AtomicPath(
-            intent_id=constraints.beneficiary,
+            intent_id="",
             steps=steps,
             primitives=[p.key for p in uniq],
             notional_usd=round(notional, 2),
             gas_sponsor="protocol",
             simulation_ok=True,
             has_uncollateralized_capital=has_capital,
+            # The deep path has to carry the amount it expects to settle. Left
+            # unset, a settlement for it encodes value 0 with empty calldata,
+            # which mines as a sponsored no-op that pays nobody.
+            proven_net_profit_usd=round(notional * net_rate, 6) if notional else None,
         )
 
     def propose(self, constraints: Constraints, primitives: list[Primitive],
@@ -234,7 +238,7 @@ class Composer:
             notional = 0.0
 
         return AtomicPath(
-            intent_id=constraints.beneficiary,
+            intent_id="",
             steps=steps,
             primitives=[p.key for p in uniq],
             notional_usd=round(notional, 2),

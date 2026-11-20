@@ -63,7 +63,7 @@ class Template:
             for h in self.hops
         ]
         return AtomicPath(
-            intent_id=constraints.beneficiary,
+            intent_id="",
             steps=steps,
             primitives=self.primitives,
             notional_usd=round(notional, 2),

@@ -163,6 +163,9 @@ def test_executor_settles_to_locked_beneficiary():
     ex = Executor()
     c = parse_deterministic("اربح 5 دولار من السيولة")
     path = Composer().propose(c, _primitives(), attempt=0)
+    # A settlement only exists for a proved amount; the loop always proves
+    # before it settles, so the test does the same.
+    path.proven_net_profit_usd = 5.0
     res = ex.settle(path, c)
     assert res.beneficiary == BENEFICIARY
     # A mined operation is never reported as plain success unless the
@@ -194,17 +197,17 @@ def test_value_actually_landed_on_beneficiary():
     before = ex._beneficiary_balance(net)
 
     # Gate B must reject an unchanged balance, whatever the receipt said.
-    landed, evidence = ex.sweep_landed(net, before, 0)
+    landed, evidence, _ = ex.sweep_landed(net, before, 0)
     assert landed is False, "an unchanged balance must never count as a payout"
     assert "balance_unchanged" in evidence
 
     # Gate B must reject a balance that grew by less than the proved profit.
-    landed_short, evidence_short = ex.sweep_landed(net, before - 1, 10**18)
+    landed_short, evidence_short, _ = ex.sweep_landed(net, before - 1, 10**18)
     assert landed_short is False
     assert "balance_short" in evidence_short
 
     # And it must accept a real delta that meets the expectation.
-    landed_ok, evidence_ok = ex.sweep_landed(net, before - 10**18, 10**18)
+    landed_ok, evidence_ok, _ = ex.sweep_landed(net, before - 10**18, 10**18)
     assert landed_ok is True
     assert "balance_grew" in evidence_ok
 
@@ -431,6 +434,7 @@ def test_executor_tries_every_bundler_then_falls_back_honestly(monkeypatch):
     ex = Executor()
     c = parse_deterministic("اربح 5 دولار من السيولة")
     path = Composer().propose(c, _primitives(), attempt=0)
+    path.proven_net_profit_usd = 5.0
     res = ex.settle(path, c)
 
     assert res.status == "simulated"
@@ -863,3 +867,81 @@ def test_genesis_mesh_classifies_every_source_honestly():
     # The only agent-claimable sources are the verified sponsored-gas rungs.
     for s in report.claimable:
         assert s.kind == "gas_credit"
+
+
+def test_a_path_with_no_proved_amount_never_settles_as_an_empty_call():
+    """The deep retry path used to encode execute(beneficiary, 0, "0x").
+
+    That mines with status 1, costs the sponsor gas, emits no transfer and pays
+    nobody, while every surface calls it a settlement. The amount has to exist
+    before a settlement can be built for it.
+    """
+    from synthesizer.executor import Executor
+    from synthesizer.models import AtomicPath
+
+    ex = Executor()
+    unproved = AtomicPath(intent_id="unproved", steps=[], simulation_ok=True)
+    c = parse_deterministic("اربح 5 دولار من السيولة")
+
+    res = ex.settle(unproved, c)
+    assert res.status == "queued"
+    assert res.reason == "no_settlement_amount"
+    assert res.tx_hash == "", "nothing may be broadcast without an amount"
+
+
+def test_the_deep_retry_path_carries_the_amount_it_settles():
+    """propose_deep is the retry after a no-op; it must know what to settle."""
+    from synthesizer.composer import Composer
+
+    c = parse_deterministic("اربح 40 دولار من السيولة")
+    deep = Composer().propose_deep(c, _primitives())
+    assert deep is not None
+    assert deep.proven_net_profit_usd is not None
+    assert deep.proven_net_profit_usd > 0
+
+
+def test_each_intent_gets_its_own_lock_key():
+    """The lock settles an intentId once, so a shared key blocks every later run.
+
+    Seeding every path with the beneficiary address gave all intents the same
+    key. The first settlement consumed it and every later one reverted inside
+    the lock, while the transaction still mined and was reported as a
+    settlement that moved nothing.
+    """
+    from synthesizer.executor import _settlement_key
+    from synthesizer.models import AtomicPath
+
+    a = AtomicPath(intent_id="intent-aaa", steps=[], proven_net_profit_usd=10.0)
+    b = AtomicPath(intent_id="intent-bbb", steps=[], proven_net_profit_usd=10.0)
+    assert _settlement_key(a) == "intent-aaa"
+    assert _settlement_key(a) != _settlement_key(b)
+
+    # A path with no id still needs a stable key that is not the beneficiary.
+    bare = AtomicPath(intent_id="", steps=[], proven_net_profit_usd=12.5,
+                      notional_usd=900.0, primitives=["x#x"])
+    key = _settlement_key(bare)
+    assert key and key == _settlement_key(bare)
+    assert key != BENEFICIARY
+
+    other = AtomicPath(intent_id="", steps=[], proven_net_profit_usd=13.5,
+                       notional_usd=900.0, primitives=["x#x"])
+    assert _settlement_key(other) != key
+
+
+def test_the_loop_gives_the_chosen_path_the_real_intent_id():
+    """The path settled on chain must key the lock by the intent, not the payee."""
+    from synthesizer.intent import intent_id
+    from synthesizer.loop import Synthesizer
+
+    synth = Synthesizer()
+    c = parse_deterministic("اربح 20 دولار من السيولة")
+    import asyncio
+
+    result = asyncio.run(synth.synthesize("اربح 20 دولار من السيولة"))
+    if result.chosen_path is None:
+        return
+    # The key must identify the settlement, never the beneficiary, because the
+    # lock settles each key once.
+    assert result.chosen_path.intent_id != BENEFICIARY
+    if result.chosen_path.intent_id:
+        assert result.chosen_path.intent_id == intent_id(c)

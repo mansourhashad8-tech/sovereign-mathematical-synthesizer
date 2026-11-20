@@ -20,6 +20,7 @@ Design rules, enforced here and nowhere else:
 
 from __future__ import annotations
 
+import hashlib
 import os
 from pathlib import Path
 import threading
@@ -154,6 +155,23 @@ def userop_hash(sender: str, nonce: int, call_data: str, paymaster: str,
         + chain_id.to_bytes(32, "big")
     )
     return "0x" + _keccak_hex(packed)
+
+
+def _settlement_key(path: AtomicPath) -> str:
+    """The lock's one-shot key for this settlement.
+
+    The lock records every intentId it settles and rejects a repeat, so the key
+    has to identify the settlement rather than the beneficiary. A path without
+    an intent id still needs a key that is stable for that path and distinct
+    from every other, which its own economics supply.
+    """
+    if path.intent_id:
+        return path.intent_id
+    material = (
+        f"{path.proven_net_profit_usd}:{path.notional_usd}:"
+        f"{','.join(path.primitives)}"
+    )
+    return hashlib.sha256(material.encode()).hexdigest()[:32]
 
 
 class Executor:
@@ -346,7 +364,7 @@ class Executor:
             return self.flywheel.token_balance_of(net, SETTINGS.value_token, SETTINGS.beneficiary)
         return self.flywheel.balance_of(net, SETTINGS.beneficiary)
 
-    def sweep_landed(self, net, before: int, expected: int) -> tuple[bool, str]:
+    def sweep_landed(self, net, before: int, expected: int) -> tuple[bool, str, int]:
         """Gate B: did the beneficiary's balance actually grow by the profit?
 
         Gate A (``receipt.status == 1``) only proves the operation executed. It
@@ -358,10 +376,10 @@ class Executor:
         after = self._beneficiary_balance(net)
         delta = after - before
         if delta <= 0:
-            return False, f"balance_unchanged(before={before},after={after})"
+            return False, f"balance_unchanged(before={before},after={after})", delta
         if expected > 0 and delta < expected:
-            return False, f"balance_short(delta={delta},expected={expected})"
-        return True, f"balance_grew(delta={delta})"
+            return False, f"balance_short(delta={delta},expected={expected})", delta
+        return True, f"balance_grew(delta={delta})", delta
 
     def settlement_call_data(self, path: AtomicPath) -> str:
         """The exact callData a settlement for this path will carry.
@@ -425,7 +443,7 @@ class Executor:
         fee = min(fee, max(net_profit // 10, 1))
         split = split_value(net_profit, fee, SETTINGS.gas_reserve_bps)
         inner = build_settle_calldata(
-            intent_id=path.intent_id or path.id,
+            intent_id=_settlement_key(path),
             token=SETTINGS.value_token,
             relayer=SETTINGS.beneficiary,
             net_profit=net_profit,
@@ -531,6 +549,16 @@ class Executor:
         # it: gas is sponsored but value is not, so a transfer the account
         # cannot fund would revert and move nothing.
         call_data = self.settlement_call_data(path)
+        # An operation that would carry no value and no calldata is an empty
+        # call to the beneficiary: it mines cleanly, spends the sponsor's gas
+        # and pays nobody. That is never a settlement, so it is refused here
+        # rather than broadcast as one.
+        if not (path.proven_net_profit_usd and path.proven_net_profit_usd > 0):
+            return ExecutionResult(
+                status="queued",
+                reason="no_settlement_amount",
+                beneficiary=SETTINGS.beneficiary,
+            )
         transfers_value = (
             SETTINGS.transfer_settlement_value
             and bool(path.proven_net_profit_usd)
@@ -574,11 +602,16 @@ class Executor:
                 (n for n in _networks() if n.chain_id == settlement.chain_id), pre_net
             )
             expected = self.expected_beneficiary_delta(path, transfers_value)
-            landed, evidence = (
+            landed, evidence, delta = (
                 self.sweep_landed(net, balance_before, expected)
-                if net else (False, "no_network")
+                if net else (False, "no_network", 0)
             )
             common["value_transferred"] = landed
+            # The settled unit is the value token when a lock is in play, and
+            # native wei otherwise. Reporting the gross profit here would
+            # overstate the payout by the reserve and the relayer fee.
+            scale = 1e6 if SETTINGS.gas_value_lock else 1e18
+            common["delivered"] = round(max(delta, 0) / scale, 6)
             if not landed:
                 # Gate A passed but Gate B failed: the transaction executed and
                 # moved nothing. Calling that "executed" would be a claim about
