@@ -402,6 +402,21 @@ Verified: three consecutive Arabic intents delivered 63.21/39.58/117.60 USDC.
 exhausted and every alternative is dead, so retries only re-report `simulated`.
 Detail: `2026-11-18.md`.
 
+## Self-funded AA proved against real EntryPoint (commit `e5a7bbc`)
+`handleOps` settlement now executes end-to-end against real EntryPoint 0.8.0 +
+SimpleAccountFactory bytecode: self-signed op, no paymaster, no bundler, value
+reaches the locked beneficiary. Three bugs only visible against real bytecode:
+AA24 = py-evm `CHAINID` opcode defaults to `131277322940537` while the RPC said
+1337 (EntryPoint folds chain id into the op hash); AA13 = deploy needs ~299k
+verification gas vs the 200k budgeted; AA95 = outer tx limit below
+verification+call+preVerification (~330k bookkeeping on top, measured 978k for a
+650k inner budget). Detail + the `FailedOp` (`0x220266b6`) decoding trick:
+`2026-11-18.md`. Suite: **79 passed**.
+
+**The wall is funding, not code.** Beneficiary and session EOA hold 0 wei on all
+five reachable chains; every faucet is captcha/human-gated. The engine proves and
+can now execute self-funded settlement, but cannot pay the first real tx.
+
 ## Bounty-venue reality check (2026-11-16 run, $0 earned)
 Scanned Superteam, Frantic, Pacta, Opire, Algora, agentbounties.app, GitHub. Every
 open agent-completable slot this run was either taken, gated on a human, or a trap:
