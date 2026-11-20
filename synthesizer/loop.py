@@ -359,7 +359,7 @@ class Synthesizer:
         g = constraints.goal
         equations: list[str] = []
         if proof is not None and proof.satisfied and path is not None:
-            equations.append("NetProfit = N \u00b7 \u03a3(y_i \u2212 f_i) \u2212 gas ,  gas = 0")
+            equations.append("NetProfit = N \u00b7 \u03a3(y_i \u2212 f_i) \u2212 gas ,  gas \u2264 \u0627\u062d\u062a\u064a\u0627\u0637\u064a \u0627\u0644\u063a\u0627\u0632 \u0627\u0644\u062f\u0627\u062e\u0644\u064a")
             equations.append(proof.theorem)
             for i, step in enumerate(path.steps):
                 equations.append(

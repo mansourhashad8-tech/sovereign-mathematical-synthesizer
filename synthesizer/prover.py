@@ -29,6 +29,7 @@ import z3
 
 from .composer import MAX_NOTIONAL_USD
 from .config import SETTINGS
+from .gastreasury import LEGS as GAS_LEGS
 from .models import AtomicPath, Constraints, Proof
 
 # The CVC5 binary (if installed) or the cvc5 Python bindings (pip) both count
@@ -50,7 +51,7 @@ def _theorem_text(constraints: Constraints) -> str:
     return (
         f"\u2203 (N, y_i, f_i) \u2208 Bands : "
         f"N\u00b7\u03a3(y_i - f_i) - gas \u2265 {constraints.net_profit_usd_min:.6f} "
-        f"\u2227 gas_sponsor \u2208 {{protocol, paymaster, barter}} "
+        f"\u2227 gas_source \u2208 {{native, deposit, reinvest, flash, token}} "
         f"\u2227 \u00acCustody \u2227 \u00acUserKey \u2227 Atomic "
         f"\u2192 pays {constraints.beneficiary} in {g.asset}"
     )
@@ -138,7 +139,7 @@ class Prover:
             s.add(f >= rv(flo), f <= rv(fhi))
             net_terms.append(y - f)
 
-        # NetProfit = N · Σ(y_i − f_i) − gas, with gas = 0 (sponsored).
+        # NetProfit = N · Σ(y_i − f_i) − gas, gas drawn from the internal reserve.
         gas = rv(path.total_gas_usd)
         rate_sum = z3.Sum(net_terms) if net_terms else rv(0.0)
         net = N * rate_sum - gas
@@ -146,8 +147,8 @@ class Prover:
 
         # Security constraints as boolean guards. Each is a fact about the
         # composition, encoded so the solver can prove them jointly.
-        gas_ok = path.gas_sponsor in ("protocol", "paymaster", "barter")
-        s.add(z3.BoolVal(gas_ok, ctx))            # gas sponsored by protocol
+        gas_ok = path.gas_sponsor in GAS_LEGS
+        s.add(z3.BoolVal(gas_ok, ctx))            # gas comes from the internal ladder
         s.add(z3.BoolVal(not constraints.allow_custody, ctx))   # no custody
         s.add(z3.BoolVal(not constraints.allow_user_key, ctx))  # no user key
         s.add(z3.BoolVal(not constraints.allow_user_gas, ctx))  # no user gas

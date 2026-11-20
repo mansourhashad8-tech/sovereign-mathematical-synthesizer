@@ -6,7 +6,7 @@ the same atomic transaction. Each hop earns a small *yield rate* on N and pays a
 *fee rate* on N. Because N is borrowed and repaid within the transaction, the
 beneficiary needs no starting capital. The profit is
 
-    NetProfit = N · Σ(yield_i − fee_i) − gas ,   gas = 0 (protocol-sponsored)
+    NetProfit = N · Σ(yield_i − fee_i) − gas ,   gas ≤ internal reserve
 
 This is the honest form of "earn with no capital": a path with no capital
 primitive has N = 0 and therefore cannot earn, so the prover rejects it. The
@@ -161,7 +161,9 @@ class Composer:
             steps=steps,
             primitives=[p.key for p in uniq],
             notional_usd=round(notional, 2),
-            gas_sponsor="protocol",
+            # The declared leg is rung one of the internal ladder; the gas
+            # treasury resolves the actual rung at execution time.
+            gas_sponsor="native",
             simulation_ok=True,
             has_uncollateralized_capital=has_capital,
             # The deep path has to carry the amount it expects to settle. Left
@@ -242,7 +244,9 @@ class Composer:
             steps=steps,
             primitives=[p.key for p in uniq],
             notional_usd=round(notional, 2),
-            gas_sponsor="protocol",
+            # The declared leg is rung one of the internal ladder; the gas
+            # treasury resolves the actual rung at execution time.
+            gas_sponsor="native",
             simulation_ok=True,
             has_uncollateralized_capital=bool(capital_cats),
         )
