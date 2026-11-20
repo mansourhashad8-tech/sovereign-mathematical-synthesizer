@@ -21,6 +21,7 @@ Design rules, enforced here and nowhere else:
 from __future__ import annotations
 
 import os
+from pathlib import Path
 import threading
 import time
 
@@ -74,11 +75,41 @@ class SessionKey:
 
     @classmethod
     def load(cls) -> "SessionKey":
+        """Resolve the agent's signing identity, preferring stability.
+
+        Order: the ``SYNTH_SESSION_KEY`` environment variable, then a key file
+        on disk, then a newly generated key written to that file. Persisting
+        matters because the smart account address is derived from this key: an
+        identity that changes per process is an account that can never hold a
+        balance, so value would have nowhere to accumulate. The key is the
+        agent's own and never leaves the host.
+        """
         raw = os.environ.get("SYNTH_SESSION_KEY", "").strip()
         if raw:
             key = raw if raw.startswith("0x") else "0x" + raw
             return cls(address=Account.from_key(key).address, private_key=key)
+
+        path = Path(SETTINGS.session_key_path)
+        try:
+            stored = path.read_text().strip()
+        except (FileNotFoundError, OSError):
+            stored = ""
+        if stored:
+            key = stored if stored.startswith("0x") else "0x" + stored
+            try:
+                return cls(address=Account.from_key(key).address, private_key=key)
+            except ValueError:
+                pass  # Corrupt file: fall through and mint a fresh identity.
+
         acct = Account.create()
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(acct.key.hex())
+            path.chmod(0o600)
+        except OSError:
+            # Read-only filesystem: an ephemeral identity still works, it just
+            # will not survive a restart.
+            pass
         return cls(address=acct.address, private_key=acct.key.hex())
 
 
@@ -291,6 +322,27 @@ class Executor:
             return False
         return self.flywheel.balance_of(net, account) >= int(path.proven_net_profit_usd * 1e18)
 
+    def _beneficiary_balance(self, net) -> int:
+        """The beneficiary's native balance, the quantity the sweep is judged on."""
+        return self.flywheel.balance_of(net, SETTINGS.beneficiary)
+
+    def sweep_landed(self, net, before: int, expected_wei: int) -> tuple[bool, str]:
+        """Gate B: did the beneficiary's balance actually grow by the profit?
+
+        Gate A (``receipt.status == 1``) only proves the operation executed. It
+        says nothing about whether value moved: a sponsored no-op executes
+        perfectly and pays nobody. The only evidence that money arrived is the
+        beneficiary's balance after minus before, which is why this is measured
+        rather than inferred from the receipt.
+        """
+        after = self._beneficiary_balance(net)
+        delta = after - before
+        if delta <= 0:
+            return False, f"balance_unchanged(before={before},after={after})"
+        if expected_wei > 0 and delta < expected_wei:
+            return False, f"balance_short(delta={delta},expected={expected_wei})"
+        return True, f"balance_grew(delta={delta})"
+
     def settlement_call_data(self, path: AtomicPath) -> str:
         """The exact callData a settlement for this path will carry.
 
@@ -352,6 +404,11 @@ class Executor:
             and path.proven_net_profit_usd > 0
             and self._can_fund(path)
         )
+        # Read the beneficiary's balance *before* the operation so the sweep can
+        # be judged on a measured delta rather than on the receipt alone.
+        nets = _networks()
+        pre_net = nets[0] if nets else None
+        balance_before = self._beneficiary_balance(pre_net) if pre_net else 0
         settlement = self.flywheel.settle(call_data)
         elapsed_ms = (time.time() - started) * 1000.0
 
@@ -366,11 +423,36 @@ class Executor:
             gas_paid_by=settlement.gas_paid_by,
             gas_cost_wei=settlement.actual_gas_cost_wei,
             block_number=settlement.block_number,
-            value_transferred=transfers_value and settlement.mined,
+            value_transferred=False,
             explorer_url=explorer,
         )
 
         if settlement.mined:
+            # Gate A passed: the operation is on chain with status 1.
+            net = next(
+                (n for n in _networks() if n.chain_id == settlement.chain_id), pre_net
+            )
+            expected_wei = int(path.proven_net_profit_usd * 1e18) if transfers_value else 0
+            landed, evidence = (
+                self.sweep_landed(net, balance_before, expected_wei)
+                if net else (False, "no_network")
+            )
+            common["value_transferred"] = landed
+            if not landed:
+                # Gate A passed but Gate B failed: the transaction executed and
+                # moved nothing. Calling that "executed" would be a claim about
+                # money that never moved, so it is labelled for what it is and
+                # handed to the watchdog for a deeper path.
+                return ExecutionResult(
+                    status="REVERTED_VALUE",
+                    tx_hash=settlement.tx_hash,
+                    amount_usd=0.0,
+                    reason=(
+                        f"mined_on_{settlement.network}_but_{evidence};"
+                        f"gas_paid_by={settlement.gas_paid_by}"
+                    ),
+                    **common,
+                )
             return ExecutionResult(
                 status="executed",
                 tx_hash=settlement.tx_hash,
@@ -378,7 +460,7 @@ class Executor:
                 reason=(
                     f"mined_on_{settlement.network};"
                     f"gas_paid_by={settlement.gas_paid_by};"
-                    f"value_transferred={common['value_transferred']}"
+                    f"value_transferred=True;{evidence}"
                 ),
                 **common,
             )

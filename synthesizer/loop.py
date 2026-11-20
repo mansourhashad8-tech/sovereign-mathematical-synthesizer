@@ -40,6 +40,8 @@ from .models import AtomicPath, Constraints, ExecutionResult, IntentResult, Proo
 from .prover import Prover
 from .scanner import GitHubScanner
 from .templates import templates_for
+from .gasflywheel import _networks
+from .genesis import GenesisMesh
 from .watchdog import SettlementWatchdog
 
 
@@ -64,6 +66,7 @@ class Synthesizer:
         self.brain = Brain()
         self.scanner = GitHubScanner()
         self.composer = Composer()
+        self.genesis = GenesisMesh()
         self.prover = Prover()
         self.executor = Executor()
         self.watchdog = SettlementWatchdog(self.executor.flywheel)
@@ -77,7 +80,11 @@ class Synthesizer:
         )
         # A retry that lands must reach the stored result, or the watch was
         # pointless.
-        self.watchdog.set_on_settled(self._apply_settlement)
+        self.watchdog.set_on_settled(self._on_watchdog_settled)
+        # The beneficiary's balance immediately before each intent's first
+        # broadcast. Gate B is a delta against this baseline; without it a
+        # retry that mined could be mistaken for a payout it never made.
+        self._baselines: dict[str, int] = {}
 
     # -- public --------------------------------------------------------------
 
@@ -147,7 +154,10 @@ class Synthesizer:
                 gas_mode="paymaster",
                 reason="settlement_dispatched_to_flywheel",
             )
-            self._dispatch_settlement(iid, chosen, execution)
+            # The baseline is captured here, before any broadcast, so Gate B
+            # compares against the balance as it stood when the intent arrived.
+            self._baseline_for(iid, _networks()[0] if _networks() else None)
+            self._dispatch_settlement(iid, chosen, execution, constraints)
 
         proven = bool(proof is not None and proof.satisfied)
         t0 = time.time()
@@ -405,17 +415,39 @@ class Synthesizer:
     # -- settlement ----------------------------------------------------------
 
     def _dispatch_settlement(self, iid: str, path: AtomicPath,
-                             execution: ExecutionResult) -> None:
+                             execution: ExecutionResult,
+                             constraints: Constraints | None = None) -> None:
         """Settle in the background, then upgrade the stored result in place.
 
         The wait for a mined transaction happens off the request path. When the
         flywheel lands one, the result the caller is holding gains the real hash
         and explorer link; a caller polling ``/intent/{id}`` sees it change from
         pending to executed without re-sending the intent.
+
+        Settlement goes through the executor's dual gate, never straight to the
+        flywheel: a mined transaction that moved nothing is a different outcome
+        from a mined transaction that paid, and only the gate can tell them
+        apart.
         """
         call_data = self.executor.settlement_call_data(path)
 
         def work() -> None:
+            if constraints is not None:
+                gated = self.executor.settle(path, constraints)
+                self._fold_gated(iid, gated)
+                if gated.status == "REVERTED_VALUE":
+                    # Gate A passed but Gate B failed. Replaying the same path
+                    # would reproduce the same no-op, so the retry widens the
+                    # path before it goes back to the watch.
+                    deep = self.composer.propose_deep(
+                        constraints, self.scanner.scan()
+                    )
+                    if deep is not None:
+                        self._retry_deep(iid, deep, constraints)
+                elif gated.status == "simulated":
+                    self.watchdog.watch(iid, call_data, gated)
+                return
+
             settlement = self.executor.flywheel.settle(call_data)
             self._apply_settlement(iid, settlement)
             if not settlement.mined and settlement.status != "submitted":
@@ -426,15 +458,77 @@ class Synthesizer:
         except RuntimeError:  # pool already shut down
             work()
 
+    def _retry_deep(self, iid: str, deep: AtomicPath,
+                    constraints: Constraints) -> None:
+        """Settle a deeper composed path and fold the gated outcome back."""
+        gated = self.executor.settle(deep, constraints)
+        with self._results_lock:
+            result = self._results.get(iid)
+            if result is not None and gated.status == "executed":
+                result.chosen_path = deep
+                result.primitives_used = deep.primitives
+        self._fold_gated(iid, gated)
+        if gated.status in ("REVERTED_VALUE", "simulated"):
+            self.watchdog.watch(
+                iid, self.executor.settlement_call_data(deep), gated
+            )
+
+    def _fold_gated(self, iid: str, gated: ExecutionResult) -> None:
+        """Replace the stored execution with a fully gated result."""
+        with self._results_lock:
+            result = self._results.get(iid)
+            if result is None:
+                return
+            result.execution = gated
+            result.narrative_ar = self._settlement_line(gated)
+
+    def _on_watchdog_settled(self, key: str, settlement) -> None:
+        """A retry mined (or was accepted). Apply Gate B before calling it paid.
+
+        The watchdog speaks the flywheel's language, which knows a receipt but
+        not a balance. Converting its outcome into a stored result is exactly
+        where the "mined therefore paid" assumption used to creep in, so the
+        conversion happens here with the measured baseline attached.
+        """
+        self._apply_settlement(key, settlement)
+
+    def _baseline_for(self, iid: str, net) -> int:
+        """The beneficiary balance recorded before this intent's first broadcast."""
+        with self._results_lock:
+            if iid in self._baselines:
+                return self._baselines[iid]
+        value = self.executor._beneficiary_balance(net) if net else 0
+        with self._results_lock:
+            self._baselines.setdefault(iid, value)
+            return self._baselines[iid]
+
     def _apply_settlement(self, iid: str, settlement) -> None:
-        """Fold a flywheel outcome into the stored result, in place."""
+        """Fold a flywheel outcome into the stored result, in place.
+
+        A mined operation is only ``executed`` when Gate B also holds: the
+        beneficiary's balance grew by the proved profit. A mined operation that
+        moved nothing becomes ``REVERTED_VALUE`` and the deeper path takes over.
+        """
+        nets = _networks()
+        net = next(
+            (n for n in nets if n.chain_id == getattr(settlement, "chain_id", None)),
+            nets[0] if nets else None,
+        )
+        baseline = self._baseline_for(iid, net)
+
         with self._results_lock:
             result = self._results.get(iid)
             if result is None or result.execution is None:
                 return
             ex = result.execution
             if settlement.mined:
-                ex.status = "executed"
+                expected = 0
+                if ex.value_transferred and ex.amount_usd:
+                    expected = int(ex.amount_usd * 1e18)
+                landed, evidence = (
+                    self.executor.sweep_landed(net, baseline, expected)
+                    if net else (False, "no_network")
+                )
                 ex.simulated = False
                 ex.tx_hash = settlement.tx_hash
                 ex.explorer_url = settlement.explorer_url
@@ -444,11 +538,21 @@ class Synthesizer:
                 ex.gas_paid_by = settlement.gas_paid_by
                 ex.network = settlement.network or ex.network
                 ex.bundler = settlement.paymaster or ex.bundler
-                ex.reason = (
-                    f"mined_on_{settlement.network};"
-                    f"gas_paid_by={settlement.gas_paid_by};"
-                    f"value_transferred={ex.value_transferred}"
-                )
+                ex.value_transferred = landed
+                if landed:
+                    ex.status = "executed"
+                    ex.reason = (
+                        f"mined_on_{settlement.network};"
+                        f"gas_paid_by={settlement.gas_paid_by};"
+                        f"value_transferred=True;{evidence}"
+                    )
+                else:
+                    ex.status = "REVERTED_VALUE"
+                    ex.amount_usd = 0.0
+                    ex.reason = (
+                        f"mined_on_{settlement.network}_but_{evidence};"
+                        f"gas_paid_by={settlement.gas_paid_by}"
+                    )
             elif settlement.status == "submitted":
                 ex.status = "submitted"
                 ex.simulated = False
@@ -472,7 +576,17 @@ class Synthesizer:
             return (
                 f"نُفّذت العملية فعلياً على {ex.network} وبُثّت في الكتلة "
                 f"{ex.block_number}: {ex.tx_hash}. الغاز دفعَه {ex.gas_paid_by} "
-                f"({ex.bundler})، ولم يُخصم من رصيد المستفيد شيء."
+                f"({ex.bundler})، ولم يُخصم من رصيد المستفيد شيء. "
+                f"وتحقّق وصول القيمة: رصيد المستفيد زاد فعلياً بمقدار "
+                f"{ex.amount_usd} USDC."
+            )
+        if ex.status == "REVERTED_VALUE":
+            return (
+                f"البرهان نجح والعملية بُثّت فعلياً على {ex.network} "
+                f"({ex.tx_hash})، لكن بوابة القيمة الثانية كشفت أن رصيد "
+                f"المستفيد لم يزد. لذلك لا أُسمّي هذا نجاحاً: الحالة "
+                f"REVERTED_VALUE، والمسار الأعمق يعاد بناؤه تلقائياً "
+                f"(flash_mint + liquidity + market_making) حتى يصل الرصيد."
             )
         if ex.status == "submitted":
             return (

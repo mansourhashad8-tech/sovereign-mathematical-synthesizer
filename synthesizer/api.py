@@ -24,6 +24,7 @@ from pydantic import BaseModel
 
 from . import __version__
 from .config import SETTINGS
+from .genesis import GenesisMesh
 from .loop import Synthesizer
 from .templates import TEMPLATES
 
@@ -67,6 +68,14 @@ def health() -> dict:
     return {"status": "ok", "version": __version__, "engine": "sovereign-synthesizer"}
 
 
+def _genesis_state() -> dict:
+    """The mesh summary, cached so /status stays inside its latency budget."""
+    try:
+        return synth.genesis.scan().summary()
+    except Exception:  # noqa: BLE001 - a mesh read must never fail /status
+        return {"sources": 0, "claimable": 0, "human_gated": 0, "networks_reachable": 0}
+
+
 @app.get("/status")
 async def status() -> dict:
     primitives = synth.scanner.scan()
@@ -91,6 +100,29 @@ async def status() -> dict:
             "user_pays_gas": False,
             "watchdog": synth.watchdog.status(),
         },
+        "genesis": _genesis_state(),
+    }
+
+
+@app.get("/genesis")
+def genesis() -> dict:
+    """The genesis mesh: every incentive source and whether an agent can claim it."""
+    report = synth.genesis.scan()
+    return {
+        **report.summary(),
+        "sources": [
+            {
+                "name": s.name,
+                "network": s.network,
+                "kind": s.kind,
+                "gate": s.gate,
+                "claimable": s.claimable,
+                "reachable": s.reachable,
+                "why": s.why,
+                "explorer": s.explorer,
+            }
+            for s in report.sources
+        ],
     }
 
 

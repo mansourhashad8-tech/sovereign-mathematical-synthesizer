@@ -6,3 +6,7 @@ venv/
 .env
 evidence/*.jsonl
 /tmp/
+
+# The agent signing key is a live credential: never commit it.
+.synth/
+*.key

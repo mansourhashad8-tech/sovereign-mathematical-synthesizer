@@ -247,6 +247,22 @@ class GasFlywheel:
         except ValueError:
             return 0
 
+    def token_balance(self, net: Network, token: str, address: str) -> int:
+        """ERC-20 balance in base units, read from the node.
+
+        Stablecoin profit lands as a token balance, not as native value, so the
+        sweep is verified against the token the path actually pays in.
+        """
+        data = "0x70a08231" + "0" * 24 + _strip0x(address).lower()
+        result = _rpc(
+            net.rpc_url, "eth_call", [{"to": token, "data": data}, "latest"], timeout=15
+        )
+        raw = (result or {}).get("result", "0x")
+        try:
+            return int(str(raw), 16)
+        except ValueError:
+            return 0
+
     def _deployed(self, net: Network, sender: str) -> bool:
         result = _rpc(net.rpc_url, "eth_getCode", [sender, "latest"])
         code = (result or {}).get("result", "0x")

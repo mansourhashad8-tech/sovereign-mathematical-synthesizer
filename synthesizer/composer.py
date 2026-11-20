@@ -97,6 +97,75 @@ class Composer:
     def __init__(self, seed: int | None = None) -> None:
         self.seed = 0x5EED if seed is None else seed
 
+    def propose_deep(self, constraints: Constraints,
+                     primitives: list[Primitive]) -> AtomicPath | None:
+        """Compose the deepest available path: flash_mint + liquidity + market_making.
+
+        Used when a settlement mined but the beneficiary's balance did not grow.
+        Replaying the same shallow path would produce the same no-op, so the
+        retry has to widen the path: more hops, more independent revenue
+        sources, the same sponsored gas. Categories are taken in the order the
+        task names them, falling back to whatever the scan actually has.
+        """
+        pool = _by_category(primitives)
+        g = constraints.goal
+        digest = int(
+            stable_hash(g.objective, g.asset, f"{g.target_amount:.6f}", g.raw_intent)[:16],
+            16,
+        )
+        rng = random.Random(self.seed ^ digest ^ 0xDEEB)
+
+        prims: list[Primitive] = []
+        for cat in ("flash_mint", "flash_loan"):
+            if pool.get(cat):
+                prims.append(rng.choice(pool[cat]))
+                break
+        for cat in ("liquidity", "market_making", "solver", "yield", "arbitrage"):
+            if pool.get(cat):
+                prims.append(rng.choice(pool[cat]))
+        if pool.get("paymaster"):
+            prims.append(rng.choice(pool["paymaster"]))
+
+        seen: set[str] = set()
+        uniq: list[Primitive] = []
+        for p in prims:
+            if p.key not in seen:
+                seen.add(p.key)
+                uniq.append(p)
+        if not uniq:
+            return None
+
+        steps: list[PathStep] = []
+        for prim in uniq:
+            y, f = _rates(prim.category, rng)
+            steps.append(
+                PathStep(
+                    primitive=prim.key,
+                    action=f"{prim.category}:{prim.name}",
+                    gas_usd=0.0,
+                    fee_rate=f,
+                    yield_rate=y,
+                )
+            )
+
+        net_rate = sum(s.net_rate for s in steps)
+        target = max(constraints.net_profit_usd_min, SETTINGS.min_net_profit_usd)
+        has_capital = any(p.category in CAPITAL_CATEGORIES for p in uniq)
+        if net_rate > 0 and has_capital:
+            notional = min(target / net_rate * rng.uniform(1.05, 1.6), MAX_NOTIONAL_USD)
+        else:
+            notional = 0.0
+
+        return AtomicPath(
+            intent_id=constraints.beneficiary,
+            steps=steps,
+            primitives=[p.key for p in uniq],
+            notional_usd=round(notional, 2),
+            gas_sponsor="protocol",
+            simulation_ok=True,
+            has_uncollateralized_capital=has_capital,
+        )
+
     def propose(self, constraints: Constraints, primitives: list[Primitive],
                 attempt: int = 0) -> AtomicPath | None:
         pool = _by_category(primitives)

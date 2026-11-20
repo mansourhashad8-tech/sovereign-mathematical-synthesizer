@@ -165,8 +165,61 @@ def test_executor_settles_to_locked_beneficiary():
     path = Composer().propose(c, _primitives(), attempt=0)
     res = ex.settle(path, c)
     assert res.beneficiary == BENEFICIARY
-    assert res.status in ("executed", "simulated")
-    assert res.tx_hash.startswith("0x")
+    # A mined operation is never reported as plain success unless the
+    # beneficiary's balance actually grew. Gate A alone is not enough.
+    assert res.status in ("executed", "simulated", "REVERTED_VALUE")
+    if res.status == "executed":
+        assert res.value_transferred is True
+    if res.status == "REVERTED_VALUE":
+        assert res.value_transferred is False
+        assert res.tx_hash.startswith("0x")  # the tx is real; the value is not
+    assert res.tx_hash.startswith("0x") or res.status == "simulated"
+
+
+def test_value_actually_landed_on_beneficiary():
+    """The only passing definition of success: the balance delta is measured.
+
+    Gate A (receipt.status == 1) proves the operation executed. Gate B proves
+    money arrived. A settlement is a success only when both hold, and the
+    engine must never assert the second from the first.
+    """
+    from synthesizer.executor import Executor
+    from synthesizer.gasflywheel import Network
+
+    ex = Executor()
+    net = Network(
+        name="probe", chain_id=84532, rpc_url="https://sepolia.base.org",
+        explorer_base="https://sepolia.basescan.org/tx/", paymaster_url="",
+    )
+    before = ex._beneficiary_balance(net)
+
+    # Gate B must reject an unchanged balance, whatever the receipt said.
+    landed, evidence = ex.sweep_landed(net, before, 0)
+    assert landed is False, "an unchanged balance must never count as a payout"
+    assert "balance_unchanged" in evidence
+
+    # Gate B must reject a balance that grew by less than the proved profit.
+    landed_short, evidence_short = ex.sweep_landed(net, before - 1, 10**18)
+    assert landed_short is False
+    assert "balance_short" in evidence_short
+
+    # And it must accept a real delta that meets the expectation.
+    landed_ok, evidence_ok = ex.sweep_landed(net, before - 10**18, 10**18)
+    assert landed_ok is True
+    assert "balance_grew" in evidence_ok
+
+    # End to end: a mined-but-valueless settlement is REVERTED_VALUE, never
+    # "executed" with value_transferred inferred from the receipt.
+    c = parse_deterministic("اربح 5 دولار من السيولة")
+    path = Composer().propose(c, _primitives(), attempt=0)
+    res = ex.settle(path, c)
+    if res.status == "executed":
+        assert res.value_transferred is True, "executed implies measured value"
+        assert res.amount_usd > 0
+    if res.status == "REVERTED_VALUE":
+        assert res.value_transferred is False
+        assert res.amount_usd == 0.0, "no value moved, so no profit is claimed"
+        assert res.tx_hash.startswith("0x"), "the real tx hash is still reported"
 
 
 # --- full loop -------------------------------------------------------------
@@ -484,13 +537,18 @@ def test_a_mined_settlement_upgrades_the_answer_with_its_real_hash():
     ))
 
     ex = synth._results["iid"].execution
-    assert ex.status == "executed"
+    # The hash, block, and sponsor are all real and are recorded regardless.
     assert ex.simulated is False
     assert ex.tx_hash == tx
     assert ex.explorer_url.endswith(tx)
     assert ex.gas_paid_by == "paymaster"
     assert ex.block_number == 60_977_110
     assert tx in synth._results["iid"].narrative_ar
+    # A receipt alone is not a payout. With no measured balance growth this
+    # must land as REVERTED_VALUE, never as "executed".
+    assert ex.status == "REVERTED_VALUE"
+    assert ex.value_transferred is False
+    assert ex.amount_usd == 0.0
 
 
 def test_a_failed_settlement_leaves_no_hash_behind():
@@ -746,6 +804,62 @@ def test_the_watchdog_upgrades_a_simulated_result_when_a_retry_lands():
     ))
 
     ex = synth._results["w1"].execution
-    assert ex.status == "executed"
+    # The retry's hash is real and recorded; the payout is judged separately.
     assert ex.tx_hash == "0x" + "ef" * 32
+    assert ex.status in ("executed", "REVERTED_VALUE")
+    if ex.status == "executed":
+        assert ex.value_transferred is True
+    else:
+        assert ex.value_transferred is False and ex.amount_usd == 0.0
     assert synth.watchdog.status()["watched"] >= 0
+
+
+def test_reverted_value_triggers_a_deeper_path_not_a_replay():
+    """A no-op settlement must widen the path, never repeat it.
+
+    Replaying a shallow path that already mined and moved nothing reproduces
+    the same no-op, so the retry composes the deepest available path instead:
+    a capital primitive plus independent revenue hops plus a sponsor.
+    """
+    from synthesizer.composer import Composer
+    from synthesizer.intent import parse_deterministic
+    from synthesizer.scanner import GitHubScanner
+
+    c = parse_deterministic("اربح 100 دولار من السيولة بدون مفتاح")
+    prims = GitHubScanner().scan()
+    shallow = Composer().propose(c, prims, attempt=0)
+    deep = Composer().propose_deep(c, prims)
+
+    assert shallow is not None and deep is not None
+    assert len(deep.steps) >= 2, "a deeper path must carry more hops"
+    assert deep.has_uncollateralized_capital, "the retry needs a capital source"
+    cats = {s.action.split(":")[0] for s in deep.steps}
+    assert "paymaster" in cats, "the retry still never asks the user for gas"
+    assert deep.gas_sponsor != "user"
+
+
+def test_genesis_mesh_classifies_every_source_honestly():
+    """The mesh must never report a human-gated source as agent-claimable."""
+    from synthesizer.genesis import GenesisMesh, NETWORKS
+
+    report = GenesisMesh().scan()
+    assert len(report.sources) >= 8, "the mesh covers the eight networks"
+    assert len(NETWORKS) == 8
+
+    for s in report.sources:
+        assert s.gate in ("agent_claimable", "human_gated", "unreachable")
+        # A gate always carries its justification.
+        assert s.why, f"{s.name} must state why it is gated"
+        if s.gate == "human_gated":
+            assert not s.claimable, "a human-gated source is never claimable"
+        # Claimable requires the chain to answer, not just the label.
+        if s.claimable:
+            assert s.reachable, "claimable implies the network was reachable"
+
+    # Every faucet is human-gated; that is the finding the engine must act on.
+    faucets = [s for s in report.sources if s.kind == "faucet"]
+    assert faucets and all(not f.claimable for f in faucets)
+
+    # The only agent-claimable sources are the verified sponsored-gas rungs.
+    for s in report.claimable:
+        assert s.kind == "gas_credit"

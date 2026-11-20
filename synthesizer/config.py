@@ -123,6 +123,11 @@ class Settings:
     receipt_poll_seconds: float = float(_env("SYNTH_RECEIPT_POLL", "1.5"))
     # A watchdog re-attempts any settlement that came back simulated.
     watchdog_attempts: int = _env_int("SYNTH_WATCHDOG_ATTEMPTS", 3)
+    # Where the agent's own signing key lives. A stable identity is a
+    # prerequisite for holding a balance: the smart account address is derived
+    # from this key, so a per-process key is an account that can never
+    # accumulate value.
+    session_key_path: str = _env("SYNTH_SESSION_KEY_PATH", ".synth/session.key")
     # Whether a settlement should encode the proven profit as a real value
     # transfer. Off by default: the engine holds no capital, so a sponsored
     # no-op is the honest settlement until a funded route exists. The gas path
