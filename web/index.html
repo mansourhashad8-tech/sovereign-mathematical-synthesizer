@@ -34,6 +34,15 @@
   .sys .tag{display:inline-block;font-size:11px;color:var(--acc);border:1px solid #1c3d31;border-radius:6px;padding:2px 7px;margin-inline-end:8px}
   .eq{direction:ltr;text-align:left;font-family:var(--mono);font-size:12.5px;color:#bcd7ff;background:#0a1120;border:1px dashed #22314f;border-radius:10px;padding:10px 12px;margin:10px 0;overflow-x:auto}
   .kv{font-size:12.5px;color:var(--dim);margin-top:8px}
+  .matrix{border:1px solid #1c3d31;border-radius:10px;padding:10px 12px;margin:10px 0;background:#08120f}
+  .matrix .mh{font-size:12.5px;color:var(--acc);margin-bottom:6px}
+  .matrix ul{list-style:none;margin:0;padding:0}
+  .matrix li{font-size:12px;color:var(--dim);padding:3px 0;border-bottom:1px solid #0f2019}
+  .matrix li:last-child{border-bottom:none}
+  .matrix li.ok b{color:#5ce6a0}
+  .matrix li.wait b{color:#e6c65c}
+  .matrix li.no b{color:#8b9aa8}
+  .matrix .mw{font-size:12.5px;color:#cfe9dd;margin-top:6px}
   .kv b{color:var(--txt);font-weight:600}
   .kv .warn{color:#f0b849}
   .kv code{font-family:var(--mono);font-size:11.5px;color:#bcd7ff;word-break:break-all}
@@ -244,6 +253,7 @@ function render(d){
   if(d.equations&&d.equations.length){
     h += '<div class="eq">'+d.equations.map(escapeHtml).join('<br>')+'</div>';
   }
+  if(d.matrix) h += matrixPanel(d.matrix);
   h += '<div class="kv">';
   const ms = d._rtt_ms ? d._rtt_ms.toFixed(0) : ((d.elapsed_seconds||0)*1000).toFixed(0);
   const srcLabel = d.source==='template' ? 'قالب مُثبت مسبقاً'
@@ -258,6 +268,30 @@ function render(d){
   // Settlement is real network work and finishes after this answer, so watch
   // the intent until a transaction hash or a final status arrives.
   if(ex && (ex.status==='pending'||ex.status==='submitted')) pollSettlement(d.intent_id, node);
+}
+
+// Every route the engine entered for this target value, and what each one
+// reported. Showing all of them, not just the winner, is the point: a blocked
+// route is visibly one blocked route rather than the system's answer.
+function matrixPanel(m){
+  const lanes = m.lanes||[];
+  const catAr = {blockchain:'بلوكشين',api:'واجهات برمجية',computational:'حسابية',
+                 asset:'توليد أصول',incentive:'حوافز',invented:'مُخترع'};
+  const stAr = {delivered:'أوصلت',blocked:'لم تُوصل',failed:'تعذّرت',
+                stood_down:'لم تُشغَّل',continuing:'تعمل الآن',queued:'في الانتظار'};
+  const rows = lanes.map(l=>{
+    const cls = l.status==='delivered' ? 'ok' : (l.status==='continuing'?'wait':'no');
+    const amt = l.status==='delivered' ? ` · ${l.delivers}` : '';
+    return `<li class="${cls}"><b>${escapeHtml(catAr[l.category]||l.category)}</b>: `
+      + `${escapeHtml(l.title_ar)} — <b>${escapeHtml(stAr[l.status]||l.status)}</b>${amt}</li>`;
+  }).join('');
+  const win = m.winner
+    ? `أوصلت القيمة فعلاً: <b>${escapeHtml(m.winner.title_ar)}</b> بمقدار <b>${m.delivered_total}</b>`
+    : 'لم يُوصل أي مسار داخل نافذة الطلب؛ المسارات الشبكية تُكمل في الخلفية.';
+  return `<div class="matrix"><div class="mh">مصفوفة المسارات: `
+    + `<b>${lanes.length}</b> مساراً في <b>${(m.covered_categories||[]).length}</b> عائلة، `
+    + `بالتوازي في <b>${(m.elapsed_ms||0).toFixed(0)}</b> مللي ثانية</div>`
+    + `<ul>${rows}</ul><div class="mw">${win}</div></div>`;
 }
 
 function execLine(ex){

@@ -242,6 +242,10 @@ class IntentResult:
     absolute_limit: bool = False
     # Per-stage timings in milliseconds, so latency is auditable.
     timings_ms: dict[str, float] = field(default_factory=dict)
+    # Every route the engine tried for this intent's target value, with what each
+    # one reported. The matrix is the answer to "which paths exist", so it is
+    # carried in full rather than reduced to the winner.
+    matrix: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -261,6 +265,7 @@ class IntentResult:
             "source": self.source,
             "absolute_limit": self.absolute_limit,
             "timings_ms": {k: round(v, 3) for k, v in self.timings_ms.items()},
+            "matrix": self.matrix,
         }
 
     def to_json(self) -> str:

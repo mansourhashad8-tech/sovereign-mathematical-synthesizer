@@ -194,6 +194,27 @@ class Settings:
     # proof, but it is not a public-chain payout, so it is reported under its
     # own network label and never as an on-chain delivery.
     settle_on_fork: bool = _env_bool("SYNTH_SETTLE_ON_FORK", True)
+    # The path matrix runs every route to the target value concurrently. On by
+    # default: a single blocked route must never be the system's answer.
+    path_matrix: bool = _env_bool("SYNTH_PATH_MATRIX", True)
+    # How long one matrix lane may run before it is stood down. A lane that
+    # outlives this is reported as stalled, never as the outcome of the request.
+    lane_timeout_s: float = float(_env("SYNTH_LANE_TIMEOUT_S", "8"))
+    # How long the *answer* may wait on the matrix. Short by design: the chat
+    # request must return in seconds, while the lanes themselves keep working.
+    # The window is sized to the engine-owned chain, which is the route that
+    # actually delivers and takes ~1.2s (node round trip + receipt). A shorter
+    # window would abandon the paying route and report "still working" while the
+    # money had in fact landed. The matrix returns as soon as any lane delivers,
+    # so this is a ceiling, not a wait.
+    matrix_budget_s: float = float(_env("SYNTH_MATRIX_BUDGET_S", "1.6"))
+    # The whole request must answer by this deadline. The matrix is given
+    # whatever time is left after parsing and proving, so a slow proof does not
+    # push the answer past the deadline and a fast one does not waste the window.
+    request_deadline_s: float = float(_env("SYNTH_REQUEST_DEADLINE_S", "1.5"))
+    # One thread per lane: a queued lane is an untried route, and the matrix
+    # must try every route it claims to have entered.
+    matrix_workers: int = _env_int("SYNTH_MATRIX_WORKERS", 12)
     # Concurrent background settlements. Settlement is I/O-bound; a small pool
     # keeps a burst of intents from opening unbounded sponsor handshakes.
     settlement_workers: int = _env_int("SYNTH_SETTLE_WORKERS", 4)

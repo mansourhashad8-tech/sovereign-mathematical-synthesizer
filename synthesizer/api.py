@@ -356,6 +356,13 @@ async def synthesize(body: IntentBody) -> JSONResponse:
     if result.execution is not None:
         headers["X-Execution-Status"] = result.execution.status
         headers["X-Gas-Mode"] = result.execution.gas_mode
+    if result.matrix:
+        # The matrix is on the wire so a caller can see every route that was
+        # entered and what each one reported, not just the winner.
+        headers["X-Matrix-Lanes"] = str(len(result.matrix.get("lanes", [])))
+        headers["X-Matrix-Categories"] = ",".join(result.matrix.get("covered_categories", []))
+        if result.matrix.get("winner"):
+            headers["X-Matrix-Winner"] = result.matrix["winner"]["lane_id"]
     return JSONResponse(payload, headers=headers)
 
 

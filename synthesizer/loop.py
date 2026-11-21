@@ -43,6 +43,7 @@ from .templates import templates_for
 from .gastreasury import InternalGasTreasury
 from .gasflywheel import _networks
 from .genesis import GenesisMesh
+from .matrix import PathMatrix, build_lanes
 from .watchdog import SettlementWatchdog
 
 
@@ -74,6 +75,7 @@ class Synthesizer:
         # Gas is an internal asset: the treasury measures what the engine can
         # pay from its own resources before any external sponsor is considered.
         self.treasury = InternalGasTreasury(self.executor.flywheel)
+        self.matrix = PathMatrix()
         self._results: dict[str, IntentResult] = {}
         self._results_lock = threading.Lock()
         # A small pool: settlements are I/O-bound and a burst of intents should
@@ -147,39 +149,78 @@ class Synthesizer:
             timings["bound"] = (time.time() - t0) * 1000.0
             absolute_limit = bound.detail == "absolute_limit"
 
-        # Execution gate: a satisfied proof is the only authorisation needed.
+        # Execution: the target value is the thing that matters, so every route
+        # to it is entered at once and the first that pays wins. This is the
+        # structural change from "follow one path until it breaks" to "reach the
+        # result by whichever route can".
         #
-        # Settlement is real network work (a sponsor handshake, a broadcast, a
-        # receipt) and takes seconds; the proof takes milliseconds. Blocking the
-        # answer on settlement would trade the latency contract for it, so the
-        # answer carries a pending settlement and the flywheel finishes the job
-        # in the background, upgrading this same result in place.
+        # The matrix never blocks the answer on a single venue. A lane that
+        # cannot pay records why in its own entry and the others keep running,
+        # so a gas shortfall in one route is no longer the system's answer.
         execution: ExecutionResult | None = None
+        matrix = None
         if chosen is not None and proof is not None and proof.satisfied:
-            execution = ExecutionResult(
-                status="pending",
-                beneficiary=SETTINGS.beneficiary,
-                amount_usd=round(chosen.net_profit_usd, 6),
-                # Unknown until a leg actually pays. Claiming a sponsor here
-                # would be a statement about the market rather than about this
-                # intent, and every sponsor leg is currently refused.
-                gas_mode="pending",
-                reason="settlement_dispatched_to_flywheel",
-            )
-            # The baseline is captured here, before any broadcast, so Gate B
-            # compares against the balance as it stood when the intent arrived.
-            self._baseline_for(iid, _networks()[0] if _networks() else None)
-            # The engine-owned Fuel chain settles in about a second, so when it
-            # answers inside a short budget the caller gets the real transaction
-            # in this same response instead of a placeholder to poll.
-            execution = self._settle_inline(chosen, constraints, execution)
-            self._dispatch_settlement(iid, chosen, execution, constraints)
+            if SETTINGS.path_matrix:
+                t0 = time.time()
+                # The request has a deadline; the matrix gets the remainder.
+                # Lanes that outlive it keep working and are reported as such.
+                remaining = SETTINGS.request_deadline_s - (time.time() - started)
+                matrix = self.matrix.run(
+                    build_lanes(self, constraints, chosen, primitives),
+                    target=constraints.net_profit_usd_min,
+                    asset=constraints.goal.asset,
+                    beneficiary=constraints.beneficiary,
+                    budget_s=max(0.4, remaining),
+                )
+                timings["matrix"] = (time.time() - t0) * 1000.0
+                winner = matrix.winner
+                if winner is not None:
+                    execution = ExecutionResult(
+                        status="executed",
+                        tx_hash=winner.tx_hash,
+                        explorer_url=winner.explorer_url,
+                        network=winner.network,
+                        beneficiary=constraints.beneficiary,
+                        amount_usd=round(chosen.net_profit_usd, 6),
+                        reason=f"matrix_lane={winner.lane_id};{winner.reason}",
+                        gas_mode=winner.detail.get("gas_mode", "protocol"),
+                        gas_paid_by=winner.detail.get("gas_paid_by", ""),
+                        block_number=int(winner.detail.get("block") or 0),
+                        value_transferred=True,
+                        delivered=winner.delivers,
+                    )
+                    chosen.intent_id = iid
+                else:
+                    # No lane paid inside this request. The answer still reports
+                    # the proved path and the matrix's full accounting, and the
+                    # lanes keep working in the background. This is a statement
+                    # about the venues tried in these seconds, not a refusal.
+                    execution = ExecutionResult(
+                        status="pending",
+                        beneficiary=SETTINGS.beneficiary,
+                        amount_usd=round(chosen.net_profit_usd, 6),
+                        gas_mode="pending",
+                        reason=f"matrix_lanes={len(matrix.lanes)};none_delivered_yet",
+                    )
+                    self._baseline_for(iid, _networks()[0] if _networks() else None)
+                    self._dispatch_settlement(iid, chosen, execution, constraints)
+            else:
+                execution = ExecutionResult(
+                    status="pending",
+                    beneficiary=SETTINGS.beneficiary,
+                    amount_usd=round(chosen.net_profit_usd, 6),
+                    gas_mode="pending",
+                    reason="settlement_dispatched_to_flywheel",
+                )
+                self._baseline_for(iid, _networks()[0] if _networks() else None)
+                execution = self._settle_inline(chosen, constraints, execution)
+                self._dispatch_settlement(iid, chosen, execution, constraints)
 
         proven = bool(proof is not None and proof.satisfied)
         t0 = time.time()
         narrative, equations = self._narrate(
             constraints, chosen, proof, invented, stats, bound, absolute_limit,
-            execution,
+            execution, matrix,
         )
         timings["narrative"] = (time.time() - t0) * 1000.0
 
@@ -200,6 +241,7 @@ class Synthesizer:
             source=source if proven else "bound",
             absolute_limit=absolute_limit,
             timings_ms=timings,
+            matrix=matrix.to_dict() if matrix is not None else None,
         )
         self._results[iid] = result
         self._record(result)
@@ -359,6 +401,7 @@ class Synthesizer:
                  proof: Proof | None, invented: bool, stats: LoopStats,
                  bound: Proof | None = None, absolute_limit: bool = False,
                  execution: ExecutionResult | None = None,
+                 matrix=None,
                  ) -> tuple[str, list[str]]:
         g = constraints.goal
         equations: list[str] = []
@@ -461,13 +504,55 @@ class Synthesizer:
                 "في هذه اللحظة. المحرك يواصل البحث في الخلفية."
             )
 
+        # The matrix is the visible answer to "which routes exist". It is
+        # reported route by route, including the ones that could not pay and the
+        # reason each gave, so no single venue's obstacle stands in for the whole
+        # result. A route that paid is named as the one that delivered.
+        matrix_line = ""
+        if matrix is not None:
+            # Each route is described by what actually happened to it. "Did not
+            # deliver" is only correct for a route that ran; a route that was
+            # stood down after another paid, or that is still working, must not
+            # be described as having failed — that would misreport the matrix.
+            verdict_ar = {
+                "delivered": lambda l: f"أوصلت {l.delivers:.6f}",
+                "blocked": lambda l: f"لم تُوصل ({l.reason})",
+                "failed": lambda l: f"تعذّر تشغيلها ({l.reason})",
+                "stood_down": lambda l: "لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً",
+                "continuing": lambda l: "ما زال يعمل بعد إرسال الجواب",
+                "queued": lambda l: "لم يبدأ داخل نافذة الطلب",
+                "running": lambda l: "ما زال يعمل بعد إرسال الجواب",
+            }
+            parts = []
+            for lane in matrix.lanes:
+                describe = verdict_ar.get(lane.status, lambda l: f"حالة: {l.status}")
+                parts.append(
+                    f"{lane.title_ar} [{lane.category}]: {describe(lane)}"
+                )
+            winner = matrix.winner
+            matrix_line = (
+                f"\nمصفوفة المسارات ({len(matrix.lanes)} مساراً في "
+                f"{len(matrix.covered_categories)} عائلة، نُفّذت بالتوازي في "
+                f"{matrix.elapsed_ms:.0f} مللي ثانية):\n- "
+                + "\n- ".join(parts)
+                + (
+                    f"\nالمسار الذي أوصل القيمة فعلاً: {winner.title_ar} "
+                    f"({winner.network}) بمقدار {winner.delivers:.6f}."
+                    if winner is not None
+                    else "\nلم يُوصل أي مسار داخل هذه الثواني. العائق يخص "
+                    "المسارات المجرَّبة، لا النتيجة: المسارات تُعاد في الخلفية "
+                    "ويُضاف كل مسار جديد يظهر في المسح."
+                )
+            )
+
         narrative = (
             f"النية: {g.raw_intent}\n"
             f"التحليل الصوري: الهدف={g.objective}، الأصل={g.asset}، الهدف الكمي={g.target_amount}، "
             f"الحد الأدنى للربح الصافي={constraints.net_profit_usd_min}.\n"
             f"{'اخترع النظام' if invented else 'استحضر النظام'} المسار من المشاريع: {prims_desc or '—'}.\n"
             f"المسار الذري: {steps_desc or '—'}.\n"
-            f"{exec_line}\n"
+            f"{exec_line}"
+            f"{matrix_line}\n"
             f"زمن القرار الكلي: {(time.time() - stats.started_at)*1000:.1f} مللي ثانية، "
             f"المرشحون المبرهن عليهم: {stats.attempts}، المكونات الحية: {stats.live_primitives}"
             + (

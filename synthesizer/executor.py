@@ -513,7 +513,8 @@ class Executor:
         return int(path.proven_net_profit_usd * 1e18)
 
     def settle(self, path: AtomicPath, constraints: Constraints,
-               fuel_only: bool = False) -> ExecutionResult:
+               fuel_only: bool = False,
+               skip_fuel: bool = False) -> ExecutionResult:
         """Settle the proved path with gas paid by someone else.
 
         The gates run first and are non-negotiable. Then the flywheel builds a
@@ -526,6 +527,11 @@ class Executor:
         it because the sponsor ladder is unbounded network work: a caller must
         not wait on a third party to receive an answer, and the flywheel runs
         that ladder in the background instead.
+
+        ``skip_fuel`` omits the engine-owned chain so the remaining routes can be
+        run as independent lanes of the path matrix. Without it every lane would
+        begin by attempting the same Fuel settlement, which would make the lanes
+        sequential in practice even though they run on separate threads.
         """
         started = time.time()
 
@@ -572,7 +578,7 @@ class Executor:
         # deployed the Sway ledger, and pays gas from genesis supply, so there is
         # no sponsor to wait on and no third party to be offline. Only when that
         # leg cannot deliver does the sponsored EVM ladder run.
-        if SETTINGS.fuel_primary:
+        if SETTINGS.fuel_primary and not skip_fuel:
             fueled = self._settle_on_fuel(path, constraints, started)
             if fueled is not None:
                 return fueled

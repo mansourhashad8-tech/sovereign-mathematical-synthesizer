@@ -265,6 +265,7 @@ class FuelHand:
         self.node = node or FuelNode()
         self._contract_id: str = ""
         self._deployed_checked = False
+        self._verified: str = ""
         self._last_error: str = ""
 
     # -- helpers -----------------------------------------------------------
@@ -315,9 +316,19 @@ class FuelHand:
         candidate = self.contract_id()
         if not candidate:
             return ""
+        # The check spawns a node subprocess (~390ms), and it ran on every
+        # settlement. Once the running chain has confirmed the id, the answer
+        # cannot change for the life of that chain, so it is cached. Any failed
+        # record invalidates the cache (see settle), which keeps the check
+        # meaningful across a node restart instead of trusting a stale verdict.
+        if self._verified and self._deployed_checked:
+            return self._verified
         state = self._run("state", {}, timeout=60)
         if state and state.get("contractId") == candidate:
+            self._verified = candidate
+            self._deployed_checked = True
             return candidate
+        self._verified = ""
         return ""
 
     def available(self) -> bool:
@@ -398,6 +409,13 @@ class FuelHand:
         )
         if not result or result.get("reverted"):
             error = result.get("reason", "") if result else self._last_error
+            # A record that fails outright may mean the chain no longer has the
+            # ledger this process believes in (a restart with a fresh genesis).
+            # Drop the cached verdict so the next attempt re-verifies instead of
+            # failing forever against an id that is gone.
+            if not result:
+                self._verified = ""
+                self._deployed_checked = False
             replay = "already settled" in error
             return FuelSettlement(
                 status="rejected",
