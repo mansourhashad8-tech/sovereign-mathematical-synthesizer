@@ -163,7 +163,11 @@ function renderSnapshot(s){
     `سُجّلت <b>${s.settled_count}</b> تسوية فعلية على سجل Fuel يشغّله المحرك، ` +
     `وآخر تحديث ${stamp}. هذه نتائج مقروءة من السلسلة، لا وعود.${note}`);
   s.results.slice(0,3).forEach(r=>{
-    let h = '<span class="tag">تسوية مُثبتة</span>';
+    // A row the current node still answers for can be checked right now; one it
+    // does not is a record of a settlement on a chain that was rebuilt. Labelling
+    // both the same would promise a lookup that 404s.
+    const checkable = !!r.verified_now;
+    let h = `<span class="tag">${checkable?'تسوية مُثبتة':'تسوية مسجّلة'}</span>`;
     h += escapeHtml(r.intent || '');
     h += '<div class="kv">';
     h += `البرهان: <b>${r.proven?'ناجح (SAT)':'—'}</b> · الصافي المُثبت: <b>${r.net_profit_usd} USDC</b><br>`;
@@ -171,6 +175,7 @@ function renderSnapshot(s){
     h += `دافع الغاز: <b>${r.gas_paid_by}</b> · استهلاك: <b>${r.gas_cost_wei}</b><br>`;
     if(r.tx_hash) h += `المعرّف: <code>${r.tx_hash}</code><br>`;
     if(r.value_transferred) h += `القيمة وصلت للمستفيد: <b>${r.delivered} وحدة على سجل Fuel</b>`;
+    if(!checkable) h += `<br><span class="warn">سُجّلت على سلسلة أُعيد بناؤها بعد تشغيلها، فلم يبقَ إيصال حي. الرقم أعلاه يبقى دليل التنفيذ.</span>`;
     h += '</div>';
     bubble('sys', h);
   });

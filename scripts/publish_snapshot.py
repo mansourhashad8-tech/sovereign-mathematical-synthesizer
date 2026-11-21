@@ -167,11 +167,11 @@ def build() -> dict:
     merged.sort(key=lambda r: r.get("settled_at") or 0, reverse=True)
     _write_ledger(merged)
 
-    # Counts come from the ledger so the record survives the chain. What is
-    # rendered stays strict: only ids the running node answers for are shown as
-    # receipts, because a row a reader cannot look up is worse than no row.
+    # The ledger is what gets rendered. Hiding rows the current node cannot
+    # answer for would shrink the page to the latest run, which is the defect
+    # this ledger exists to fix. Each row carries verified_now so the page can
+    # say which ids the node still answers for instead of implying they all do.
     settled = merged
-    renderable = [r for r in merged if r.get("verified_now")]
 
     fuel = {}
     fuel_path = ROOT / "sway" / "chain" / "settlements.json"
@@ -194,7 +194,7 @@ def build() -> dict:
         "beneficiary": "0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47",
         "network": "fuel-devnet",
         "fuel_ledger": fuel,
-        "results": renderable[:25],
+        "results": settled[:25],
     }
 
 

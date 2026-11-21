@@ -120,13 +120,14 @@ def test_a_later_run_does_not_erase_earlier_settlements(tmp_path, monkeypatch):
     assert payload["verified_now_count"] == 1
 
 
-def test_a_settlement_the_chain_forgot_is_counted_but_not_rendered(
+def test_a_settlement_the_chain_forgot_is_rendered_as_a_record(
     tmp_path, monkeypatch
 ):
-    """Keep it in the record, but never show it as a receipt.
+    """It stays on the page, flagged, rather than silently disappearing.
 
-    A row the node cannot answer for would send a reader to a transaction id
-    that 404s, so it stays a record and drops out of what is rendered.
+    Dropping it would shrink the page to whatever the latest run happened to
+    settle. Keeping it unflagged would promise a receipt that 404s. So it stays
+    and says which it is.
     """
     _write(tmp_path, monkeypatch, [_row("0xgone")])
     monkeypatch.setattr(publish_snapshot, "_node_answers", lambda tx, rpc: True)
@@ -139,7 +140,9 @@ def test_a_settlement_the_chain_forgot_is_counted_but_not_rendered(
     payload = publish_snapshot.build()
 
     assert payload["settled_count"] == 2
-    assert [r["tx_hash"] for r in payload["results"]] == ["0xfresh"]
+    rows = {r["tx_hash"]: r for r in payload["results"]}
+    assert rows["0xfresh"]["verified_now"] is True
+    assert rows["0xgone"]["verified_now"] is False
 
 
 def test_the_same_settlement_recorded_twice_is_counted_once(tmp_path, monkeypatch):
