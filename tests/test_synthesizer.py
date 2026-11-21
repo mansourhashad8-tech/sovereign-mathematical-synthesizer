@@ -393,18 +393,22 @@ def test_instant_path_is_deterministic_for_a_fixed_market_snapshot():
     assert a_proof.certificate.split(";")[0] == b_proof.certificate.split(";")[0]
 
 
-def test_same_intent_reuses_the_same_decision_while_the_snapshot_is_stable():
+def test_same_intent_reuses_the_same_decision_while_the_snapshot_is_stable(monkeypatch):
     from synthesizer.loop import Synthesizer
+    from synthesizer.scanner import GitHubScanner
+
+    # The scanner warms its cache on a background thread and writes the live
+    # results into whatever cache is current, so the primitive set can change
+    # between the two calls. Suppress the warmup: this test is about determinism
+    # given a fixed snapshot, not about the network.
+    monkeypatch.setattr(GitHubScanner, "_start_warmup", lambda self: None)
 
     synth = Synthesizer()
-    synth.scanner.scan()
     first = synth.synthesize_sync("اربح 250 دولار من السيولة")
     second = synth.synthesize_sync("اربح 250 دولار من السيولة")
+
     assert first.intent_id == second.intent_id
-    # The scan may have completed between the two calls, so only assert the
-    # decision is stable while the primitive set is unchanged.
-    if synth.scanner.scan() == synth.scanner.scan():
-        assert first.chosen_path.path_id == second.chosen_path.path_id
+    assert first.chosen_path.path_id == second.chosen_path.path_id
 
 
 def test_bound_proof_reports_the_exact_physical_ceiling():

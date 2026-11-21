@@ -24,17 +24,31 @@ from synthesizer.zkproof import solidity_calldata
 
 BENEFICIARY = "0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47"
 
+# A Bootstrap run ends in a Groth16 proof, so without snarkjs it cannot finish.
+# The engine is right to answer "unavailable" there; these tests ask about the
+# outcome of a settlement, so they can only speak when one is possible.
+needs_prover = pytest.mark.skipif(
+    not zkproof.toolchain_ready(), reason="proving toolchain not built; run scripts/build_zk.sh"
+)
+
 
 @pytest.fixture(scope="module")
 def proof():
-    return zkproof.prove_settlement(
-        beneficiary=BENEFICIARY,
-        delta=5_000_000,
-        net_profit=5_000_000,
-        min_profit=1_000_000,
-        step_count=3,
-        total_gas=21_000,
-    )
+    # The proving toolchain is a build artefact, not a source file: a checkout
+    # that has not run scripts/build_zk.sh cannot make a proof. That is a
+    # missing environment, so skip and say why rather than erroring as if the
+    # code were wrong.
+    try:
+        return zkproof.prove_settlement(
+            beneficiary=BENEFICIARY,
+            delta=5_000_000,
+            net_profit=5_000_000,
+            min_profit=1_000_000,
+            step_count=3,
+            total_gas=21_000,
+        )
+    except zkproof.ZkUnavailable as exc:
+        pytest.skip(f"proving toolchain unavailable: {exc}")
 
 
 @pytest.fixture()
@@ -119,6 +133,7 @@ def test_unregistered_commitment_is_rejected(chain, proof):
     assert step.status == 0
 
 
+@needs_prover
 def test_bootstrap_moves_value_and_records_it():
     result = Bootstrap(beneficiary=BENEFICIARY).run("intent-f", min_profit=1_000_000, notional=5_000_000)
     assert result.delivered
@@ -131,12 +146,14 @@ def test_bootstrap_moves_value_and_records_it():
     assert result.settlement.beneficiary.lower() == BENEFICIARY.lower()
 
 
+@needs_prover
 def test_bootstrap_profit_meets_the_floor():
     result = Bootstrap(beneficiary=BENEFICIARY).run("intent-g", min_profit=4_000_000, notional=5_000_000)
     assert result.delivered
     assert result.net_profit >= 4_000_000
 
 
+@needs_prover
 def test_bootstrap_refuses_to_settle_when_nothing_moved():
     # A floor above the notional cannot be met by this path. The run must report
     # no delivery rather than record a settlement the proof cannot support.
@@ -157,6 +174,7 @@ def test_circuit_rejects_a_lie_at_witness_time():
         )
 
 
+@needs_prover
 def test_run_never_claims_money_it_minted():
     # The fork mints its own working capital, so a delivered run must say that
     # the unit is not money. Without this flag the delta reads as a payout.
@@ -167,6 +185,7 @@ def test_run_never_claims_money_it_minted():
     assert any("no market value" in n for n in result.notes)
 
 
+@needs_prover
 def test_working_capital_is_capped():
     from synthesizer.bootstrap import MAX_NOTIONAL_UNITS
 
@@ -176,6 +195,7 @@ def test_working_capital_is_capped():
     assert result.delta <= MAX_NOTIONAL_UNITS
 
 
+@needs_prover
 def test_floor_above_capacity_is_not_settled():
     # A million from nothing is above the cap, so it cannot be settled.
     result = Bootstrap(beneficiary=BENEFICIARY).run("intent-k", min_profit=10**12, notional=10**12)
@@ -184,6 +204,7 @@ def test_floor_above_capacity_is_not_settled():
     assert any("below the requested floor" in n for n in result.notes)
 
 
+@needs_prover
 def test_api_bootstrap_reports_the_chain_outcome():
     from fastapi.testclient import TestClient
 
@@ -202,6 +223,7 @@ def test_api_bootstrap_reports_the_chain_outcome():
     assert r.headers["X-Bootstrap-Verified"] == "true"
 
 
+@needs_prover
 def test_ordinary_intent_is_not_blocked_by_the_cap():
     # The cap must sit above normal requests: a $12 intent has to settle.
     result = Bootstrap(beneficiary=BENEFICIARY).run("intent-l", min_profit=12_000_000, notional=18_000_000)

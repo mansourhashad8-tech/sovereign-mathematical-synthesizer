@@ -14,6 +14,7 @@ import os
 
 import pytest
 
+from synthesizer.zkproof import toolchain_ready
 from synthesizer.fuel import (
     BENEFICIARY,
     BENEFICIARY_B256,
@@ -30,6 +31,13 @@ def _live() -> bool:
 
 needs_node = pytest.mark.skipif(
     not _live(), reason="fuel-core node is not running in this environment"
+)
+
+# A settlement is rejected only after its proof is generated, so these checks
+# need snarkjs as well as a node. Without it the leg answers "unavailable", which
+# is a different and honest outcome: skip rather than read it as a wrong answer.
+needs_prover = pytest.mark.skipif(
+    not toolchain_ready(), reason="proving toolchain not built; run scripts/build_zk.sh"
 )
 
 
@@ -87,6 +95,7 @@ def test_gas_abstraction_counts_only_settled_work():
 
 
 @needs_node
+@needs_prover
 def test_negative_delta_is_rejected_before_it_reaches_the_chain():
     hand = FuelHand()
     settlement = hand.settle(0, 0, "0x" + "ab" * 32)
@@ -95,6 +104,7 @@ def test_negative_delta_is_rejected_before_it_reaches_the_chain():
 
 
 @needs_node
+@needs_prover
 def test_net_profit_cannot_exceed_the_delta():
     hand = FuelHand()
     settlement = hand.settle(1_000, 2_000, "0x" + "cd" * 32)
@@ -158,6 +168,7 @@ def test_a_replay_reports_the_original_transaction():
 
 
 @needs_node
+@needs_prover
 def test_a_contract_id_from_another_chain_is_not_trusted():
     """A cached id must be confirmed by the chain before it is used.
 

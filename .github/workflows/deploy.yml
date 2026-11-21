@@ -33,6 +33,14 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      # snarkjs is what actually produces a proof, and the circuit artefacts are
+      # committed. Without the node packages the ZK tests can only skip, which
+      # would quietly stop the deploy from checking the proof path at all.
+      - run: npm install --no-audit --no-fund
       - run: pip install -r requirements-test.txt
       - name: The suite gates the deploy
         env:

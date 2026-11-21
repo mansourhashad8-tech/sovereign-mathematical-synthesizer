@@ -160,8 +160,14 @@ class Transcript:
 
 
 def session_key() -> str:
-    """The agent's own signing key. Never the user's, and never leaves the box."""
-    return Path(SETTINGS.session_key_path).read_text().strip()
+    """The agent's own signing key. Never the user's, and never leaves the box.
+
+    Delegates to ``SessionKey.load`` so a fresh checkout mints the key on first
+    use instead of failing on a file only a previous run created.
+    """
+    from .executor import SessionKey
+
+    return SessionKey.load().private_key
 
 
 class LocalFork:
