@@ -93,3 +93,13 @@ testnet facilitator), `2026-11-06.md` (tender desk, first real money),
 revenue stayed at $0.01: ephemeral sandbox address, 1800s/20-sandbox caps),
 `2026-11-13.md`, `2026-11-16.md` (bounty venue reality check, $0 earned),
 `2026-11-18.md` (this build, in full).
+
+## Settlement record durability (2026-11-21)
+The published page must render the committed ledger, not only rows the current
+node answers for — a fresh CI node answers for its own tx alone, so strict
+filtering reproduces the 281→1 shrink. Every row carries `verified_now`; the UI
+labels checkable receipts differently from recorded ones. Overlapping CI runs
+union ledgers via `scripts/merge_ledgers.py` (by `tx_hash`). The loop job never
+publishes (no Fuel node → its ids are unlookupable). Cron is best-effort and was
+observed skipping a slot, so liveness rests on the ledger, not on the schedule.
+Detail: `2026-11-18.md`.
