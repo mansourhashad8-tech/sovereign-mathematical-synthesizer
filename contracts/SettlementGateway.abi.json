@@ -1,0 +1,278 @@
+[
+ {
+  "inputs": [
+   {
+    "internalType": "address",
+    "name": "_verifier",
+    "type": "address"
+   },
+   {
+    "internalType": "address",
+    "name": "_lockedBeneficiary",
+    "type": "address"
+   }
+  ],
+  "stateMutability": "nonpayable",
+  "type": "constructor"
+ },
+ {
+  "inputs": [],
+  "name": "AlreadySettled",
+  "type": "error"
+ },
+ {
+  "inputs": [],
+  "name": "BeneficiaryNotLocked",
+  "type": "error"
+ },
+ {
+  "inputs": [],
+  "name": "CommitmentMismatch",
+  "type": "error"
+ },
+ {
+  "inputs": [],
+  "name": "CommitmentNotRegistered",
+  "type": "error"
+ },
+ {
+  "inputs": [],
+  "name": "ProfitBelowFloor",
+  "type": "error"
+ },
+ {
+  "inputs": [],
+  "name": "ProofRejected",
+  "type": "error"
+ },
+ {
+  "anonymous": false,
+  "inputs": [
+   {
+    "indexed": true,
+    "internalType": "bytes32",
+    "name": "intentId",
+    "type": "bytes32"
+   },
+   {
+    "indexed": false,
+    "internalType": "bytes32",
+    "name": "commitment",
+    "type": "bytes32"
+   },
+   {
+    "indexed": false,
+    "internalType": "uint64",
+    "name": "minProfit",
+    "type": "uint64"
+   }
+  ],
+  "name": "IntentRegistered",
+  "type": "event"
+ },
+ {
+  "anonymous": false,
+  "inputs": [
+   {
+    "indexed": true,
+    "internalType": "bytes32",
+    "name": "intentId",
+    "type": "bytes32"
+   },
+   {
+    "indexed": false,
+    "internalType": "bytes32",
+    "name": "commitment",
+    "type": "bytes32"
+   },
+   {
+    "indexed": false,
+    "internalType": "uint64",
+    "name": "delta",
+    "type": "uint64"
+   },
+   {
+    "indexed": false,
+    "internalType": "uint64",
+    "name": "netProfit",
+    "type": "uint64"
+   },
+   {
+    "indexed": true,
+    "internalType": "address",
+    "name": "beneficiary",
+    "type": "address"
+   }
+  ],
+  "name": "SettlementRecorded",
+  "type": "event"
+ },
+ {
+  "inputs": [
+   {
+    "internalType": "bytes32",
+    "name": "commitment",
+    "type": "bytes32"
+   }
+  ],
+  "name": "isRegistered",
+  "outputs": [
+   {
+    "internalType": "bool",
+    "name": "",
+    "type": "bool"
+   }
+  ],
+  "stateMutability": "view",
+  "type": "function"
+ },
+ {
+  "inputs": [],
+  "name": "lockedBeneficiary",
+  "outputs": [
+   {
+    "internalType": "address",
+    "name": "",
+    "type": "address"
+   }
+  ],
+  "stateMutability": "view",
+  "type": "function"
+ },
+ {
+  "inputs": [
+   {
+    "internalType": "bytes32",
+    "name": "intentId",
+    "type": "bytes32"
+   },
+   {
+    "internalType": "bytes32",
+    "name": "commitment",
+    "type": "bytes32"
+   },
+   {
+    "internalType": "uint256[2]",
+    "name": "pA",
+    "type": "uint256[2]"
+   },
+   {
+    "internalType": "uint256[2][2]",
+    "name": "pB",
+    "type": "uint256[2][2]"
+   },
+   {
+    "internalType": "uint256[2]",
+    "name": "pC",
+    "type": "uint256[2]"
+   },
+   {
+    "internalType": "uint256[6]",
+    "name": "pubSignals",
+    "type": "uint256[6]"
+   }
+  ],
+  "name": "recordSettlement",
+  "outputs": [
+   {
+    "internalType": "bool",
+    "name": "",
+    "type": "bool"
+   }
+  ],
+  "stateMutability": "nonpayable",
+  "type": "function"
+ },
+ {
+  "inputs": [
+   {
+    "internalType": "bytes32",
+    "name": "intentId",
+    "type": "bytes32"
+   },
+   {
+    "internalType": "bytes32",
+    "name": "commitment",
+    "type": "bytes32"
+   },
+   {
+    "internalType": "uint64",
+    "name": "minProfit",
+    "type": "uint64"
+   },
+   {
+    "internalType": "address",
+    "name": "beneficiary",
+    "type": "address"
+   }
+  ],
+  "name": "registerIntent",
+  "outputs": [],
+  "stateMutability": "nonpayable",
+  "type": "function"
+ },
+ {
+  "inputs": [
+   {
+    "internalType": "bytes32",
+    "name": "intentId",
+    "type": "bytes32"
+   }
+  ],
+  "name": "settlementOf",
+  "outputs": [
+   {
+    "components": [
+     {
+      "internalType": "bytes32",
+      "name": "commitment",
+      "type": "bytes32"
+     },
+     {
+      "internalType": "uint64",
+      "name": "delta",
+      "type": "uint64"
+     },
+     {
+      "internalType": "uint64",
+      "name": "netProfit",
+      "type": "uint64"
+     },
+     {
+      "internalType": "uint64",
+      "name": "minProfit",
+      "type": "uint64"
+     },
+     {
+      "internalType": "uint64",
+      "name": "recordedAt",
+      "type": "uint64"
+     },
+     {
+      "internalType": "bool",
+      "name": "exists",
+      "type": "bool"
+     }
+    ],
+    "internalType": "struct SettlementGateway.Settlement",
+    "name": "",
+    "type": "tuple"
+   }
+  ],
+  "stateMutability": "view",
+  "type": "function"
+ },
+ {
+  "inputs": [],
+  "name": "verifier",
+  "outputs": [
+   {
+    "internalType": "contract IGroth16Verifier",
+    "name": "",
+    "type": "address"
+   }
+  ],
+  "stateMutability": "view",
+  "type": "function"
+ }
+]

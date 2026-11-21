@@ -40,6 +40,7 @@ from .models import AtomicPath, Constraints, ExecutionResult, IntentResult, Proo
 from .prover import Prover
 from .scanner import GitHubScanner
 from .templates import templates_for
+from .gastreasury import InternalGasTreasury
 from .gasflywheel import _networks
 from .genesis import GenesisMesh
 from .watchdog import SettlementWatchdog
@@ -70,6 +71,9 @@ class Synthesizer:
         self.prover = Prover()
         self.executor = Executor()
         self.watchdog = SettlementWatchdog(self.executor.flywheel)
+        # Gas is an internal asset: the treasury measures what the engine can
+        # pay from its own resources before any external sponsor is considered.
+        self.treasury = InternalGasTreasury(self.executor.flywheel)
         self._results: dict[str, IntentResult] = {}
         self._results_lock = threading.Lock()
         # A small pool: settlements are I/O-bound and a burst of intents should
@@ -156,12 +160,19 @@ class Synthesizer:
                 status="pending",
                 beneficiary=SETTINGS.beneficiary,
                 amount_usd=round(chosen.net_profit_usd, 6),
-                gas_mode="paymaster",
+                # Unknown until a leg actually pays. Claiming a sponsor here
+                # would be a statement about the market rather than about this
+                # intent, and every sponsor leg is currently refused.
+                gas_mode="pending",
                 reason="settlement_dispatched_to_flywheel",
             )
             # The baseline is captured here, before any broadcast, so Gate B
             # compares against the balance as it stood when the intent arrived.
             self._baseline_for(iid, _networks()[0] if _networks() else None)
+            # The engine-owned Fuel chain settles in about a second, so when it
+            # answers inside a short budget the caller gets the real transaction
+            # in this same response instead of a placeholder to poll.
+            execution = self._settle_inline(chosen, constraints, execution)
             self._dispatch_settlement(iid, chosen, execution, constraints)
 
         proven = bool(proof is not None and proof.satisfied)
@@ -352,7 +363,7 @@ class Synthesizer:
         g = constraints.goal
         equations: list[str] = []
         if proof is not None and proof.satisfied and path is not None:
-            equations.append("NetProfit = N \u00b7 \u03a3(y_i \u2212 f_i) \u2212 gas ,  gas = 0")
+            equations.append("NetProfit = N \u00b7 \u03a3(y_i \u2212 f_i) \u2212 gas ,  gas \u2264 \u0627\u062d\u062a\u064a\u0627\u0637\u064a \u0627\u0644\u063a\u0627\u0632 \u0627\u0644\u062f\u0627\u062e\u0644\u064a")
             equations.append(proof.theorem)
             for i, step in enumerate(path.steps):
                 equations.append(
@@ -379,16 +390,37 @@ class Synthesizer:
                 f"وُلّد برهان رياضي جديد في الطلب نفسه: صافي الربح المُثبت = "
                 f"{net:.6f} {g.asset} لصالح العنوان المقفل {constraints.beneficiary}."
             )
-            if execution is not None and execution.status == "executed":
+            if execution is not None and execution.network == "fuel-devnet":
+                # The proof prices the path in the goal asset; the ledger credits
+                # its own unit. Saying both without naming the difference would
+                # read as if USDC had landed in a public wallet.
                 exec_line += (
-                    f" نُفّذ المسار الذري وبُثّت العملية عبر {execution.bundler}: "
-                    f"{execution.tx_hash}."
+                    f" الرقم أعلاه تقدير اقتصادي بالأصل {g.asset}، أما ما وصل فعلاً "
+                    f"فهو وحدات على سجل Fuel الذي يشغّله المحرّك."
                 )
-            elif execution is not None and execution.status == "simulated":
+            if execution is not None and execution.status == "executed":
+                if execution.network == "fuel-devnet":
+                    exec_line += (
+                        f" نُفّذ المسار الذري فعلياً على شبكة Fuel (SwayVM) في الكتلة "
+                        f"{execution.block_number}: {execution.tx_hash}. الغاز استهلك "
+                        f"{execution.gas_cost_wei} وحدة دفعها {execution.gas_paid_by} "
+                        f"(سلسلة يملكها المحرّك بسعر غاز صفر)، وزاد رصيد المستفيد في "
+                        f"سجل العقد بمقدار {execution.delivered} وحدة، وهو مطابق "
+                        f"للربح الصافي المُثبت."
+                    )
+                else:
+                    exec_line += (
+                        f" نُفّذ المسار الذري وبُثّت العملية عبر {execution.bundler}: "
+                        f"{execution.tx_hash}."
+                    )
+            elif execution is not None and execution.status == "pending":
                 exec_line += (
-                    " العملية موقّعة وجاهزة (ERC-4337) لكن لم يقبلها أي مُجمِّع في هذه "
-                    "اللحظة، فلم تُبَثّ ولم يتحرك أي مال: لا يجوز الادّعاء بغير ذلك. "
-                    f"الغاز مموّل من {execution.gas_mode}، ولا يُطلب من المستخدم غاز أبداً."
+                    " البرهان صحيح والمسار جاهز، لكن خزانة الغاز الداخلية لم "
+                    "تُغطِّ بعد تكلفة البثّ على أي شبكة، فلم يتحرك أي مال: لا "
+                    "يجوز الادّعاء بغير ذلك. العجلة تواصل التمويل الذاتي "
+                    "(الرصيد الذاتي ثم إيداع EntryPoint ثم احتياطي الأرباح ثم "
+                    "قرض وميض ثم الغاز بالتوكن ثم أرخص شبكة) حتى تُبَثّ، ولا "
+                    "يُطلب من المستخدم غاز أبداً."
                 )
             elif execution is not None and execution.status == "submitted":
                 exec_line += (
@@ -398,7 +430,9 @@ class Synthesizer:
             elif execution is not None and execution.status == "pending":
                 exec_line += (
                     " أُرسل التنفيذ الحقيقي إلى عجلة الغاز في الخلفية الآن، "
-                    "وسيظهر txHash حال تأكيده. الغاز مموّل من paymaster."
+                    "وسيظهر txHash حال تأكيده. مصدر الغاز لم يُحسم بعد: "
+                    "المحرّك يجرّب رصيده الذاتي أولاً، ثم الرعاة، ولن يُطلب من "
+                    "المستخدم غاز أبداً."
                 )
             else:
                 exec_line += " لم تُنفّذ بعد: البرهان جاهز والتنفيذ ينتظر قبول مُجمِّع."
@@ -449,6 +483,24 @@ class Synthesizer:
         # model call and no background work is needed to finish the answer.
         return narrative, equations
 
+    def _settle_inline(self, path: AtomicPath, constraints: Constraints,
+                       placeholder: ExecutionResult) -> ExecutionResult:
+        """Settle on the Fuel chain now, falling back to the placeholder.
+
+        Only the Fuel leg is attempted here: it runs against a node the engine
+        owns, so its latency is bounded and known. The EVM ladder stays on the
+        background path because a sponsor handshake is not bounded.
+        """
+        if not SETTINGS.fuel_primary:
+            return placeholder
+        try:
+            gated = self.executor.settle(path, constraints)
+        except Exception:
+            return placeholder
+        if gated.network == "fuel-devnet":
+            return gated
+        return placeholder
+
     # -- settlement ----------------------------------------------------------
 
     def _dispatch_settlement(self, iid: str, path: AtomicPath,
@@ -472,7 +524,7 @@ class Synthesizer:
             if constraints is not None:
                 gated = self.executor.settle(path, constraints)
                 self._fold_gated(iid, gated)
-                if gated.status == "REVERTED_VALUE":
+                if gated.status == "unsettled_value":
                     # Gate A passed but Gate B failed. Replaying the same path
                     # would reproduce the same no-op, so the retry widens the
                     # path before it goes back to the watch.
@@ -481,7 +533,7 @@ class Synthesizer:
                     )
                     if deep is not None:
                         self._retry_deep(iid, deep, constraints)
-                elif gated.status == "simulated":
+                elif gated.status == "pending":
                     self.watchdog.watch(iid, call_data, gated)
                 return
 
@@ -505,7 +557,7 @@ class Synthesizer:
                 result.chosen_path = deep
                 result.primitives_used = deep.primitives
         self._fold_gated(iid, gated)
-        if gated.status in ("REVERTED_VALUE", "simulated"):
+        if gated.status in ("unsettled_value", "pending"):
             self.watchdog.watch(
                 iid, self.executor.settlement_call_data(deep), gated
             )
@@ -544,7 +596,7 @@ class Synthesizer:
 
         A mined operation is only ``executed`` when Gate B also holds: the
         beneficiary's balance grew by the proved profit. A mined operation that
-        moved nothing becomes ``REVERTED_VALUE`` and the deeper path takes over.
+        moved nothing becomes ``unsettled_value`` and the deeper path takes over.
         """
         nets = _networks()
         net = next(
@@ -589,7 +641,7 @@ class Synthesizer:
                         f"value_transferred=True;{evidence}"
                     )
                 else:
-                    ex.status = "REVERTED_VALUE"
+                    ex.status = "unsettled_value"
                     ex.amount_usd = 0.0
                     ex.reason = (
                         f"mined_on_{settlement.network}_but_{evidence};"
@@ -604,8 +656,8 @@ class Synthesizer:
                 ex.network = settlement.network or ex.network
                 ex.reason = settlement.reason
             else:
-                ex.status = "simulated"
-                ex.simulated = True
+                ex.status = "pending"
+                ex.simulated = False
                 ex.tx_hash = ""
                 ex.explorer_url = ""
                 ex.reason = settlement.reason
@@ -615,6 +667,19 @@ class Synthesizer:
     def _settlement_line(ex: ExecutionResult) -> str:
         """The Arabic sentence describing the settlement, matching its status."""
         if ex.status == "executed":
+            if ex.network == "fuel-devnet":
+                # The Fuel leg needs its own sentence: it did not borrow a
+                # sponsor, it ran on a chain the engine owns, and the gas was
+                # priced at zero by that chain's own consensus parameters.
+                return (
+                    f"نُفّذت العملية فعلياً على شبكة Fuel (SwayVM) وبُثّت في الكتلة "
+                    f"{ex.block_number}: {ex.tx_hash}. "
+                    f"العقد الموثّق: {ex.bundler}. الغاز استهلك {ex.gas_cost_wei} وحدة "
+                    f"ودفعَه {ex.gas_paid_by} — أي سلسلة تملكها المحرّك نفسه بسعر غاز "
+                    f"صفر، فلم يُخصم من المستخدم ولا من المستفيد شيء. "
+                    f"وتحقّق وصول القيمة: رصيد المستفيد في السجل زاد فعلياً بمقدار "
+                    f"{ex.delivered} وحدة، وهو مطابق للربح الصافي الذي أثبته البرهان."
+                )
             return (
                 f"نُفّذت العملية فعلياً على {ex.network} وبُثّت في الكتلة "
                 f"{ex.block_number}: {ex.tx_hash}. الغاز دفعَه {ex.gas_paid_by} "
@@ -622,24 +687,31 @@ class Synthesizer:
                 f"وتحقّق وصول القيمة: رصيد المستفيد زاد فعلياً بمقدار "
                 f"{ex.delivered or ex.amount_usd} USDC."
             )
-        if ex.status == "REVERTED_VALUE":
+        if ex.status == "unsettled_value":
             return (
                 f"البرهان نجح والعملية بُثّت فعلياً على {ex.network} "
                 f"({ex.tx_hash})، لكن بوابة القيمة الثانية كشفت أن رصيد "
                 f"المستفيد لم يزد. لذلك لا أُسمّي هذا نجاحاً: الحالة "
-                f"REVERTED_VALUE، والمسار الأعمق يعاد بناؤه تلقائياً "
+                f"unsettled_value، والمسار الأعمق يعاد بناؤه تلقائياً "
                 f"(flash_mint + liquidity + market_making) حتى يصل الرصيد."
             )
         if ex.status == "submitted":
             return (
                 "قبِل المُجمِّع العملية الموقّعة وهي في طابور التجميع الآن: "
-                f"userOpHash = {ex.user_op_hash}. الغاز مموّل من paymaster."
+                f"userOpHash = {ex.user_op_hash}. مصدر الغاز: {ex.gas_mode}."
             )
         if ex.status == "pending":
-            return "التنفيذ الحقيقي قيد التنفيذ الآن عبر عجلة الغاز في الخلفية."
+            return (
+                "التنفيذ الحقيقي قيد التنفيذ الآن عبر عجلة الغاز في الخلفية. "
+                "مصدر الغاز لم يُحسم بعد: المحرّك يجرّب خزانته الداخلية أولاً "
+                "(الرصيد الذاتي ثم إيداع EntryPoint ثم احتياطي الأرباح ثم قرض "
+                "وميض ثم الغاز بالتوكن ثم أرخص شبكة)، ولا يُطلب من المستخدم "
+                "غاز أبداً."
+            )
         return (
-            "لم تُبَثّ العملية: لم يتوفر راعٍ للغاز في هذه اللحظة، فلم يتحرك أي "
-            "مال. عجلة الغاز تواصل المحاولة في الخلفية تلقائياً."
+            "لم تُبَثّ العملية بعد: خزانة الغاز الداخلية لم تُغطِّ هذه الخطوة، "
+            "فلم يتحرك أي مال. العجلة تواصل المحاولة في الخلفية تلقائياً، "
+            "والنظام يذكر بالضبط كم وحدة نقدية ناقصة وأي شبكة تحتاجها."
         )
 
     # -- persistence ---------------------------------------------------------

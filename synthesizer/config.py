@@ -38,6 +38,13 @@ def _env_bool(name: str, default: bool) -> bool:
     return _env(name, str(default)).strip().lower() in ("1", "true", "yes", "on")
 
 
+def _env_float(name: str, default: float) -> float:
+    try:
+        return float(_env(name, str(default)))
+    except ValueError:
+        return default
+
+
 @dataclass
 class Settings:
     # --- identity ---
@@ -111,6 +118,17 @@ class Settings:
             u.strip() for u in _env("SYNTH_PAYMASTERS", "").split(",") if u.strip()
         ]
     )
+    # Fuel: the engine-owned SwayVM chain that replaced the sponsored EVM leg.
+    # These point at a locally supervised node, so nothing here is a third party.
+    fuel_rpc_url: str = _env("FUEL_RPC_URL", "http://127.0.0.1:4000/v1/graphql")
+    fuel_port: int = _env_int("FUEL_PORT", 4000)
+    fuel_core_bin: str = _env("FUEL_CORE_BIN", "")
+    forc_bin: str = _env("FORC_BIN", "")
+    fuel_consensus_key: str = _env("FUEL_CONSENSUS_KEY", "")
+    # The Fuel leg is the primary settlement path; the EVM ladder stays as a
+    # fallback for networks the engine already proved against.
+    fuel_primary: bool = _env("SYNTH_FUEL_PRIMARY", "1") not in ("0", "false", "False", "")
+
     # Fallback networks, tried in order when the primary chain cannot settle.
     # Each entry is "name|chain_id|rpc|explorer|paymaster".
     fallback_networks: list[str] = field(
@@ -133,8 +151,15 @@ class Settings:
     # accepted-but-not-yet-mined (which is still a real submission).
     receipt_timeout_seconds: float = float(_env("SYNTH_RECEIPT_TIMEOUT", "20"))
     receipt_poll_seconds: float = float(_env("SYNTH_RECEIPT_POLL", "1.5"))
-    # A watchdog re-attempts any settlement that came back simulated.
-    watchdog_attempts: int = _env_int("SYNTH_WATCHDOG_ATTEMPTS", 3)
+    # A watchdog re-attempts any settlement that came back unsettled. Zero
+    # means no cap: the engine keeps trying until the gas balance allows the
+    # settlement, which is the whole promise. A positive value is a deliberate
+    # cap for tests and for operators who want a bounded run.
+    watchdog_attempts: int = _env_int("SYNTH_WATCHDOG_ATTEMPTS", 0)
+    # The ceiling on the backoff between rounds, in seconds. A long wait is
+    # correct here: the thing being waited for is an external balance change,
+    # and hammering a chain that cannot pay only burns quota.
+    watchdog_max_delay: float = _env_float("SYNTH_WATCHDOG_MAX_DELAY", 300.0)
     # Where the agent's own signing key lives. A stable identity is a
     # prerequisite for holding a balance: the smart account address is derived
     # from this key, so a per-process key is an account that can never
@@ -143,6 +168,16 @@ class Settings:
     # The gas reserve takes this slice of every settled profit, so the agent
     # becomes self-funding instead of depending on a faucet or a sponsor.
     gas_reserve_bps: int = _env_int("SYNTH_GAS_RESERVE_BPS", 500)
+    # A paymaster that accepts the value token itself as gas, if one is ever
+    # configured. Empty means the token leg is unavailable: a sponsor that pays
+    # in native coin does not let the engine spend USDC on gas, and pretending
+    # otherwise would promise a payment the chain would reject.
+    token_paymaster_url: str = _env("SYNTH_TOKEN_PAYMASTER_URL", "")
+    # Whether an external paymaster may be asked for gas at all. Off by
+    # default: the engine funds itself, and a third party's quota must never
+    # decide whether a settlement happens. Turning this on is an explicit
+    # bootstrap decision, not the normal path.
+    allow_external_sponsor: bool = _env_bool("SYNTH_ALLOW_EXTERNAL_SPONSOR", False)
     # The token the lock settles in. USDC is what the profit is denominated in.
     value_token: str = _env(
         "SYNTH_VALUE_TOKEN", "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
@@ -154,6 +189,11 @@ class Settings:
     # no-op is the honest settlement until a funded route exists. The gas path
     # itself is proved either way.
     transfer_settlement_value: bool = _env_bool("SYNTH_TRANSFER_VALUE", False)
+    # When no public gas source is reachable, the engine can still execute and
+    # prove the settlement on the local fork. That is real execution with a real
+    # proof, but it is not a public-chain payout, so it is reported under its
+    # own network label and never as an on-chain delivery.
+    settle_on_fork: bool = _env_bool("SYNTH_SETTLE_ON_FORK", True)
     # Concurrent background settlements. Settlement is I/O-bound; a small pool
     # keeps a burst of intents from opening unbounded sponsor handshakes.
     settlement_workers: int = _env_int("SYNTH_SETTLE_WORKERS", 4)

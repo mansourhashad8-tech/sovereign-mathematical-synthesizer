@@ -1,0 +1,20 @@
+node_modules
+build/zk/pot12*.ptau
+build/zk/settlement_js/*.sym
+build/zk/*.zkey
+!build/zk/settlement_0.zkey
+build/zk/Verifier.sol
+build/zk/work
+.git
+__pycache__
+*.pyc
+.pytest_cache
+.venv
+evidence/*.jsonl
+.synth
+
+# Fuel runtime state is per-chain. Shipping the id from another machine makes the
+# container point at a contract its own chain has never seen.
+sway/chain/genesis
+sway/chain/contract_id.txt
+sway/chain/settlements.json

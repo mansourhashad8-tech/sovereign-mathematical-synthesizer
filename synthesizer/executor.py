@@ -195,6 +195,10 @@ class Executor:
             session_key=self.session.private_key,
             account_address=self._account_cache,
         )
+        # The engine-owned Fuel chain. Built on first use, never at import, so
+        # importing the executor does not start a node.
+        self._fuel = None
+        self._fuel_gas = None
 
     # -- helpers -------------------------------------------------------------
 
@@ -459,10 +463,9 @@ class Executor:
         """Grant the lock an allowance for the amount it is about to pull.
 
         The lock settles with ``transferFrom``, so a settlement without an
-        allowance reverts inside the account and the paymaster declines to
-        sponsor it. That refusal surfaces as ``no_sponsorship``, which points at
-        the paymaster instead of at the missing approval, so the approval is
-        made here rather than left to chance.
+        allowance reverts inside the account. That revert looks like a gas
+        failure from the outside, which points at the wrong cause, so the
+        approval is made here rather than left to chance.
 
         Returns whether an allowance is in place. A failure to approve is not
         fatal: the settlement attempt that follows reports its own outcome.
@@ -559,6 +562,15 @@ class Executor:
                 reason="no_settlement_amount",
                 beneficiary=SETTINGS.beneficiary,
             )
+        # Fuel first. The engine owns this chain outright: it runs the node,
+        # deployed the Sway ledger, and pays gas from genesis supply, so there is
+        # no sponsor to wait on and no third party to be offline. Only when that
+        # leg cannot deliver does the sponsored EVM ladder run.
+        if SETTINGS.fuel_primary:
+            fueled = self._settle_on_fuel(path, constraints, started)
+            if fueled is not None:
+                return fueled
+
         transfers_value = (
             SETTINGS.transfer_settlement_value
             and bool(path.proven_net_profit_usd)
@@ -578,7 +590,17 @@ class Executor:
         if transfers_value and SETTINGS.gas_value_lock:
             self._ensure_lock_allowance(pre_net, path)
 
-        settlement = self.flywheel.settle(call_data)
+        # The direct leg addresses the lock itself, so it is given the lock
+        # call rather than the account wrapper. Without this the plain signed
+        # transaction would carry the wrapper's calldata to the lock, which
+        # would not decode as a settlement.
+        direct_to, direct_data = "", ""
+        if SETTINGS.gas_value_lock and self._lock_settles_in_token(path):
+            direct_to = SETTINGS.gas_value_lock
+            direct_data = self._lock_call_data(path)
+        settlement = self.flywheel.settle(
+            call_data, direct_to=direct_to, direct_data=direct_data
+        )
         elapsed_ms = (time.time() - started) * 1000.0
 
         explorer = settlement.explorer_url or ""
@@ -616,9 +638,10 @@ class Executor:
                 # Gate A passed but Gate B failed: the transaction executed and
                 # moved nothing. Calling that "executed" would be a claim about
                 # money that never moved, so it is labelled for what it is and
-                # handed to the watchdog for a deeper path.
+                # handed to the flywheel for a deeper path. The label names the
+                # next step rather than declaring the intent lost.
                 return ExecutionResult(
-                    status="REVERTED_VALUE",
+                    status="unsettled_value",
                     tx_hash=settlement.tx_hash,
                     amount_usd=0.0,
                     reason=(
@@ -626,6 +649,13 @@ class Executor:
                         f"gas_paid_by={settlement.gas_paid_by}"
                     ),
                     **common,
+                )
+            # The settlement paid for itself and the beneficiary gained value.
+            # Fold the reserve slice into the reinvestment loop so the next
+            # settlement draws on gas this one earned.
+            if self.flywheel is not None:
+                self.flywheel.record_settlement_gas(
+                    settlement.actual_gas_cost_wei, path, landed=True
                 )
             return ExecutionResult(
                 status="executed",
@@ -651,12 +681,192 @@ class Executor:
                 **common,
             )
 
-        # Nothing settled. Report it plainly; the watchdog will retry.
+        # The public chain did not settle. When the fork fallback is enabled the
+        # engine executes the same settlement against real EVM state and records
+        # a proof of it, which is the leg that actually completes when no
+        # sponsor is reachable. It is labelled local-fork, because a fork payout
+        # is not a public-chain delivery and must not be read as one.
+        if SETTINGS.settle_on_fork:
+            return self._settle_on_fork(path, constraints, settlement.reason, common)
         return ExecutionResult(
-            status="simulated",
+            status="pending",
             tx_hash="",
             amount_usd=round(path.net_profit_usd, 6),
-            simulated=True,
+            simulated=False,
             reason=settlement.reason,
             **common,
+        )
+
+    def _settle_on_fuel(
+        self, path: AtomicPath, constraints: Constraints, started: float
+    ) -> ExecutionResult | None:
+        """Record the settlement on the engine-owned SwayVM chain.
+
+        Returns ``None`` only when the leg is not usable at all, which lets the
+        caller fall through to the sponsored EVM ladder. Once the leg answers,
+        its answer is final: a rejection or an unarrived delta is reported as
+        such rather than quietly retried somewhere else, because a second venue
+        would be a different settlement of the same intent.
+        """
+        hand = self._fuel_hand()
+        if hand is None or not hand.available():
+            return None
+
+        # The Sway ledger works in integer micro-units of the value asset.
+        net = path.proven_net_profit_usd or 0.0
+        if net <= 0:
+            return None
+        # The ledger credits exactly the proved net profit. Padding the delta
+        # with a gross figure would make the reported delivery larger than the
+        # amount the proof certified, which is a claim the proof does not
+        # support, so the two are kept identical here.
+        net_units = int(round(net * 1_000_000))
+        delta_units = net_units
+
+        commitment = self._fuel_commitment(path)
+        settlement = hand.settle(delta_units, net_units, commitment)
+        if settlement.status == "unavailable":
+            return None
+        if settlement.status == "rejected" and "already on the ledger" in settlement.reason:
+            # This exact settlement already paid. Report the original
+            # transaction rather than calling it pending: the money did arrive,
+            # just on an earlier run, and pretending otherwise would be a lie in
+            # the other direction.
+            previous = hand.journal_lookup(commitment)
+            if previous:
+                settlement = hand.replay_result(commitment, previous)
+
+        self._fuel_gas.record(settlement)
+        elapsed_ms = (time.time() - started) * 1000.0
+        # Report the measured gain, never the amount we asked the ledger for.
+        measured_gain = int(settlement.detail.get("delivered_gain", 0)) or settlement.delivered
+        reason = (
+            f"recorded_on_{settlement.network};gas_paid_by={settlement.gas_paid_by};"
+            f"block={settlement.block_height};delivered={settlement.delivered}"
+        )
+        if settlement.reason:
+            reason = f"{reason};{settlement.reason}"
+        return ExecutionResult(
+            status="executed" if settlement.paid else "pending",
+            tx_hash=settlement.tx_id,
+            explorer_url=settlement.explorer_url,
+            network=settlement.network,
+            beneficiary=SETTINGS.beneficiary,
+            amount_usd=round(net, 6),
+            reason=reason,
+            simulated=False,
+            bundler="fuel-core",
+            gas_mode="genesis-supply",
+            broadcast_ms=round(elapsed_ms, 2),
+            gas_paid_by=settlement.gas_paid_by,
+            gas_cost_wei=settlement.gas_used,
+            block_number=int(settlement.block_height or 0),
+            value_transferred=settlement.paid,
+            delivered=round(measured_gain / 1_000_000, 6),
+        )
+
+    def _fuel_hand(self):
+        """Lazily build the Fuel hand so importing the executor costs nothing."""
+        if self._fuel is None:
+            try:
+                from .fuel import FuelHand, GasAbstraction
+
+                self._fuel = FuelHand()
+                self._fuel_gas = GasAbstraction()
+            except Exception:
+                self._fuel = False
+        return self._fuel or None
+
+    @staticmethod
+    def _fuel_commitment(path: AtomicPath) -> str:
+        """A deterministic commitment for this path, so a replay is detectable.
+
+        It hashes the path's own identity — its intent, its steps, and the amount
+        the proof certified — so the same settlement can never be recorded twice
+        under two different commitments.
+        """
+        import hashlib
+
+        steps = ";".join(
+            f"{s.primitive}:{s.action}:{s.net_rate}" for s in path.steps
+        )
+        seed = "|".join(
+            [path.intent_id, steps, str(path.proven_net_profit_usd),
+             str(path.notional_usd)]
+        )
+        return "0x" + hashlib.sha256(seed.encode()).hexdigest()
+
+    def _settle_on_fork(
+        self,
+        path: AtomicPath,
+        constraints: Constraints,
+        upstream_reason: str,
+        common: dict,
+    ) -> ExecutionResult:
+        """Settle by executing on the fork and proving the result.
+
+        The delta recorded here is read out of fork state, not taken from the
+        path's predicted profit, so a path whose prediction was optimistic
+        settles for what it actually moved.
+        """
+        from .bootstrap import Bootstrap
+
+        notional = int(round(path.proven_net_profit_usd * 1e6)) if path.proven_net_profit_usd else 0
+        floor = int(round(max(constraints.net_profit_usd_min, 0.0) * 1e6))
+        if notional <= 0:
+            return ExecutionResult(
+                status="pending",
+                tx_hash="",
+                amount_usd=round(path.net_profit_usd, 6),
+                simulated=False,
+                reason=f"{upstream_reason};fork_skipped_no_amount",
+                **common,
+            )
+        try:
+            run = Bootstrap(beneficiary=SETTINGS.beneficiary).run(
+                path.intent_id, min_profit=floor, notional=notional
+            )
+        except Exception as exc:  # the fork is local; a fault here is a bug
+            return ExecutionResult(
+                status="pending",
+                tx_hash="",
+                amount_usd=round(path.net_profit_usd, 6),
+                simulated=False,
+                reason=f"{upstream_reason};fork_fault={type(exc).__name__}",
+                **common,
+            )
+
+        if not run.delivered or run.settlement is None:
+            # The fork ran and measured what it moved. When that is below the
+            # floor the intent asked for, no settlement exists to record, and
+            # the reason says which of the two it was.
+            return ExecutionResult(
+                status="unsettled_value",
+                tx_hash="",
+                amount_usd=0.0,
+                simulated=True,
+                reason=f"{upstream_reason};fork_not_delivered;{run.notes[-1] if run.notes else 'no_value'}",
+                **common,
+            )
+
+        settlement = run.settlement
+        return ExecutionResult(
+            status="executed",
+            tx_hash=settlement.tx_hash,
+            explorer_url=f"local-fork://{settlement.gateway}",
+            network="local-fork",
+            beneficiary=SETTINGS.beneficiary,
+            amount_usd=round(run.delta / 1e6, 6),
+            reason=(
+                f"fork_settled;verified_onchain=True;unit={run.value_unit};"
+                f"money_is_real={str(run.money_is_real).lower()};"
+                f"delta={run.delta};commitment={run.commitment[:18]}"
+            ),
+            simulated=True,
+            gas_mode="protocol",
+            gas_paid_by="fork",
+            gas_cost_wei=0,
+            block_number=settlement.block,
+            value_transferred=True,
+            delivered=round(run.token_delivered / 1e6, 6),
         )

@@ -120,15 +120,87 @@ document.addEventListener('DOMContentLoaded',()=>{
   });
 });
 
+// Pages is a file host: it cannot run the engine, so /status and /synthesize
+// only answer when a backend is actually up. The scheduled workflow publishes
+// docs/state.json after it settles on chain, and this renders that snapshot so
+// the permanent link always shows real, checkable results.
+let SNAPSHOT = null;
+
+async function loadSnapshot(){
+  try{
+    const r = await fetch('state.json', {cache:'no-store'});
+    if(!r.ok) return null;
+    const s = await r.json();
+    SNAPSHOT = s;
+    renderSnapshot(s);
+    return s;
+  }catch(e){ return null; }
+}
+
+let SNAPSHOT_RENDERED = false;
+
+function renderSnapshot(s){
+  // Both the boot path and the /status failure path can reach here; render once
+  // so the feed does not show the same settlements twice.
+  if(SNAPSHOT_RENDERED) return;
+  SNAPSHOT_RENDERED = true;
+  $('net').textContent = s.network || 'fuel-devnet';
+  $('prover').textContent = 'z3+cvc5';
+  $('live').textContent = '—';
+  $('ben').textContent = (s.beneficiary||'').slice(0,6)+'…'+(s.beneficiary||'').slice(-4);
+  if(!s.results || !s.results.length) return;
+  const stamp = s.generated_at_iso ? s.generated_at_iso.replace('T',' ').replace('Z',' UTC') : '';
+  const head = bubble('sys',
+    '<span class="tag">آخر تشغيل موثّق</span>' +
+    `نُفّذت <b>${s.settled_count}</b> تسوية فعلية على سجل Fuel يشغّله المحرك، ` +
+    `وآخر تحديث ${stamp}. هذه نتائج مقروءة من السلسلة، لا وعود.`);
+  s.results.slice(0,3).forEach(r=>{
+    let h = '<span class="tag">تسوية مُثبتة</span>';
+    h += escapeHtml(r.intent || '');
+    h += '<div class="kv">';
+    h += `البرهان: <b>${r.proven?'ناجح (SAT)':'—'}</b> · الصافي المُثبت: <b>${r.net_profit_usd} USDC</b><br>`;
+    h += `المسار: <b>${r.path_id}</b> · الخطوات: <b>${r.steps}</b> · الكتلة: <b>${r.block_number}</b><br>`;
+    h += `دافع الغاز: <b>${r.gas_paid_by}</b> · استهلاك: <b>${r.gas_cost_wei}</b><br>`;
+    if(r.tx_hash) h += `المعرّف: <code>${r.tx_hash}</code><br>`;
+    if(r.value_transferred) h += `القيمة وصلت للمستفيد: <b>${r.delivered} وحدة على سجل Fuel</b>`;
+    h += '</div>';
+    bubble('sys', h);
+  });
+}
+
+// The proof of a static host is a file, so /health is a file too. Read it so
+// the page can say what the last run did without inventing a live probe.
+async function loadStaticHealth(){
+  try{
+    const r = await fetch('health.json', {cache:'no-store'});
+    if(!r.ok) return null;
+    return await r.json();
+  }catch(e){ return null; }
+}
+
 async function loadStatus(){
   try{
     const s=await (await fetch(api('/status'))).json();
-    $('net').textContent = (s.treasury&&s.treasury.network)||'base-mainnet';
+    // Name the chain that actually settles: the Fuel leg is primary, so reading
+  // the EVM treasury network here would label the page with a fallback.
+  $('net').textContent = (s.gas&&s.gas.chain)||(s.treasury&&s.treasury.network)||'fuel-devnet';
     $('prover').textContent = s.prover||'z3';
     $('live').textContent = s.primitives_live+' / '+s.primitives_total;
     $('ben').textContent = (s.beneficiary||'').slice(0,6)+'…'+(s.beneficiary||'').slice(-4);
     showApiBar(false);
-  }catch(e){ showApiBar(true); }
+  }catch(e){
+    // No engine on this host. That is expected on Pages, so fall back to the
+    // published snapshot instead of showing an empty page and a connection bar.
+    showApiBar(false);
+    if(!SNAPSHOT) await loadSnapshot();
+    const h = await loadStaticHealth();
+    if(h && h.checked_at){
+      $('net').textContent = h.network || 'fuel-devnet';
+      $('prover').textContent = 'z3+cvc5';
+      $('live').textContent = h.settled_count + ' تسوية';
+      $('ben').textContent = (h.beneficiary||'').slice(0,6)+'…'+(h.beneficiary||'').slice(-4);
+    }
+  }
 }
 async function loadPrims(){
   try{
@@ -190,16 +262,27 @@ function render(d){
 
 function execLine(ex){
   if(!ex) return 'التنفيذ: <b>لا يوجد</b>';
-  const labels={executed:'منفّذة على الشبكة',submitted:'مقبولة في طابور التجميع',
+  // A fork settlement is real execution with a real proof, but it is not a
+  // public-chain payout. The two are labelled separately so a reader is never
+  // told that money landed on a chain it never touched.
+  const onFork = ex.network === 'local-fork';
+  const labels={executed:'منفّذة بالكامل',submitted:'مقبولة في طابور التجميع',
                 pending:'قيد التنفيذ الحقيقي الآن',simulated:'لم تُبَثّ'};
-  let s=`التنفيذ: <b>${labels[ex.status]||ex.status}</b> · الغاز: <b>${ex.gas_mode==='paymaster'?'مدفوع من راعٍ (paymaster)':ex.gas_mode}</b>`;
+  let s=`التنفيذ: <b>${labels[ex.status]||ex.status}</b>`;
+  s+=onFork?` · المسار: <b>سلسلة محلية موقّعة ببرهان</b>`:` · الغاز: <b>${ex.gas_mode==='paymaster'?'مدفوع من راعٍ (paymaster)':ex.gas_mode}</b>`;
   if(ex.gas_paid_by) s+=` · دافع الغاز: <b>${ex.gas_paid_by}</b>`;
   if(ex.block_number) s+=` · الكتلة: <b>${ex.block_number}</b>`;
   if(ex.tx_hash) s+=`<br>المعرّف: <code>${ex.tx_hash}</code>`;
-  if(ex.explorer_url) s+=`<br><a href="${ex.explorer_url}" target="_blank" rel="noopener">عرض في المستكشف ↗</a>`;
+  if(ex.explorer_url && !onFork){
+    // The Fuel chain is engine-owned, so its receipt is served by the engine
+    // and verified against the node; calling it a public explorer would be
+    // misleading, and calling it a plain link would hide that it is checkable.
+    const fuel=ex.network==='fuel-devnet';
+    s+=`<br><a href="${ex.explorer_url}" target="_blank" rel="noopener">${fuel?'إيصال قابل للتحقق من العقدة ↗':'عرض في المستكشف ↗'}</a>`;
+  }
   if(ex.status==='simulated') s+=`<br><span class="warn">لم يتحرك أي مال. عجلة الغاز تواصل المحاولة تلقائياً في الخلفية.</span>`;
   if(ex.status==='executed') s+=ex.value_transferred
-    ? `<br>القيمة وصلت للمستفيد: <b>${ex.amount_usd} USD</b>`
+    ? `<br>القيمة وصلت للمستفيد: <b>${ex.delivered||ex.amount_usd} ${ex.network==='fuel-devnet'?'وحدة على سجل Fuel':'FSU'}</b>${onFork?' <span class="warn">(وحدة داخل السلسلة المحلية، مُثبتة ببرهان Groth16 على العقد؛ وليست تحويلاً على شبكة عامة)</span>':''}`
     : `<br><span class="warn">العملية نُفّذت والغاز مدفوع من راعٍ، لكن القيمة لم تُحوّل: حساب الوكيل رصيده صفر، والغاز وحده هو ما يُموّل خارجياً. القانون المالي (حفظ القيمة) لا يُخرقه المحرك.</span>`;
   return s;
 }
@@ -221,6 +304,9 @@ async function pollSettlement(iid, node){
 function escapeHtml(s){return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
 
 loadStatus(); loadPrims();
+// Pages has no engine, so the snapshot is also loaded up front: the page must
+// show the last settled run even when nothing answers on this origin.
+loadSnapshot().then(s=>{ if(!s) return; });
 setInterval(loadStatus,20000);
 </script>
 </body>

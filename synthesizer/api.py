@@ -23,8 +23,10 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
 
 from . import __version__
+from .bootstrap import Bootstrap
 from .config import SETTINGS
 from .genesis import GenesisMesh
+from .gasflywheel import _networks
 from .loop import Synthesizer
 from .templates import TEMPLATES
 
@@ -121,12 +123,21 @@ async def status() -> dict:
         "unsettled": len(synth.unsettled()),
         "keepalive_seconds": SETTINGS.keepalive_seconds,
         "treasury": await _treasury_state(),
+        "gas_treasury": _gas_treasury_state(synth),
         "gas": {
             "paymaster": SETTINGS.paymaster_url,
-            "chain": SETTINGS.settlement_chain,
+            # Report the chain that actually settles. The Fuel leg is primary,
+            # so naming the EVM chain here would describe a fallback as if it
+            # were the settlement venue.
+            "chain": "fuel-devnet" if SETTINGS.fuel_primary else SETTINGS.settlement_chain,
+            "primary_leg": "fuel" if SETTINGS.fuel_primary else "evm-sponsored",
             "chain_id": SETTINGS.chain_id,
             "fallback_networks": len(SETTINGS.fallback_networks),
             "user_pays_gas": False,
+            # The self-sponsored model: gas is internal, and an external
+            # sponsor is a switch the operator turns on, not the default.
+            "external_sponsor_allowed": SETTINGS.allow_external_sponsor,
+            "internal_balance": synth.executor.flywheel.gas_report(),
             "watchdog": synth.watchdog.status(),
         },
         "genesis": _genesis_state(),
@@ -144,6 +155,125 @@ def relayers() -> dict:
     report = synth.executor.flywheel.relay_report()
     report["reserve"] = synth.executor.flywheel.reserve.summary()
     return report
+
+
+@app.get("/fuel/tx/{tx_id}")
+def fuel_receipt(tx_id: str) -> JSONResponse:
+    """A receipt read back from the node, for the transaction id in the answer.
+
+    The settlement is only as good as the ability to check it, so this endpoint
+    queries the node for the transaction, the block that carries it, and the
+    ledger totals. Nothing here is remembered from the settlement call itself.
+    """
+    from .fuel import FuelNode
+
+    node = FuelNode()
+    if not node.healthy():
+        return JSONResponse(
+            status_code=503,
+            content={"tx_id": tx_id, "found": False, "reason": "fuel-core node is not reachable"},
+        )
+    import httpx
+
+    query = """
+    query Tx($id: String!) {
+      transaction(id: $id) { id status { __typename ... on SuccessStatus { blockHeight } ... on FailureStatus { blockHeight reason } } }
+    }
+    """
+    try:
+        with httpx.Client(timeout=10.0) as client:
+            resp = client.post(node.rpc, json={"query": query, "variables": {"id": tx_id}})
+            body = resp.json()
+    except Exception as exc:
+        return JSONResponse(
+            status_code=502,
+            content={"tx_id": tx_id, "found": False, "reason": f"node query failed: {exc}"},
+        )
+    tx = (body.get("data") or {}).get("transaction")
+    if not tx:
+        return JSONResponse(
+            status_code=404,
+            content={"tx_id": tx_id, "found": False, "reason": "the node has no transaction with this id"},
+        )
+    status = tx.get("status") or {}
+    return JSONResponse(
+        content={
+            "tx_id": tx.get("id", tx_id),
+            "found": True,
+            "status": status.get("__typename", ""),
+            "block_height": status.get("blockHeight", ""),
+            "failure_reason": status.get("reason", ""),
+            "network": "fuel-devnet",
+            "rpc": node.rpc,
+        }
+    )
+
+
+@app.get("/fuel")
+def fuel_state() -> dict:
+    """The engine-owned SwayVM chain: node health, ledger, and gas accounting.
+
+    Every value here is read from the running node or from the deployed
+    contract. A reader can confirm the engine settles for zero external spend
+    instead of taking that claim on trust.
+    """
+    from .fuel import BENEFICIARY, FuelNode
+
+    node = FuelNode()
+    healthy = node.healthy()
+    payload = {
+        "network": "fuel-devnet",
+        "vm": "SwayVM",
+        "rpc": node.rpc,
+        "node_healthy": healthy,
+        "node_version": "",
+        "beneficiary": BENEFICIARY,
+        "contract_id": "",
+        "locked_beneficiary": "",
+        "settlement_count": 0,
+        "grand_total": 0,
+        "delivered_to_beneficiary": 0,
+        "gas": {"settlements": 0, "gas_used": 0, "external_spend": 0,
+                "paid_by": "genesis-supply"},
+        "min_gas_price": 0,
+    }
+    if not healthy:
+        return payload
+    try:
+        import httpx
+
+        with httpx.Client(timeout=5.0) as client:
+            resp = client.post(
+                node.rpc, json={"query": "{ nodeInfo { nodeVersion } }"}
+            )
+            payload["node_version"] = (
+                resp.json().get("data", {}).get("nodeInfo", {}).get("nodeVersion", "")
+            )
+    except Exception:
+        pass
+    # Build the hand on demand: the executor only creates it on first
+    # settlement, but this endpoint must report the ledger before that happens.
+    hand = getattr(synth.executor, "_fuel", None) or None
+    if hand is None:
+        from .fuel import FuelHand
+
+        hand = FuelHand(node)
+    if hand:
+        # Report the id the chain answers for. A cached id from another chain
+        # would read as a healthy ledger that this node cannot serve.
+        cid = hand.verified_contract_id()
+        payload["contract_id"] = cid
+        state = hand._run("state", {"beneficiary": "0x" + "00" * 12 + BENEFICIARY[2:]}) if cid else None
+        if state:
+            payload["locked_beneficiary"] = state.get("locked", "")
+            totals = state.get("totals", ["0", "0"])
+            payload["settlement_count"] = int(totals[0] or 0)
+            payload["grand_total"] = int(totals[1] or 0)
+            payload["delivered_to_beneficiary"] = int(state.get("delivered", 0) or 0)
+        gas = getattr(synth.executor, "_fuel_gas", None)
+        if gas:
+            payload["gas"] = gas.as_dict()
+    return payload
 
 
 @app.get("/valuegas")
@@ -229,6 +359,31 @@ async def synthesize(body: IntentBody) -> JSONResponse:
     return JSONResponse(payload, headers=headers)
 
 
+class BootstrapBody(BaseModel):
+    intent_id: str = "intent"
+    min_profit: int = 1_000_000
+    notional: int = 5_000_000
+
+
+@app.post("/bootstrap")
+async def bootstrap(body: BootstrapBody) -> JSONResponse:
+    """Run the fork -> proof -> chain path and report what the chain recorded.
+
+    The work happens in a worker thread because proving is CPU bound, and the
+    result is returned as produced: if the chain rejected the proof the response
+    says so rather than describing an intention.
+    """
+    result = await asyncio.to_thread(
+        Bootstrap().run, body.intent_id, body.min_profit, body.notional
+    )
+    payload = result.to_dict()
+    headers = {
+        "X-Bootstrap-Delivered": str(result.delivered).lower(),
+        "X-Bootstrap-Verified": str(result.verified_onchain).lower(),
+    }
+    return JSONResponse(payload, headers=headers)
+
+
 @app.get("/templates")
 def templates() -> dict:
     """The pre-computed composition library that makes execution instant."""
@@ -287,6 +442,21 @@ async def proof(iid: str) -> JSONResponse:
 @app.get("/", response_class=HTMLResponse)
 def index() -> str:
     return (WEB_DIR / "index.html").read_text(encoding="utf-8")
+
+
+def _gas_treasury_state(synth) -> dict:
+    """The engine's internal gas position, measured per network.
+
+    This replaces the old "which sponsor answered" report. It states which of
+    the four funding legs can pay, what a settlement costs, and — when none can
+    pay — the exact wei bootstrap that would turn every leg on.
+    """
+    try:
+        return synth.treasury.summary(
+            _networks(), lambda n: synth.executor.flywheel.account_for(n)
+        )
+    except Exception as exc:  # noqa: BLE001 - a report must never 500 the app
+        return {"error": type(exc).__name__, "legs": []}
 
 
 async def _treasury_state() -> dict:

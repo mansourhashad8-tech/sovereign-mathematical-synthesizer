@@ -7,6 +7,8 @@ primary_region = "iad"
 [env]
   SYNTH_PORT = "8000"
   SYNTH_ALWAYS_ON = "true"
+  # Gas is internal. An external sponsor is a bootstrap switch, not the path.
+  SYNTH_ALLOW_EXTERNAL_SPONSOR = "false"
 
 [http_service]
   internal_port = 8000

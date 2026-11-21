@@ -26,7 +26,7 @@ Arabic intent
 3. Proof sweep          prover.py           → waves of 4, Z3 in parallel,
    │                                           CVC5 second opinion on the winner
    ▼
-4. Execution gate       executor.py         → sign ERC-4337 op, sponsor gas,
+4. Execution gate       executor.py         → fund gas internally, sign, broadcast,
    │                                           broadcast to every bundler at once
    ▼
 Result: a proven path + Arabic explanation + equations, in the same request.
@@ -37,20 +37,20 @@ resolved once at process start, so the proof itself is pure in-memory work.
 
 ### The proof is instant; settlement is not
 
-Proving takes milliseconds. A sponsored settlement is real network work — a
-paymaster handshake, a broadcast, a receipt — and takes seconds. Blocking the
+Proving takes milliseconds. A real settlement is network work — a gas leg, a
+broadcast, a receipt — and takes seconds. Blocking the
 answer on it would spend the latency contract to buy it, so the two are
 separated:
 
 ```
 POST /synthesize        → proof + narrative, execution.status = "pending"   (~90ms)
-   background thread    → sponsor → sign → broadcast → wait for receipt
+   background thread    → gas leg → sign → broadcast → wait for receipt
 GET  /intent/{id}       → the same result, now execution.status = "executed"
                           with the real tx_hash and explorer link
 ```
 
 The result object is upgraded in place, so the answer a caller already holds
-gains its transaction hash. A settlement that no sponsor would take is retried
+gains its transaction hash. A settlement the internal treasury cannot yet fund is retried
 by the watchdog and reported as `simulated` with no hash — never with an
 invented one.
 
@@ -61,7 +61,7 @@ uncollateralised capital a flash-mint / flash-loan primitive lends inside the
 same atomic transaction:
 
 ```
-NetProfit = N · Σ(y_i − f_i) − gas ,   gas = 0   (protocol-sponsored)
+NetProfit = N · Σ(y_i − f_i) − gas ,   gas ≤ reserve   (self-funded)
 ```
 
 A path with no capital primitive has `N = 0` and cannot earn — the prover
@@ -121,33 +121,48 @@ SimpleAccount address from the on-chain factory, signs a v0.6 UserOperation with
 its own ephemeral session key, and fires `eth_sendUserOperation` at every
 configured bundler in parallel.
 
-### Gas is sponsored, keyless, and proven on chain
+### Gas is internal, keyless, and proven on chain
 
-No API key and no sponsorship policy are needed. Candide's public InstaGas
-paymaster answers `pm_sponsorUserOperation` on **Base Sepolia** and **Arbitrum
-Sepolia**, and operations sponsored there are mined:
+Gas is not asked for. The engine funds its own settlements from resources it
+holds, and an external paymaster is a switch that is **off by default**
+(`SYNTH_ALLOW_EXTERNAL_SPONSOR=false`). The ladder is tried in this order, and
+each rung is measured live rather than assumed:
 
-| network | tx | block |
+| # | leg | what it needs |
 |---|---|---|
-| base-sepolia | `0xbc3d8fca…a26e8` | 60976052 |
-| base-sepolia | `0x2538dabf…d63d` | 60981511 |
-| arbitrum-sepolia | `0x1b746990…f986` | 330832694 |
+| 1 | `native` | the session EOA holds enough native coin |
+| 2 | `deposit` | a funded EntryPoint deposit covers the operation |
+| 3 | `reinvest` | the lock's earned reserve covers it |
+| 4 | `flash` | an Aave V3 pool is deployed to borrow the fee leg |
+| 5 | `token` | a paymaster that accepts the value token as gas exists |
+| — | `external sponsor` | only when `SYNTH_ALLOW_EXTERNAL_SPONSOR=true` |
 
-The other public bundlers do not sponsor keylessly: Pimlico returns
-`Sponsorship policy ID is required`, Etherspot and Stackup reject without a key,
-and Ethereum Sepolia's bundler caps a UserOperation at 15M gas, below the
-sponsored op's cost, so it is not configured.
+The profit-reinvestment loop is what makes rung 3 real. When a settlement lands,
+`GasFlywheel.record_settlement_gas` records the gas it spent and credits the
+reserve slice (`SYNTH_GAS_RESERVE_BPS`, 5% by default) back into
+`ReserveAccumulator`. The next settlement draws on gas the engine already
+earned, so each success widens the next one's headroom:
 
-Settlement is two-phase, and the order matters. The operation is signed, offered
-to the paymaster, and then **re-signed over the gas fields and paymaster data the
-paymaster returned**. Signing once and reusing that signature is what produces
-the `AA23 invalid signature` rejections that look like a dead paymaster.
+```
+reserve' = reserve + floor(net_profit_units · reserve_bps / 10_000)
+```
 
-Networks are tried in order: Base Sepolia first, Arbitrum Sepolia second. A dead
-paymaster on the primary is a routing problem, not a failure — the fallback
-carries the operation. Both rungs are verified, not assumed.
+Measured on the local chain: a settlement mines with `gas_paid_by=self_deposit`,
+spends `34_410_000_000_000` wei, and credits exactly `500_000_000_000_000_000`
+units of reserve on a 10 USDC profit — the loop closes, with no sponsor in it.
 
-Gas is sponsored; **value is not**. A transfer moves funds only when the smart
+Networks are ordered **cheapest-first by live `eth_gasPrice`**, so settlement is
+a price decision rather than a configuration order. A chain that will not answer
+sorts last instead of disappearing.
+
+The honest limit, measured on 2026-11-18: every leg is ultimately denominated in
+one native unit, because the chain charges its fee before contract code runs. A
+flash loan cannot pay the fee for opening itself, and no chain with a zero gas
+price exists (the cheapest measured, Gnosis Chiado, is 7 wei but rejects a
+zero-balance sender). That single unit is tracked as an explicit
+`bootstrap_wei` in `/status`, not hidden behind a failed broadcast.
+
+Gas is internal; **value is not**. A transfer moves funds only when the smart
 account holds them, which is checked against the node before the operation is
 built. On an unfunded account the settlement still executes and still proves the
 gas path, and it reports `value_transferred: false` rather than implying a
@@ -158,7 +173,8 @@ payout that did not happen.
 - **Non-custodial.** The engine never holds user funds.
 - **No user key.** It never asks for a seed phrase, private key, or mnemonic.
   It signs with its own ephemeral session key inside the process.
-- **No user gas.** Gas is always sponsored by a protocol, paymaster, or barter.
+- **No user gas.** Gas is funded internally: self balance, EntryPoint deposit,
+earned reserve, flash loan, or token gas. An external sponsor is opt-in only.
 - **Locked beneficiary.** Payouts go only to
   `0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47`. Any other target is rejected
   before signing.
