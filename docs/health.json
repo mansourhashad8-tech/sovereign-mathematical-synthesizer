@@ -1,10 +1,10 @@
 {
-  "status": "no_settlements_yet",
+  "status": "ok",
   "live_probe": false,
-  "checked_at": "2026-11-21T14:37:49Z",
+  "checked_at": "2026-11-21T14:38:02Z",
   "engine": "sovereign-synthesizer",
   "version": "2.0.0",
   "network": "fuel-devnet",
-  "settled_count": 0,
+  "settled_count": 281,
   "beneficiary": "0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47"
 }
