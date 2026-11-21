@@ -103,3 +103,15 @@ union ledgers via `scripts/merge_ledgers.py` (by `tx_hash`). The loop job never
 publishes (no Fuel node → its ids are unlookupable). Cron is best-effort and was
 observed skipping a slot, so liveness rests on the ledger, not on the schedule.
 Detail: `2026-11-18.md`.
+
+## Reverse Value Engine (commit `a358254`) — many routes, not one command
+Answers a value intent by entering **every** route family at once
+(`synthesizer/matrix.py`: `PathMatrix`/`Lane`/`build_lanes`, 8 lanes / 6
+families), first *measured* payout wins. Two hard-won rules: (1) the matrix gets
+`request_deadline_s - elapsed`, never a fixed budget — slow lanes are reported
+`continuing` and keep working after the reply, not "failed"; (2) CPU lanes
+(local EVM fork, z3) must be `cpu_bound=True` and start only if no network lane
+delivered, else they starve the paying lane of the GIL (+500ms). Fuel settle was
+~1264ms → ~730ms after caching `verified_contract_id()` (invalidated on failed
+record). Lane narration must never call a `stood_down` lane a failure.
+Detail: `2026-11-18.md`.
