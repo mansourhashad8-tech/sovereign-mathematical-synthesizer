@@ -278,7 +278,13 @@ function execLine(ex){
     // and verified against the node; calling it a public explorer would be
     // misleading, and calling it a plain link would hide that it is checkable.
     const fuel=ex.network==='fuel-devnet';
-    s+=`<br><a href="${ex.explorer_url}" target="_blank" rel="noopener">${fuel?'إيصال قابل للتحقق من العقدة ↗':'عرض في المستكشف ↗'}</a>`;
+    const label=fuel?'إيصال قابل للتحقق من العقدة ↗':'عرض في المستكشف ↗';
+    // A relative receipt is served by the engine. The published snapshot has no
+    // engine behind it, so that link would 404; the hash is still the thing to
+    // check, so it is shown as text rather than as a link that goes nowhere.
+    const reachable = !/^\//.test(ex.explorer_url) || !!API_BASE;
+    if(reachable) s+=`<br><a href="${API_BASE && /^\//.test(ex.explorer_url) ? API_BASE+ex.explorer_url : ex.explorer_url}" target="_blank" rel="noopener">${label}</a>`;
+    else s+=`<br><span class="warn">الإيصال يُخدَم من العقدة المحلية للمحرك؛ ابحث بالمعرّف أعلاه على العقدة للتحقق منه.</span>`;
   }
   if(ex.status==='simulated') s+=`<br><span class="warn">لم يتحرك أي مال. عجلة الغاز تواصل المحاولة تلقائياً في الخلفية.</span>`;
   if(ex.status==='executed') s+=ex.value_transferred
