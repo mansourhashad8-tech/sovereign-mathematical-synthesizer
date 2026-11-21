@@ -512,7 +512,8 @@ class Executor:
             return split.to_beneficiary + split.relayer_fee
         return int(path.proven_net_profit_usd * 1e18)
 
-    def settle(self, path: AtomicPath, constraints: Constraints) -> ExecutionResult:
+    def settle(self, path: AtomicPath, constraints: Constraints,
+               fuel_only: bool = False) -> ExecutionResult:
         """Settle the proved path with gas paid by someone else.
 
         The gates run first and are non-negotiable. Then the flywheel builds a
@@ -520,6 +521,11 @@ class Executor:
         with the agent's own session key, and broadcasts it. What comes back is
         either a mined transaction with a real hash, a bundler-accepted
         operation awaiting its receipt, or an honest simulation.
+
+        ``fuel_only`` stops after the engine-owned chain. The request path uses
+        it because the sponsor ladder is unbounded network work: a caller must
+        not wait on a third party to receive an answer, and the flywheel runs
+        that ladder in the background instead.
         """
         started = time.time()
 
@@ -570,6 +576,13 @@ class Executor:
             fueled = self._settle_on_fuel(path, constraints, started)
             if fueled is not None:
                 return fueled
+            if fuel_only:
+                return ExecutionResult(
+                    status="pending",
+                    reason="fuel_leg_unavailable",
+                    beneficiary=SETTINGS.beneficiary,
+                    network="fuel-devnet",
+                )
 
         transfers_value = (
             SETTINGS.transfer_settlement_value

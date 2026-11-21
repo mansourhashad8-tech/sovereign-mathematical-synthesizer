@@ -494,7 +494,7 @@ class Synthesizer:
         if not SETTINGS.fuel_primary:
             return placeholder
         try:
-            gated = self.executor.settle(path, constraints)
+            gated = self.executor.settle(path, constraints, fuel_only=True)
         except Exception:
             return placeholder
         if gated.network == "fuel-devnet":
