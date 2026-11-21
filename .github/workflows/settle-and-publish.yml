@@ -78,9 +78,21 @@ jobs:
       - name: Commit the snapshot
         run: |
           set -eu
+          # The ledger only ever grows: a run that settles one intent must not
+          # shrink the record of the hundreds before it. If this run somehow
+          # produced fewer rows than are already committed, keep the committed
+          # ones and say so rather than pushing a smaller page.
+          before=$(git show HEAD:ledger/settlements.jsonl 2>/dev/null | wc -l || echo 0)
+          after=$(wc -l < ledger/settlements.jsonl 2>/dev/null || echo 0)
+          echo "ledger rows: $before committed, $after now"
+          if [ "$after" -lt "$before" ]; then
+            echo "this run produced fewer rows than are already committed; keeping the committed record"
+            git checkout -- ledger/settlements.jsonl docs/state.json docs/health.json 2>/dev/null || true
+            exit 0
+          fi
           git config user.name "engine"
           git config user.email "engine@users.noreply.github.com"
-          git add docs/state.json docs/health.json
+          git add docs/state.json docs/health.json ledger/settlements.jsonl
           if git diff --cached --quiet; then
             echo "nothing new was settled; no commit"
             exit 0

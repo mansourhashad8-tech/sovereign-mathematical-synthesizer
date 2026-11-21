@@ -150,10 +150,18 @@ function renderSnapshot(s){
   $('ben').textContent = (s.beneficiary||'').slice(0,6)+'…'+(s.beneficiary||'').slice(-4);
   if(!s.results || !s.results.length) return;
   const stamp = s.generated_at_iso ? s.generated_at_iso.replace('T',' ').replace('Z',' UTC') : '';
+  // The ledger accumulates across runs, but the chain is rebuilt empty each
+  // time, so only the newest settlements can still be looked up. Saying "N
+  // settlements" without that split would promise receipts the node no longer
+  // holds.
+  const live = s.verified_now_count;
+  const note = (typeof live === 'number' && live < s.settled_count)
+    ? ` منها <b>${live}</b> لا تزال العقدة الحالية تجيب عنها؛ والباقي سُوِّي على سلسلة أُعيد بناؤها، فبقي سجلاً لا إيصالاً.`
+    : '';
   const head = bubble('sys',
     '<span class="tag">آخر تشغيل موثّق</span>' +
-    `نُفّذت <b>${s.settled_count}</b> تسوية فعلية على سجل Fuel يشغّله المحرك، ` +
-    `وآخر تحديث ${stamp}. هذه نتائج مقروءة من السلسلة، لا وعود.`);
+    `سُجّلت <b>${s.settled_count}</b> تسوية فعلية على سجل Fuel يشغّله المحرك، ` +
+    `وآخر تحديث ${stamp}. هذه نتائج مقروءة من السلسلة، لا وعود.${note}`);
   s.results.slice(0,3).forEach(r=>{
     let h = '<span class="tag">تسوية مُثبتة</span>';
     h += escapeHtml(r.intent || '');

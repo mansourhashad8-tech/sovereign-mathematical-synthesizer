@@ -9,6 +9,15 @@ backend is reachable.
 
 Everything published here is read back from evidence, never assumed: a record
 without an executed settlement is published as such.
+
+The chain is in-memory, so it is rebuilt from empty on every CI run: a run can
+only verify the settlements it just made. That used to mean the published page
+shrank to whatever the latest run produced, and a reader who came back later saw
+fewer results than before. So the confirmed settlements are also kept in a
+committed ledger, which accumulates across runs. A ledger row is marked
+``verified_now`` when the running node still answers for its transaction id; the
+rest are kept as what they are, records of a settlement on a chain that no
+longer exists, and the page says so rather than implying a receipt that 404s.
 """
 
 from __future__ import annotations
@@ -20,7 +29,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 EVIDENCE = ROOT / "evidence" / "synthesis.jsonl"
+LEDGER = ROOT / "ledger" / "settlements.jsonl"
 DOCS = ROOT / "docs"
+LEDGER_LIMIT = 500
 
 
 def _node_answers(tx_id: str, rpc: str) -> bool:
@@ -97,6 +108,30 @@ def _result(row: dict) -> dict:
     }
 
 
+def _read_ledger() -> list[dict]:
+    if not LEDGER.exists():
+        return []
+    rows: list[dict] = []
+    for line in LEDGER.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            rows.append(json.loads(line))
+        except json.JSONDecodeError:
+            continue
+    return rows
+
+
+def _write_ledger(rows: list[dict]) -> None:
+    LEDGER.parent.mkdir(parents=True, exist_ok=True)
+    rows = rows[-LEDGER_LIMIT:]
+    LEDGER.write_text(
+        "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows),
+        encoding="utf-8",
+    )
+
+
 def build() -> dict:
     rpc = os.environ.get("FUEL_RPC_URL", "http://127.0.0.1:4000/v1/graphql")
     rows = _read_evidence()
@@ -108,9 +143,35 @@ def build() -> dict:
     # Only keep what the live node will answer for. A run that starts a fresh
     # chain inherits old evidence; publishing those ids would hand the reader
     # receipts that 404.
-    settled = [r for r in candidates if _node_answers(r["tx_hash"], rpc)]
-    unverified = len(candidates) - len(settled)
-    settled.sort(key=lambda r: r.get("settled_at") or 0, reverse=True)
+    # Evidence repeats: the same settlement is appended again by later runs, so
+    # the rows are deduplicated by transaction id before anything is counted.
+    unique: dict[str, dict] = {}
+    for r in candidates:
+        unique.setdefault(r["tx_hash"], r)
+    settled_now = [r for r in unique.values() if _node_answers(r["tx_hash"], rpc)]
+    unverified = len(unique) - len(settled_now)
+    for r in settled_now:
+        r["verified_now"] = True
+
+    # The ledger is what makes the record outlive the chain it was made on. Rows
+    # confirmed by this run replace their older copy; rows from earlier runs stay
+    # as records, marked as no longer answerable by the node.
+    ledger = {r.get("tx_hash"): r for r in _read_ledger() if r.get("tx_hash")}
+    for r in settled_now:
+        ledger[r["tx_hash"]] = r
+    merged = list(ledger.values())
+    # verified_now is a fact about this run, not a property of the row: the flag
+    # stored by an earlier run describes a chain that no longer exists.
+    for r in merged:
+        r["verified_now"] = r["tx_hash"] in {s["tx_hash"] for s in settled_now}
+    merged.sort(key=lambda r: r.get("settled_at") or 0, reverse=True)
+    _write_ledger(merged)
+
+    # Counts come from the ledger so the record survives the chain. What is
+    # rendered stays strict: only ids the running node answers for are shown as
+    # receipts, because a row a reader cannot look up is worse than no row.
+    settled = merged
+    renderable = [r for r in merged if r.get("verified_now")]
 
     fuel = {}
     fuel_path = ROOT / "sway" / "chain" / "settlements.json"
@@ -127,12 +188,13 @@ def build() -> dict:
         # Said plainly so the page never implies a live process is answering.
         "live_probe": False,
         "settled_count": len(settled),
+        "verified_now_count": len(settled_now),
         "unverified_count": unverified,
         "total_results": len(results),
         "beneficiary": "0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47",
         "network": "fuel-devnet",
         "fuel_ledger": fuel,
-        "results": settled[:25],
+        "results": renderable[:25],
     }
 
 
