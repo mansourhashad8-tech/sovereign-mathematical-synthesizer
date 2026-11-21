@@ -3,6 +3,11 @@ name: Forced Generative Loop (24/7)
 # The sandbox is session-scoped, so the always-on search runs here instead:
 # a scheduled job that keeps composing and proving intents even between
 # sessions, and records every result to the evidence ledger.
+#
+# This job does not publish. It never provisions a Fuel node, so anything it
+# settles lives on a chain that dies with the runner and no transaction id from
+# here can be looked up afterwards. The settle-and-publish job owns the published
+# snapshot because it is the one that starts a node and can verify what it shows.
 
 on:
   schedule:
