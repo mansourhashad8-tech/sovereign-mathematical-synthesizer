@@ -120,6 +120,64 @@ document.addEventListener('DOMContentLoaded',()=>{
   });
 });
 
+// Pages is a file host: it cannot run the engine, so /status and /synthesize
+// only answer when a backend is actually up. The scheduled workflow publishes
+// docs/state.json after it settles on chain, and this renders that snapshot so
+// the permanent link always shows real, checkable results.
+let SNAPSHOT = null;
+
+async function loadSnapshot(){
+  try{
+    const r = await fetch('state.json', {cache:'no-store'});
+    if(!r.ok) return null;
+    const s = await r.json();
+    SNAPSHOT = s;
+    renderSnapshot(s);
+    return s;
+  }catch(e){ return null; }
+}
+
+let SNAPSHOT_RENDERED = false;
+
+function renderSnapshot(s){
+  // Both the boot path and the /status failure path can reach here; render once
+  // so the feed does not show the same settlements twice.
+  if(SNAPSHOT_RENDERED) return;
+  SNAPSHOT_RENDERED = true;
+  $('net').textContent = s.network || 'fuel-devnet';
+  $('prover').textContent = 'z3+cvc5';
+  $('live').textContent = '—';
+  $('ben').textContent = (s.beneficiary||'').slice(0,6)+'…'+(s.beneficiary||'').slice(-4);
+  if(!s.results || !s.results.length) return;
+  const stamp = s.generated_at_iso ? s.generated_at_iso.replace('T',' ').replace('Z',' UTC') : '';
+  const head = bubble('sys',
+    '<span class="tag">آخر تشغيل موثّق</span>' +
+    `نُفّذت <b>${s.settled_count}</b> تسوية فعلية على سجل Fuel يشغّله المحرك، ` +
+    `وآخر تحديث ${stamp}. هذه نتائج مقروءة من السلسلة، لا وعود.`);
+  s.results.slice(0,3).forEach(r=>{
+    let h = '<span class="tag">تسوية مُثبتة</span>';
+    h += escapeHtml(r.intent || '');
+    h += '<div class="kv">';
+    h += `البرهان: <b>${r.proven?'ناجح (SAT)':'—'}</b> · الصافي المُثبت: <b>${r.net_profit_usd} USDC</b><br>`;
+    h += `المسار: <b>${r.path_id}</b> · الخطوات: <b>${r.steps}</b> · الكتلة: <b>${r.block_number}</b><br>`;
+    h += `دافع الغاز: <b>${r.gas_paid_by}</b> · استهلاك: <b>${r.gas_cost_wei}</b><br>`;
+    if(r.tx_hash) h += `المعرّف: <code>${r.tx_hash}</code><br>`;
+    if(r.value_transferred) h += `القيمة وصلت للمستفيد: <b>${r.delivered} وحدة على سجل Fuel</b>`;
+    h += '</div>';
+    bubble('sys', h);
+  });
+}
+
+// The proof of a static host is a file, so /health is a file too. Read it so
+// the page can say what the last run did without inventing a live probe.
+async function loadStaticHealth(){
+  try{
+    const r = await fetch('health.json', {cache:'no-store'});
+    if(!r.ok) return null;
+    return await r.json();
+  }catch(e){ return null; }
+}
+
 async function loadStatus(){
   try{
     const s=await (await fetch(api('/status'))).json();
@@ -130,7 +188,19 @@ async function loadStatus(){
     $('live').textContent = s.primitives_live+' / '+s.primitives_total;
     $('ben').textContent = (s.beneficiary||'').slice(0,6)+'…'+(s.beneficiary||'').slice(-4);
     showApiBar(false);
-  }catch(e){ showApiBar(true); }
+  }catch(e){
+    // No engine on this host. That is expected on Pages, so fall back to the
+    // published snapshot instead of showing an empty page and a connection bar.
+    showApiBar(false);
+    if(!SNAPSHOT) await loadSnapshot();
+    const h = await loadStaticHealth();
+    if(h && h.checked_at){
+      $('net').textContent = h.network || 'fuel-devnet';
+      $('prover').textContent = 'z3+cvc5';
+      $('live').textContent = h.settled_count + ' تسوية';
+      $('ben').textContent = (h.beneficiary||'').slice(0,6)+'…'+(h.beneficiary||'').slice(-4);
+    }
+  }
 }
 async function loadPrims(){
   try{
@@ -234,6 +304,9 @@ async function pollSettlement(iid, node){
 function escapeHtml(s){return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
 
 loadStatus(); loadPrims();
+// Pages has no engine, so the snapshot is also loaded up front: the page must
+// show the last settled run even when nothing answers on this origin.
+loadSnapshot().then(s=>{ if(!s) return; });
 setInterval(loadStatus,20000);
 </script>
 </body>

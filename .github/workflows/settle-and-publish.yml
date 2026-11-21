@@ -1,0 +1,92 @@
+name: Settle and publish
+
+# The permanent site is a file host, so it cannot run the engine. This job is
+# the engine's stand-in for a server: it provisions the Fuel node on the runner,
+# lets the loop prove and settle, then commits what the chain confirmed into
+# docs/, which Pages serves. That is what keeps the link meaningful after the
+# interactive sandbox is gone.
+#
+# It commits only files under docs/ and evidence/, and only when their content
+# actually changed, so a quiet hour does not add empty commits.
+
+on:
+  schedule:
+    - cron: "17 */2 * * *"   # every two hours
+  workflow_dispatch:
+    inputs:
+      intent:
+        description: "Arabic intent to synthesize (blank uses the seed file)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: settle-and-publish
+  cancel-in-progress: false
+
+jobs:
+  settle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt -r requirements-eth.txt
+          npm ci --omit=dev --no-audit --no-fund
+
+      - name: Provision the settlement node
+        # The node is fetched and started here, the same way the image does it,
+        # so the runner settles on a chain it owns rather than reporting a
+        # fallback it cannot verify.
+        run: python scripts/go_live.py --provision-only
+
+      - name: Prove and settle
+        env:
+          SYNTH_ALWAYS_ON: "true"
+          SYNTH_LOOP_BUDGET: "180"
+          SYNTH_INTENT: ${{ github.event.inputs.intent }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python scripts/synthesis_batch.py
+          python scripts/publish_snapshot.py
+
+      - name: Show what the chain confirmed
+        run: |
+          python - <<'PY'
+          import json, pathlib
+          s = json.loads(pathlib.Path("docs/state.json").read_text())
+          print(f"settled: {s['settled_count']} / total results: {s['total_results']}")
+          for r in s["results"][:5]:
+              print(f"  block {r['block_number']:>3} tx {r['tx_hash'][:18]} "
+                    f"delivered={r['delivered']} gas_by={r['gas_paid_by']}")
+          PY
+
+      - name: Commit the snapshot
+        run: |
+          set -eu
+          git config user.name "engine"
+          git config user.email "engine@users.noreply.github.com"
+          git add docs/state.json docs/health.json
+          if git diff --cached --quiet; then
+            echo "nothing new was settled; no commit"
+            exit 0
+          fi
+          git commit -m "Publish the settlements this run confirmed
+
+          Written by the scheduled settle job: every transaction id here was read
+          back from the node, not assumed."
+          git push

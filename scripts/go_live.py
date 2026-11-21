@@ -154,6 +154,10 @@ def self_test() -> None:
 
 
 def main() -> int:
+    # A CI runner only needs the chain: it settles through the batch entrypoint
+    # rather than serving HTTP, so it asks for provisioning alone.
+    if "--provision-only" in sys.argv[1:]:
+        return 0 if provision_fuel() else 1
     install()
     provision_fuel()
     proc = start()
