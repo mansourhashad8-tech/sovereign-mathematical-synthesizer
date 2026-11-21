@@ -77,19 +77,71 @@ jobs:
     timeout-minutes: 10
     environment:
       name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
+      url: https://mansourhashad8-tech.github.io/sovereign-mathematical-synthesizer/
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
+
+      # Pages can be published two ways and the site is already live in legacy
+      # mode (branch master, /docs). actions/deploy-pages only works when the
+      # repository is set to build from a workflow, and it fails with "No
+      # artifacts named github-pages" otherwise, because in legacy mode GitHub
+      # builds the branch itself and no artifact is consumed. Switching the
+      # setting needs repo admin, so the job detects the mode and takes the
+      # matching path rather than assuming one.
+      - name: Which publish mode is the site in?
+        id: mode
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -eu
+          type=$(gh api "repos/${{ github.repository }}/pages" --jq .build_type 2>/dev/null || echo "")
+          echo "build_type=${type:-unknown}" >> "$GITHUB_OUTPUT"
+          echo "pages build_type: ${type:-unknown}"
+
+      - name: Deploy through the Pages API
+        if: steps.mode.outputs.build_type == 'workflow'
+        uses: actions/configure-pages@v5
+      - if: steps.mode.outputs.build_type == 'workflow'
+        uses: actions/upload-pages-artifact@v3
         with:
           path: docs
       - id: deploy
+        if: steps.mode.outputs.build_type == 'workflow'
         uses: actions/deploy-pages@v4
-      - name: Prove the published client answers
+
+      # Legacy mode publishes the committed docs/ directory on every push to
+      # master, which this run already triggered. There is nothing to upload;
+      # the site updates on its own, and this step only waits for the build to
+      # land so the check below tests the new content rather than the old.
+      - name: Legacy mode publishes the branch on its own
+        id: legacy
+        if: steps.mode.outputs.build_type != 'workflow'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -eu
-          url="${{ steps.deploy.outputs.page_url }}"
-          code=$(curl -s -o /dev/null -w "%{http_code}" "$url")
-          echo "published client: $url -> HTTP $code"
-          test "$code" = "200"
+          url="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/"
+          echo "page_url=$url" >> "$GITHUB_OUTPUT"
+          echo "legacy Pages: $url (published from master:/docs on this push)"
+
+      - name: Prove the published client answers
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -eu
+          url="${{ steps.deploy.outputs.page_url || steps.legacy.outputs.page_url }}"
+          test -n "$url"
+          # The legacy build runs after this push, so give it a few tries.
+          for i in $(seq 1 20); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" "$url")
+            echo "attempt $i: $url -> HTTP $code"
+            if [ "$code" = "200" ]; then
+              body=$(curl -s "$url")
+              case "$body" in
+                *"المُركّب الرياضي السيادي"*) echo "Arabic client is live"; exit 0 ;;
+                *) echo "served a page, but not the client"; exit 1 ;;
+              esac
+            fi
+            sleep 15
+          done
+          echo "the published client did not answer 200"; exit 1
