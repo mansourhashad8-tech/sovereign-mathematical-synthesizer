@@ -101,4 +101,22 @@ jobs:
 
           Written by the scheduled settle job: every transaction id here was read
           back from the node, not assumed."
-          git push
+          # Someone else may have pushed while this job was proving. Rebase the
+          # snapshot onto their commit and merge the ledgers by transaction id,
+          # so neither side's settlements are dropped; a plain push would fail
+          # and a checkout would discard them.
+          for attempt in 1 2 3; do
+            if git push; then exit 0; fi
+            git fetch -q origin master
+            # Rebase can conflict on the ledger, and resolving it by picking a
+            # side would drop settlements. So take the remote tree, union the two
+            # ledgers by transaction id, and rebuild the snapshot from the union.
+            git reset -q --soft origin/master
+            git show origin/master:ledger/settlements.jsonl > /tmp/remote-ledger.jsonl 2>/dev/null || : > /tmp/remote-ledger.jsonl
+            python scripts/merge_ledgers.py ledger/settlements.jsonl /tmp/remote-ledger.jsonl
+            python scripts/publish_snapshot.py
+            git add docs/state.json docs/health.json ledger/settlements.jsonl
+            git commit -q -m "Publish the settlements this run confirmed" || true
+          done
+          echo "push kept being rejected; the next run will publish"
+
