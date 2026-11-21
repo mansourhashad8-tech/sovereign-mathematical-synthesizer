@@ -14,6 +14,9 @@ on:
         required: false
         default: "اريد ربح 100 دولار من سوق السيولة بدون مفتاح وبدون راس مال"
 
+permissions:
+  contents: write
+
 concurrency:
   group: synthesis-loop
   cancel-in-progress: false
@@ -41,6 +44,25 @@ jobs:
           SYNTH_LOOP_BUDGET: "120"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python scripts/synthesis_batch.py
+
+      # The loop does the work; this is what makes it visible. Without it the
+      # settlements land on the runner's chain and die with the runner, and the
+      # permanent link keeps showing whatever an earlier run happened to commit.
+      - name: Publish what the chain confirmed
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -eu
+          python scripts/publish_snapshot.py
+          git config user.name "engine"
+          git config user.email "engine@users.noreply.github.com"
+          git add docs/state.json docs/health.json
+          if git diff --cached --quiet; then
+            echo "no change in what the chain confirms"
+            exit 0
+          fi
+          git commit -m "Publish the settlements this run confirmed"
+          git push
 
       - name: Upload evidence
         if: always()
