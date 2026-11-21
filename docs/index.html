@@ -66,7 +66,7 @@
   <div class="badges">
     <span class="badge">الشبكة: <b id="net">—</b></span>
     <span class="badge">المُبرهن: <b id="prover">—</b></span>
-    <span class="badge">مكونات حية: <b id="live">—</b></span>
+    <span class="badge"><span id="livelab">مكونات حية</span>: <b id="live">—</b></span>
     <span class="badge">المستفيد: <b id="ben">—</b></span>
   </div>
 </header>
@@ -185,6 +185,7 @@ async function loadStatus(){
   // the EVM treasury network here would label the page with a fallback.
   $('net').textContent = (s.gas&&s.gas.chain)||(s.treasury&&s.treasury.network)||'fuel-devnet';
     $('prover').textContent = s.prover||'z3';
+    const lab=$('livelab'); if(lab) lab.textContent = 'مكونات حية';
     $('live').textContent = s.primitives_live+' / '+s.primitives_total;
     $('ben').textContent = (s.beneficiary||'').slice(0,6)+'…'+(s.beneficiary||'').slice(-4);
     showApiBar(false);
@@ -197,7 +198,8 @@ async function loadStatus(){
     if(h && h.checked_at){
       $('net').textContent = h.network || 'fuel-devnet';
       $('prover').textContent = 'z3+cvc5';
-      $('live').textContent = h.settled_count + ' تسوية';
+      const lab=$('livelab'); if(lab) lab.textContent = 'تسويات موثّقة';
+      $('live').textContent = h.settled_count;
       $('ben').textContent = (h.beneficiary||'').slice(0,6)+'…'+(h.beneficiary||'').slice(-4);
     }
   }
@@ -205,7 +207,7 @@ async function loadStatus(){
 async function loadPrims(){
   try{
     const d=await (await fetch(api('/primitives'))).json();
-    const box=$('prims'); box.innerHTML='';
+    const box=$('prims'); box.innerHTML=''; box.dataset.filled='1';
     d.primitives.slice(0,60).forEach(p=>{
       const live=p.source==='live';
       const el=document.createElement('div');
@@ -214,7 +216,12 @@ async function loadPrims(){
         <div class="m">${p.category} · ${live?(p.freshness_hours+'h'):'seed'}</div>`;
       box.appendChild(el);
     });
-  }catch(e){}
+  }catch(e){
+    // No engine to ask. Listing seed primitives as if they were scanned would
+    // claim a live scan that never happened.
+    const box=$('prims');
+    if(box && !box.dataset.filled) box.innerHTML='<div class="prim"><div class="m">تُعرض هذه القائمة بعد اتصال المحرك؛ لا مسح حياً الآن.</div></div>';
+  }
 }
 
 function bubble(cls,html){const d=document.createElement('div');d.className='msg '+cls;d.innerHTML=html;feed.appendChild(d);feed.scrollTop=feed.scrollHeight;return d;}
