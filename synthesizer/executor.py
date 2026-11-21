@@ -577,11 +577,16 @@ class Executor:
             if fueled is not None:
                 return fueled
             if fuel_only:
+                # The amount is what the proof certified, not something the leg
+                # decides. Leaving it at zero would make the answer disagree
+                # with its own certificate, so only the settlement status is
+                # pending here.
                 return ExecutionResult(
                     status="pending",
                     reason="fuel_leg_unavailable",
                     beneficiary=SETTINGS.beneficiary,
                     network="fuel-devnet",
+                    amount_usd=round(path.proven_net_profit_usd or 0.0, 6),
                 )
 
         transfers_value = (
