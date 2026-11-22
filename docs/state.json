@@ -1,10 +1,10 @@
 {
-  "generated_at": 1795369896.8529525,
-  "generated_at_iso": "2026-11-22T17:51:36Z",
+  "generated_at": 1795390735.6567035,
+  "generated_at_iso": "2026-11-22T23:38:55Z",
   "source": "github-actions",
   "live_probe": false,
   "settled_count": 226,
-  "verified_now_count": 3,
+  "verified_now_count": 0,
   "unverified_count": 0,
   "total_results": 4,
   "beneficiary": "0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47",
@@ -12,11 +12,11 @@
   "fuel_ledger": {
     "0x08c515c0758c539cb30b0c79a7c94b777ad7c2c177a9d86e8e2ddef9c170caf8": {
       "status": "executed",
-      "tx_id": "0x8c45ad163f18a352a643225c60ae754bc648a23b5af9d75813848374367caac9",
+      "tx_id": "0x915f0ea7ed0a3e2eab284b07df0caaee73aaed65ccb86e3ff5017e005b9b6a4e",
       "block_height": "2",
-      "block_id": "0xd844c93ba936c293f17ff8e1971e757ddbd00dcc6523b6ffbf404fc3ac9800a6",
+      "block_id": "0x31279ad9fc6963a99e16412191812303252b7836a124e40e8bc7fadcc8c4d52b",
       "included": true,
-      "contract_id": "0x5e57058dcab00d941436158928f7aff7b90103900f045e712363b4ce0f80f8f1",
+      "contract_id": "0x0393141473c8cab685af5797d3c45a49018d69973e41e05c8ba472ce44258fe4",
       "network": "fuel-devnet",
       "beneficiary": "0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47",
       "delta": 370835144,
@@ -24,17 +24,17 @@
       "delivered": 370835144,
       "gas_used": 90076,
       "gas_paid_by": "genesis-supply",
-      "explorer_url": "/fuel/tx/0x8c45ad163f18a352a643225c60ae754bc648a23b5af9d75813848374367caac9",
+      "explorer_url": "/fuel/tx/0x915f0ea7ed0a3e2eab284b07df0caaee73aaed65ccb86e3ff5017e005b9b6a4e",
       "reason": "",
       "paid": true
     },
-    "0x7da13e5b7b7521427b343cfee4405be941dacf9e8435293df87cd1c4599a8c21": {
+    "0xcd98daaff79a804d55efbbd4d9ac8a7c0cbd8462ae6a3aec199cff4e124f51a4": {
       "status": "executed",
-      "tx_id": "0x5a684cbf7fee1170f78a90aa6682894f1390a8a4e6e95051824f35eb0a16f397",
+      "tx_id": "0x4d86a842a0f366065c1ab834e09f47792cafc43daee327a10b65a933280eafb4",
       "block_height": "3",
-      "block_id": "0xff75abdf79bdd2c1b652c4fc32acf6777940821cfedf579a83be0ec0d14aa479",
+      "block_id": "0x2cd1ca73f5663233ff19ecdfc14ab9d9021b7c2eb616f4e14c04c5bcc19c99e8",
       "included": true,
-      "contract_id": "0x5e57058dcab00d941436158928f7aff7b90103900f045e712363b4ce0f80f8f1",
+      "contract_id": "0x0393141473c8cab685af5797d3c45a49018d69973e41e05c8ba472ce44258fe4",
       "network": "fuel-devnet",
       "beneficiary": "0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47",
       "delta": 1781251740,
@@ -42,17 +42,17 @@
       "delivered": 2152086884,
       "gas_used": 86094,
       "gas_paid_by": "genesis-supply",
-      "explorer_url": "/fuel/tx/0x5a684cbf7fee1170f78a90aa6682894f1390a8a4e6e95051824f35eb0a16f397",
+      "explorer_url": "/fuel/tx/0x4d86a842a0f366065c1ab834e09f47792cafc43daee327a10b65a933280eafb4",
       "reason": "",
       "paid": true
     },
-    "0x6279cfec2d5f225943f451f7d18f0d79de6cbf8ec6aef5373a420fee5c6c07cb": {
+    "0x16881561dcafd96d7705958f2d03db7d80ce8ef43f08f69d47c645e561c7af20": {
       "status": "executed",
-      "tx_id": "0x4c8ba2997562696811265a86c63dd1e039f6ec1763867106a744a9ebace143fc",
+      "tx_id": "0xb869abb5ec5c751d6bed3c94c955b094f9e4f0d0e182d3915c133d414132660c",
       "block_height": "4",
-      "block_id": "0x76bb7f83216befa1fd8d194ed4c0e799b89cb25f980241d7e809c430172e1533",
+      "block_id": "0xcb77540efb6f29d1354d8e7d009870b1368fa3bb8b471300591272805f0e6a73",
       "included": true,
-      "contract_id": "0x5e57058dcab00d941436158928f7aff7b90103900f045e712363b4ce0f80f8f1",
+      "contract_id": "0x0393141473c8cab685af5797d3c45a49018d69973e41e05c8ba472ce44258fe4",
       "network": "fuel-devnet",
       "beneficiary": "0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47",
       "delta": 135938828,
@@ -60,17 +60,17 @@
       "delivered": 2288025712,
       "gas_used": 86094,
       "gas_paid_by": "genesis-supply",
-      "explorer_url": "/fuel/tx/0x4c8ba2997562696811265a86c63dd1e039f6ec1763867106a744a9ebace143fc",
+      "explorer_url": "/fuel/tx/0xb869abb5ec5c751d6bed3c94c955b094f9e4f0d0e182d3915c133d414132660c",
       "reason": "",
       "paid": true
     },
     "0x6da165441b697cdd3f4005aef92ed8e02244c55d1dcc6371bc1430d443b0c102": {
       "status": "executed",
-      "tx_id": "0x9aeaba11fd8177281bb5dddf10d36310f2b5235c76000b6846d4bf74a46c9f08",
+      "tx_id": "0x03799fd74202fa9f40a9ceaa6ee6622e408f6d1e282df2eca24ad7b178db2df2",
       "block_height": "5",
-      "block_id": "0xb0bbea12ef1acb5335828e953ec5fab2a5d6a9529e2f0a5d71c1f033a7f7765b",
+      "block_id": "0x73b1d70f8fe56bea64696e094d0a2408d103fa178baaec87d0165c788aa9ebe1",
       "included": true,
-      "contract_id": "0x5e57058dcab00d941436158928f7aff7b90103900f045e712363b4ce0f80f8f1",
+      "contract_id": "0x0393141473c8cab685af5797d3c45a49018d69973e41e05c8ba472ce44258fe4",
       "network": "fuel-devnet",
       "beneficiary": "0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47",
       "delta": 23071,
@@ -78,17 +78,17 @@
       "delivered": 2288048783,
       "gas_used": 86094,
       "gas_paid_by": "genesis-supply",
-      "explorer_url": "/fuel/tx/0x9aeaba11fd8177281bb5dddf10d36310f2b5235c76000b6846d4bf74a46c9f08",
+      "explorer_url": "/fuel/tx/0x03799fd74202fa9f40a9ceaa6ee6622e408f6d1e282df2eca24ad7b178db2df2",
       "reason": "",
       "paid": true
     },
-    "0x411c99ad21bc1af4af42029a6fef4dc3402a66a5e03e4c1648d0b9f1b8179ec5": {
+    "0x95c62b6d8d28a2753f02272e3acfa7463fde9d883028499a21cd6b1758137cf4": {
       "status": "executed",
-      "tx_id": "0x2eb01fdadc1779ac8d9c8d89478a72be0a3b5a4bf0ee6012efbe18ec1b88fffc",
+      "tx_id": "0xaa379617f8829a70c483bb2a977b6352c841b1ca99b2f3f8b9d827314e233622",
       "block_height": "6",
-      "block_id": "0x57879b8f5c9fd7492e2bec695e0a004370f8b901300096d76c650078660a5a82",
+      "block_id": "0x4523e0402aed1dcdcd1baac957c3a5c656140639cee72cab65f435be08e60be5",
       "included": true,
-      "contract_id": "0x5e57058dcab00d941436158928f7aff7b90103900f045e712363b4ce0f80f8f1",
+      "contract_id": "0x0393141473c8cab685af5797d3c45a49018d69973e41e05c8ba472ce44258fe4",
       "network": "fuel-devnet",
       "beneficiary": "0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47",
       "delta": 1,
@@ -96,7 +96,43 @@
       "delivered": 2288048784,
       "gas_used": 86094,
       "gas_paid_by": "genesis-supply",
-      "explorer_url": "/fuel/tx/0x2eb01fdadc1779ac8d9c8d89478a72be0a3b5a4bf0ee6012efbe18ec1b88fffc",
+      "explorer_url": "/fuel/tx/0xaa379617f8829a70c483bb2a977b6352c841b1ca99b2f3f8b9d827314e233622",
+      "reason": "",
+      "paid": true
+    },
+    "0xc299b618a6a8dc9bd3e161426bc57fcae8e80ca1e5c8860a863c45973c2aed3f": {
+      "status": "executed",
+      "tx_id": "0x27aa27b20206e8b7c4d3aff08261e30438d38a005361ffc854765a1917f7d558",
+      "block_height": "7",
+      "block_id": "0x48252836b6a2a93c2494e25e690de6fdee5efb81fac21cef44669afb491e3860",
+      "included": true,
+      "contract_id": "0x0393141473c8cab685af5797d3c45a49018d69973e41e05c8ba472ce44258fe4",
+      "network": "fuel-devnet",
+      "beneficiary": "0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47",
+      "delta": 1,
+      "net_profit": 1,
+      "delivered": 2288048785,
+      "gas_used": 86094,
+      "gas_paid_by": "genesis-supply",
+      "explorer_url": "/fuel/tx/0x27aa27b20206e8b7c4d3aff08261e30438d38a005361ffc854765a1917f7d558",
+      "reason": "",
+      "paid": true
+    },
+    "0xbc17132daea5ef70160cac013462ccbf974dc0056e78198575485065188f64a2": {
+      "status": "executed",
+      "tx_id": "0x7775bd7ef28e2314f074a177333713abd809cc99e467a4bb1d3305cca1e04d69",
+      "block_height": "8",
+      "block_id": "0x9c38eea0b39028dcd43b64085e9a36ad18df64252260808babc249a075aac3b5",
+      "included": true,
+      "contract_id": "0x0393141473c8cab685af5797d3c45a49018d69973e41e05c8ba472ce44258fe4",
+      "network": "fuel-devnet",
+      "beneficiary": "0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47",
+      "delta": 1,
+      "net_profit": 1,
+      "delivered": 2288048786,
+      "gas_used": 86094,
+      "gas_paid_by": "genesis-supply",
+      "explorer_url": "/fuel/tx/0x7775bd7ef28e2314f074a177333713abd809cc99e467a4bb1d3305cca1e04d69",
       "reason": "",
       "paid": true
     }
@@ -133,7 +169,7 @@
       ],
       "narrative_ar": "النية: اريد ربح 50 دولار من فرص المراجحة الذرية بدون راس مال\nالتحليل الصوري: الهدف=earn، الأصل=USDC، الهدف الكمي=50.0، الحد الأدنى للربح الصافي=50.0.\nاخترع النظام المسار من المشاريع: aave/aave-v3-core، hummingbot/hummingbot، eth-infinitism/account-abstraction.\nالمسار الذري: 1) flash_mint:aave-v3-core؛ 2) market_making:hummingbot؛ 3) paymaster:account-abstraction.\nوُلّد برهان رياضي جديد في الطلب نفسه: صافي الربح المُثبت = 135.938828 USDC لصالح العنوان المقفل 0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47. الرقم أعلاه تقدير اقتصادي بالأصل USDC، أما ما وصل فعلاً فهو وحدات على سجل Fuel الذي يشغّله المحرّك. نُفّذ المسار الذري فعلياً على شبكة Fuel (SwayVM) في الكتلة 4: 0x4c8ba2997562696811265a86c63dd1e039f6ec1763867106a744a9ebace143fc. الغاز استهلك 0 وحدة دفعها genesis-supply (سلسلة يملكها المحرّك بسعر غاز صفر)، وزاد رصيد المستفيد في سجل العقد بمقدار 135.938828 وحدة، وهو مطابق للربح الصافي المُثبت.\nمصفوفة المسارات (9 مساراً في 7 عائلة، نُفّذت بالتوازي في 680 مللي ثانية):\n- التسوية على سجل Fuel الذي يملكه المحرّك [blockchain]: أوصلت 135.938828\n- سلّم الرعاة على EVM (paymaster/bundler) [blockchain]: ما زال يعمل بعد إرسال الجواب\n- تنفيذ مُبرهن على fork محلي (EVM حقيقي) [blockchain]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- برامج الحوافز: قياس ما هو قابل للمطالبة فعلاً الآن [incentive]: لم تُوصل (incentives_measured;claimable=2;human_gated=8)\n- مسارات مُخترعة في الطلب نفسه من مسح المكونات الحية [invented]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- المسار الحسابي: حلّ سقف السوق المادي بالبرهان [computational]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- توليد الأصول: ما يمكن سكه/رهنه من رصيد مملوك فعلاً [asset]: لم تُوصل (asset_venues_need_capital;funded_networks=0;held=0)\n- واجهات مدفوعة بالنتيجة: قراءة ما دُفع فعلاً [api]: لم تُوصل (paid_endpoint_sales=0;earned=0.000000)\n- خالق المُخرَج: إنتاج المُخرَج المطلوب وقياسه وتوثيقه على السجل [creator]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\nالمسار الذي أوصل القيمة فعلاً: التسوية على سجل Fuel الذي يملكه المحرّك (fuel-devnet) بمقدار 135.938828.\nزمن القرار الكلي: 714.9 مللي ثانية، المرشحون المبرهن عليهم: 4، المكونات الحية: 2.",
       "settled_at": 1795369878.6162174,
-      "verified_now": true
+      "verified_now": false
     },
     {
       "intent": "اريد ربح 1000 دولار من سوق الماركت ميكينج بدون مفتاح",
@@ -167,7 +203,7 @@
       ],
       "narrative_ar": "النية: اريد ربح 1000 دولار من سوق الماركت ميكينج بدون مفتاح\nالتحليل الصوري: الهدف=provide_liquidity، الأصل=USDC، الهدف الكمي=1000.0، الحد الأدنى للربح الصافي=1000.0.\nاخترع النظام المسار من المشاريع: Uniswap/v3-core، elizaOS/eliza، hummingbot/hummingbot، rpc://public.pimlico.io/v2/84532/rpc.\nالمسار الذري: 1) flash_mint:v3-core؛ 2) solver:eliza؛ 3) market_making:hummingbot؛ 4) paymaster:base-sepolia:entrypoints.\nوُلّد برهان رياضي جديد في الطلب نفسه: صافي الربح المُثبت = 1781.251740 USDC لصالح العنوان المقفل 0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47. الرقم أعلاه تقدير اقتصادي بالأصل USDC، أما ما وصل فعلاً فهو وحدات على سجل Fuel الذي يشغّله المحرّك. نُفّذ المسار الذري فعلياً على شبكة Fuel (SwayVM) في الكتلة 3: 0x5a684cbf7fee1170f78a90aa6682894f1390a8a4e6e95051824f35eb0a16f397. الغاز استهلك 0 وحدة دفعها genesis-supply (سلسلة يملكها المحرّك بسعر غاز صفر)، وزاد رصيد المستفيد في سجل العقد بمقدار 1781.25174 وحدة، وهو مطابق للربح الصافي المُثبت.\nمصفوفة المسارات (9 مساراً في 7 عائلة، نُفّذت بالتوازي في 1008 مللي ثانية):\n- التسوية على سجل Fuel الذي يملكه المحرّك [blockchain]: أوصلت 1781.251740\n- سلّم الرعاة على EVM (paymaster/bundler) [blockchain]: ما زال يعمل بعد إرسال الجواب\n- تنفيذ مُبرهن على fork محلي (EVM حقيقي) [blockchain]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- برامج الحوافز: قياس ما هو قابل للمطالبة فعلاً الآن [incentive]: لم تُوصل (incentives_measured;claimable=2;human_gated=8)\n- مسارات مُخترعة في الطلب نفسه من مسح المكونات الحية [invented]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- المسار الحسابي: حلّ سقف السوق المادي بالبرهان [computational]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- توليد الأصول: ما يمكن سكه/رهنه من رصيد مملوك فعلاً [asset]: لم تُوصل (asset_venues_need_capital;funded_networks=0;held=0)\n- واجهات مدفوعة بالنتيجة: قراءة ما دُفع فعلاً [api]: لم تُوصل (paid_endpoint_sales=0;earned=0.000000)\n- خالق المُخرَج: إنتاج المُخرَج المطلوب وقياسه وتوثيقه على السجل [creator]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\nالمسار الذي أوصل القيمة فعلاً: التسوية على سجل Fuel الذي يملكه المحرّك (fuel-devnet) بمقدار 1781.251740.\nزمن القرار الكلي: 1065.9 مللي ثانية، المرشحون المبرهن عليهم: 4، المكونات الحية: 2.",
       "settled_at": 1795369877.5498507,
-      "verified_now": true
+      "verified_now": false
     },
     {
       "intent": "اريد ربح 100 دولار من سوق السيولة بدون مفتاح وبدون راس مال",
@@ -201,7 +237,7 @@
       ],
       "narrative_ar": "النية: اريد ربح 100 دولار من سوق السيولة بدون مفتاح وبدون راس مال\nالتحليل الصوري: الهدف=provide_liquidity، الأصل=USDC، الهدف الكمي=100.0، الحد الأدنى للربح الصافي=100.0.\nاخترع النظام المسار من المشاريع: aave/aave-v3-core، hummingbot/hummingbot، langchain-ai/langgraph، eth-infinitism/account-abstraction.\nالمسار الذري: 1) flash_loan:aave-v3-core؛ 2) market_making:hummingbot؛ 3) solver:langgraph؛ 4) paymaster:account-abstraction.\nوُلّد برهان رياضي جديد في الطلب نفسه: صافي الربح المُثبت = 370.835144 USDC لصالح العنوان المقفل 0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47. الرقم أعلاه تقدير اقتصادي بالأصل USDC، أما ما وصل فعلاً فهو وحدات على سجل Fuel الذي يشغّله المحرّك. نُفّذ المسار الذري فعلياً على شبكة Fuel (SwayVM) في الكتلة 2: 0x8c45ad163f18a352a643225c60ae754bc648a23b5af9d75813848374367caac9. الغاز استهلك 0 وحدة دفعها genesis-supply (سلسلة يملكها المحرّك بسعر غاز صفر)، وزاد رصيد المستفيد في سجل العقد بمقدار 370.835144 وحدة، وهو مطابق للربح الصافي المُثبت.\nمصفوفة المسارات (9 مساراً في 7 عائلة، نُفّذت بالتوازي في 1023 مللي ثانية):\n- التسوية على سجل Fuel الذي يملكه المحرّك [blockchain]: أوصلت 370.835144\n- سلّم الرعاة على EVM (paymaster/bundler) [blockchain]: ما زال يعمل بعد إرسال الجواب\n- تنفيذ مُبرهن على fork محلي (EVM حقيقي) [blockchain]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- برامج الحوافز: قياس ما هو قابل للمطالبة فعلاً الآن [incentive]: لم تُوصل (incentives_measured;claimable=2;human_gated=8)\n- مسارات مُخترعة في الطلب نفسه من مسح المكونات الحية [invented]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- المسار الحسابي: حلّ سقف السوق المادي بالبرهان [computational]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- توليد الأصول: ما يمكن سكه/رهنه من رصيد مملوك فعلاً [asset]: لم تُوصل (asset_venues_need_capital;funded_networks=0;held=0)\n- واجهات مدفوعة بالنتيجة: قراءة ما دُفع فعلاً [api]: لم تُوصل (paid_endpoint_sales=0;earned=0.000000)\n- خالق المُخرَج: إنتاج المُخرَج المطلوب وقياسه وتوثيقه على السجل [creator]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\nالمسار الذي أوصل القيمة فعلاً: التسوية على سجل Fuel الذي يملكه المحرّك (fuel-devnet) بمقدار 370.835144.\nزمن القرار الكلي: 1099.3 مللي ثانية، المرشحون المبرهن عليهم: 4، المكونات الحية: 0.",
       "settled_at": 1795369876.4504576,
-      "verified_now": true
+      "verified_now": false
     },
     {
       "intent": "أريد ربح 7500 دولار من فرق السعر بين ثلاث شبكات في نفس الثانية، بلا رأس مال وبلا مفتاح، وبدون أن يلمس الغاز جيبي",
