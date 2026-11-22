@@ -271,3 +271,47 @@ def test_two_ledgers_are_not_added_together():
 
     assert outcome.delivered_total == 38.0
     assert outcome.delivered_by_network == {"fuel-devnet": 38.0, "local-fork": 38.0}
+
+
+def test_a_cpu_lane_from_an_earlier_request_does_not_take_the_slot():
+    """CPU lanes are serialised process-wide.
+
+    Two of them cannot progress at once under one GIL, so a second one only
+    takes the interpreter from the request that is answering now. The lane that
+    cannot get the slot is recorded as queued with its reason, not as failed and
+    not as silently absent.
+    """
+    held = threading.Event()
+    release = threading.Event()
+    started: list[str] = []
+
+    def slow_cpu(lane: Lane) -> None:
+        started.append(lane.lane_id)
+        held.set()
+        release.wait(5.0)
+        lane.status = "blocked"
+
+    first = PathMatrix(workers=2)
+    second = PathMatrix(workers=2)
+
+    runner = threading.Thread(
+        target=first.run,
+        args=([_lane("cpu_a", slow_cpu, cpu_bound=True)],),
+        kwargs=dict(target=5.0, asset="USDC", beneficiary="0xlocked", budget_s=5.0),
+    )
+    runner.start()
+    assert held.wait(5.0), "the first cpu lane never started"
+
+    try:
+        outcome = second.run(
+            [_lane("cpu_b", slow_cpu, cpu_bound=True)],
+            target=5.0, asset="USDC", beneficiary="0xlocked", budget_s=1.0,
+        )
+    finally:
+        release.set()
+        runner.join(5.0)
+
+    assert started == ["cpu_a"], "a second cpu lane ran while the first held the slot"
+    lane_b = next(l for l in outcome.lanes if l.lane_id == "cpu_b")
+    assert lane_b.delivers == 0.0
+    assert "cpu_slot" in lane_b.reason, lane_b.reason

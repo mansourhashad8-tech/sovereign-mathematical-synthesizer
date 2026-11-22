@@ -208,6 +208,11 @@ class Settings:
     # with less than this much window left cannot report before the answer and
     # only slows the next request down. Below it, the lane is recorded as not run.
     cpu_lane_min_budget_s: float = float(_env("SYNTH_CPU_LANE_MIN_BUDGET_S", "0.25"))
+    # How many CPU lanes may run at once across the whole process. Python
+    # threads share one GIL, so a second CPU lane cannot add throughput; it can
+    # only take the interpreter away from the next request's synthesis, which is
+    # the work that has to finish on time.
+    cpu_lane_workers: int = _env_int("SYNTH_CPU_LANE_WORKERS", 1)
     # How long the *answer* may wait on the matrix. Short by design: the chat
     # request must return in seconds, while the lanes themselves keep working.
     # The window is sized to the engine-owned chain, which is the route that
@@ -233,9 +238,14 @@ class Settings:
     # One thread per lane: a queued lane is an untried route, and the matrix
     # must try every route it claims to have entered.
     matrix_workers: int = _env_int("SYNTH_MATRIX_WORKERS", 12)
-    # Concurrent background settlements. Settlement is I/O-bound; a small pool
-    # keeps a burst of intents from opening unbounded sponsor handshakes.
-    settlement_workers: int = _env_int("SYNTH_SETTLE_WORKERS", 4)
+    # Concurrent background settlements. Settlement waits on sponsors, but the
+    # work around those waits -- building the ERC-4337 operation, signing it,
+    # encoding calldata -- is pure Python and measured at 76% CPU. Threads share
+    # one GIL, so overlapping settlements do not overlap: they take the
+    # interpreter from the next request's synthesis. Four workers were measured
+    # to push repeated answers from ~0.5s to 2.6s; one keeps them inside the
+    # deadline, and settlements still queue rather than being dropped.
+    settlement_workers: int = _env_int("SYNTH_SETTLE_WORKERS", 1)
     # Extra bundlers, tried in order after the public one. Comma-separated.
     extra_bundlers: list[str] = field(
         default_factory=lambda: [

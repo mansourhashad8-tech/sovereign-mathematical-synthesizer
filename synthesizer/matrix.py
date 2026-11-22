@@ -206,6 +206,12 @@ class MatrixOutcome:
         }
 
 
+# One process-wide slot for CPU-bound lanes. Python threads share a single GIL,
+# so running two of them at once buys no throughput and costs the request that
+# is waiting to synthesize its proof.
+_CPU_LANE_SLOT = threading.BoundedSemaphore(max(1, SETTINGS.cpu_lane_workers))
+
+
 class PathMatrix:
     """Runs every lane concurrently and reports what actually paid.
 
@@ -227,6 +233,12 @@ class PathMatrix:
         # cap keeps the backlog finite so a new request is never starved by the
         # leftovers of earlier ones.
         self._inflight = threading.BoundedSemaphore(SETTINGS.matrix_max_inflight)
+        # CPU lanes are serialised separately, and process-wide. Two of them
+        # cannot make progress at once under one GIL; they can only push the
+        # next request's synthesis off its deadline. Measured: a single request
+        # left fork and evm lanes burning 3-4s of CPU after the answer, which
+        # tripled the following synthesis.
+        self._cpu_slot = _CPU_LANE_SLOT
 
     def run(self, lanes: list[Lane], target: float, asset: str,
             beneficiary: str, budget_s: float | None = None,
@@ -355,6 +367,17 @@ class PathMatrix:
             lane.status = "queued"
             lane.reason = "engine_busy_with_earlier_lanes"
             return
+        # CPU lanes take the single process-wide slot. If it is held, a lane from
+        # an earlier request is still computing; starting this one would not make
+        # either faster and would starve the request that is answering now.
+        took_cpu = False
+        if lane.cpu_bound:
+            took_cpu = self._cpu_slot.acquire(timeout=0.05)
+            if not took_cpu:
+                self._inflight.release()
+                lane.status = "queued"
+                lane.reason = "cpu_slot_held_by_earlier_lane"
+                return
         lane.status = "running"
         lane.started_at = time.time()
         try:
@@ -365,6 +388,8 @@ class PathMatrix:
                 lane.status = "blocked"
                 lane.reason = lane.reason or "lane_returned_without_a_verdict"
             self._inflight.release()
+            if took_cpu:
+                self._cpu_slot.release()
 
 
 def _record_execution(lane: Lane, execution) -> None:
@@ -413,7 +438,7 @@ def build_lanes(synth, constraints, path, primitives) -> list[Lane]:
     timeout = SETTINGS.lane_timeout_s
     lanes: list[Lane] = []
 
-    def settle_via(name: str, title: str, **kwargs):
+    def settle_via(name: str, title: str, cpu_bound: bool = False, **kwargs):
         def run(lane: Lane) -> None:
             execution = synth.executor.settle(path, constraints, **kwargs)
             _record_execution(lane, execution)
@@ -424,6 +449,7 @@ def build_lanes(synth, constraints, path, primitives) -> list[Lane]:
             title_ar=title,
             run=run,
             timeout_s=timeout,
+            cpu_bound=cpu_bound,
         )
 
     if path is not None and path.proven_net_profit_usd:
@@ -433,7 +459,7 @@ def build_lanes(synth, constraints, path, primitives) -> list[Lane]:
         # The sponsored EVM ladder, run on its own so a Fuel fault cannot mask
         # whether a paymaster would have answered.
         lanes.append(settle_via("evm", "سلّم الرعاة على EVM (paymaster/bundler)",
-                                skip_fuel=True))
+                                cpu_bound=True, skip_fuel=True))
         # The proved local fork: real EVM execution with a proof, its own venue.
         if SETTINGS.settle_on_fork:
             def run_fork(lane: Lane) -> None:
