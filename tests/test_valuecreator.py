@@ -193,6 +193,27 @@ def test_a_count_word_inside_another_word_is_not_a_count():
     assert parse_target_usd("عندي ستة ملايين") == 6e6
 
 
+def test_a_compound_magnitude_is_read_in_full_not_truncated():
+    """Arabic builds large numbers additively, and the sum is the magnitude.
+
+    Reading only the leading scale word would deliver 7,000,000 for a request
+    of 7,250,000. Under-delivering is the one error this system must not make,
+    so each part has to be counted.
+    """
+    assert parse_target_usd("أريد سبعة ملايين ومئتين وخمسين ألف دولار") == 7_250_000
+    assert parse_target_usd("مليونان وخمسمئة ألف") == 2_500_000
+    assert parse_target_usd("أريد 7 ملايين و250 ألف") == 7_250_000
+    assert parse_target_usd("ثلاثة ملايين ومئتا ألف") == 3_200_000
+    assert parse_target_usd("ألفان وخمسمئة") == 2_500
+    assert parse_target_usd("أريد مليوناً ومئتي ألف") == 1_200_000
+
+
+def test_a_compound_part_is_not_added_across_a_scale_boundary():
+    # "ثلاثة ملايين ومئتان" is three million and two hundred, not 3.2 million:
+    # the trailing count has no scale word of its own, so it adds as units.
+    assert parse_target_usd("ثلاثة ملايين ومئتان") == 3_000_200
+
+
 def test_a_repeat_creation_cites_the_original_transaction():
     hand = _FakeHand()
     creator = ValueCreator(fuel_hand=hand)

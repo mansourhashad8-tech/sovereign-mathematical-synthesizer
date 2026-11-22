@@ -131,6 +131,151 @@ _ARABIC_FRACTIONS: tuple[tuple[str, float], ...] = (
     ("ثلث", 1 / 3),
 )
 
+# Tens and hundreds, so a compound magnitude reads as the number it names.
+# "سبعة ملايين ومئتين وخمسين ألف" is 7,250,000; reading only the leading
+# "سبعة ملايين" would deliver 250,000 less than the intent asked for, which is
+# the one error this system must not make.
+_ARABIC_TENS: tuple[tuple[str, float], ...] = (
+    ("عشرين", 20),
+    ("ثلاثين", 30),
+    ("اربعين", 40),
+    ("أربعين", 40),
+    ("خمسين", 50),
+    ("ستين", 60),
+    ("سبعين", 70),
+    ("ثمانين", 80),
+    ("تسعين", 90),
+)
+
+_ARABIC_HUNDREDS: tuple[tuple[str, float], ...] = (
+    ("مئة", 100),
+    ("مائة", 100),
+    ("مئتين", 200),
+    ("مئتان", 200),
+    ("مئتا", 200),
+    ("مئتي", 200),
+    ("مائتين", 200),
+    ("مائتان", 200),
+    ("ثلاثمئة", 300),
+    ("ثلاثمائة", 300),
+    ("اربعمئة", 400),
+    ("أربعمئة", 400),
+    ("اربعمائة", 400),
+    ("أربعمائة", 400),
+    ("خمسمئة", 500),
+    ("خمسمائة", 500),
+    ("ستمئة", 600),
+    ("ستمائة", 600),
+    ("سبعمئة", 700),
+    ("سبعمائة", 700),
+    ("ثمانمئة", 800),
+    ("ثمانمائة", 800),
+    ("تسعمئة", 900),
+    ("تسعمائة", 900),
+)
+
+# Every scale word, mapped to (factor, implied count). A dual carries its own
+# count of two because "مليونان" is two million on its own; the singular and
+# the plural take their count from the word before them, or one if there is
+# none.
+_ARABIC_SCALE_WORDS: dict[str, tuple[float, int | None]] = {
+    "مليار": (1e9, None),
+    "مليارات": (1e9, None),
+    "billion": (1e9, None),
+    "مليارين": (1e9, 2),
+    "ملياران": (1e9, 2),
+    "مليون": (1e6, None),
+    "ملايين": (1e6, None),
+    "million": (1e6, None),
+    "مليونين": (1e6, 2),
+    "مليونان": (1e6, 2),
+    "مليوني": (1e6, 2),
+    # The accusative with tanween: the diacritic is stripped by tokenizing,
+    # leaving "مليونا" as the word to match.
+    "مليونا": (1e6, 1),
+    "مليارا": (1e9, 1),
+    "ألفا": (1e3, 1),
+    "الفا": (1e3, 1),
+    "ألف": (1e3, None),
+    "الف": (1e3, None),
+    "آلاف": (1e3, None),
+    "الاف": (1e3, None),
+    "thousand": (1e3, None),
+    "ألفين": (1e3, 2),
+    "الفين": (1e3, 2),
+    "ألفان": (1e3, 2),
+    "الفان": (1e3, 2),
+}
+
+
+def _number_word_table() -> dict[str, float]:
+    """Units, fractions, tens and hundreds, keyed by the word that names them."""
+    table: dict[str, float] = {}
+    for word, value in (
+        _ARABIC_FRACTIONS + _ARABIC_WORD_NUMBERS + _ARABIC_TENS + _ARABIC_HUNDREDS
+    ):
+        table.setdefault(word, float(value))
+    return table
+
+
+_NUMBER_WORDS = _number_word_table()
+
+
+def _compound_value(lowered: str) -> float:
+    """Read a compound magnitude by summing its parts.
+
+    Arabic builds large numbers additively around scale words: a run of counts
+    collects until a scale word multiplies it, then the sum of the runs is the
+    magnitude. "7 ملايين و250 ألف" and "سبعة ملايين ومئتين وخمسين ألف" both
+    describe 7,250,000, and both are read here as such.
+
+    Returns 0.0 when nothing in the text names a number, so the caller can fall
+    back to the older single-word reader for forms like "مليونير".
+    """
+    tokens = re.findall(r"[\u0621-\u064A]+|\d[\d,٬]*(?:\.\d+)?", lowered)
+    total = 0.0
+    pending = 0.0
+    seen = False
+
+    for token in tokens:
+        if token == "و":
+            continue
+
+        # A count may be glued to the conjunction: "و250", "ومئتين". The whole
+        # token is checked first so that "واحد" (one) is not read as "احد".
+        word = token
+        if word not in _NUMBER_WORDS and word not in _ARABIC_SCALE_WORDS:
+            if word.startswith("و") and len(word) > 2:
+                word = word[1:]
+
+        if word in _ARABIC_SCALE_WORDS:
+            factor, implied = _ARABIC_SCALE_WORDS[word]
+            count = float(implied) if implied is not None else (pending or 1.0)
+            total += count * factor
+            pending = 0.0
+            seen = True
+            continue
+
+        if word in _NUMBER_WORDS:
+            value = _NUMBER_WORDS[word]
+            # "خمس مئة" is five hundred, not one hundred and five: a count
+            # below a hundred followed by a hundreds word multiplies it.
+            if value >= 100 and 0 < pending < 100:
+                pending *= value
+            else:
+                pending += value
+            seen = True
+            continue
+
+        if re.fullmatch(r"\d[\d,٬]*(?:\.\d+)?", word):
+            pending += float(word.replace(",", "").replace("٬", ""))
+            seen = True
+            continue
+
+    # A trailing count with no scale word is the magnitude itself ("5000").
+    total += pending
+    return total if seen else 0.0
+
 
 def _word_re(word: str) -> re.Pattern[str]:
     """Match an Arabic word on its own, allowing the definite article.
@@ -195,13 +340,25 @@ def parse_target_usd(text: str) -> float:
 
     Handles digits with or without separators, the Arabic scale words, the
     dual ("مليونين"), the plural ("ثلاثة ملايين"), spelled-out counts
-    ("عشرة آلاف") and fractions ("نصف مليون"). A count multiplies the scale,
-    so "1.5 مليون" is 1.5e6, "ثلاثة ملايين" is 3e6, and a bare "مليون" is 1e6.
+    ("عشرة آلاف"), fractions ("نصف مليون"), and compound magnitudes
+    ("سبعة ملايين ومئتين وخمسين ألف" = 7,250,000). A count multiplies the
+    scale, so "1.5 مليون" is 1.5e6, "ثلاثة ملايين" is 3e6, and a bare
+    "مليون" is 1e6.
+
+    Compound magnitudes are read first, by summing parts. When that finds no
+    number the single-word reader is used, which keeps forms the summation does
+    not cover — "مليونير" (millionaire) is one million, not a count of
+    anything.
     """
     raw = (text or "").strip()
     if not raw:
         return 0.0
     lowered = raw.lower()
+
+    compound = _compound_value(lowered)
+    if compound:
+        return compound
+
     scale = _scale(lowered)
 
     value = 0.0
