@@ -106,3 +106,11 @@ reported `continuing` and keep working after the reply, not "failed"; (2) CPU la
 EVM fork, z3) must be `cpu_bound=True` and start only if no network lane delivered, else
 they starve the paying lane of the GIL (+500ms). Lane narration must never call a
 `stood_down` lane a failure. Detail: `2026-11-18.md`.
+
+## The 2.0s deadline flake = GIL starvation, not slow proving (commit `6654cd0`)
+A repeated-intent latency flake (`synthesis` looked slow) was pure-Python work
+declared as I/O stealing the GIL from the next request. Fixes: `evm` lane is
+`cpu_bound=True`; CPU lanes take one process-wide `_CPU_LANE_SLOT`; and
+`settlement_workers` 4→1 (settlement measured 76% CPU). 2–3 overruns/20 → 0/60.
+**Do not "fix" timing by cutting the proof sweep short — that breaks determinism
+(the core invariant).** Detail + the `cpu/wall` probe technique: `2026-11-18.md`.
