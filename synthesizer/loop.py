@@ -172,7 +172,14 @@ class Synthesizer:
                 # waiting for the content is what the user asked for.
                 domain = getattr(constraints.goal, "domain", "finance")
                 if domain == "finance":
-                    budget = max(0.4, SETTINGS.request_deadline_s - (time.time() - started))
+                    # The matrix gets the true remainder of the answer budget. It
+                    # is not given a floor above that remainder: a floor spends
+                    # the deadline twice when the prelude is slow, which is what
+                    # put a loaded CI runner at 2.2s on a 2.0s budget. The matrix
+                    # itself needs at least 0.1s to do anything, so that is the
+                    # only floor, and it never exceeds what the deadline allows.
+                    elapsed = time.time() - started
+                    budget = max(0.1, SETTINGS.request_deadline_s - elapsed)
                 else:
                     budget = SETTINGS.creator_deadline_s
                 matrix = self.matrix.run(
@@ -240,7 +247,6 @@ class Synthesizer:
                         gas_mode="pending",
                         reason=f"matrix_lanes={len(matrix.lanes)};none_delivered_yet",
                     )
-                    self._baseline_for(iid, _networks()[0] if _networks() else None)
                     self._dispatch_settlement(iid, chosen, execution, constraints)
             else:
                 execution = ExecutionResult(
@@ -718,6 +724,12 @@ class Synthesizer:
         call_data = self.executor.settlement_call_data(path)
 
         def work() -> None:
+            # The baseline has to be read before anything is broadcast, but it is
+            # a balance RPC and does not belong on the answer path. Reading it
+            # here keeps the ordering Gate B needs without making the chat
+            # request wait for a node that may be slow or unreachable.
+            nets = _networks()
+            self._baseline_for(iid, nets[0] if nets else None)
             if constraints is not None:
                 gated = self.executor.settle(path, constraints)
                 self._fold_gated(iid, gated)
