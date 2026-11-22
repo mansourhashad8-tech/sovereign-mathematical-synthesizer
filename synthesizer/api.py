@@ -91,6 +91,42 @@ class IntentBody(BaseModel):
     intent: str
 
 
+class CreateBody(BaseModel):
+    intent: str
+    intent_id: str = ""
+
+
+@app.post("/create")
+async def create(body: CreateBody) -> JSONResponse:
+    """Forced creation: generate, lock-verify, prove, attest. One straight path.
+
+    There is no search here and no waiting: the artifact is produced from the
+    request, the lock is verified on the bytes, the recording rules are proved
+    with Z3 and re-checked with CVC5, and the commitment is recorded on the
+    engine's ledger. A repeat of the same request cites the original
+    transaction rather than failing, because the artifact's hash is identical.
+
+    The response names the delivered unit honestly. ``requested_target_usd`` is
+    what was asked for; ``delivered`` is one attestation of the artifact's hash,
+    which is what the ledger actually recorded.
+    """
+    from .valuecreator import ValueCreator
+
+    creator = ValueCreator()
+    creation = await asyncio.to_thread(creator.create, body.intent, body.intent_id)
+    payload = creation.to_dict()
+    headers = {
+        "X-Creation-Sha256": creation.sha256,
+        "X-Creation-Lock": str(creation.lock_verified).lower(),
+        "X-Creation-Proof": str(creation.proof_satisfied).lower(),
+        "X-Creation-Unit": creation.value_unit,
+        "X-Creation-Money-Is-Real": str(creation.money_is_real).lower(),
+    }
+    if creation.tx_hash:
+        headers["X-Creation-Tx"] = creation.tx_hash
+    return JSONResponse(payload, headers=headers)
+
+
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok", "version": __version__, "engine": "sovereign-synthesizer"}
