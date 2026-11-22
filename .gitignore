@@ -38,3 +38,4 @@ sway/chain/genesis/
 sway/chain/contract_id.txt
 sway/chain/settlements.json
 sway/settlement_ledger/out/debug/debug_symbols.obj
+evidence/created/
