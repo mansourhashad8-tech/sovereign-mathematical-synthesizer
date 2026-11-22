@@ -149,10 +149,13 @@ class GitHubScanner:
             # repository also has to be reflected in how the repository describes
             # itself, or the composition would cite a component for a job it does
             # not do.
-            haystack = " ".join((
-                item.get("name", ""), description,
-                " ".join(item.get("topics") or []),
-            )).lower()
+            #
+            # Topics are deliberately excluded. They are self-assigned labels,
+            # and one search for "market-making" returned a tweet archive whose
+            # only claim to the category was a topic tag: the name and the
+            # description are where a repository says what it is, so only those
+            # are read.
+            haystack = f"{item.get('name', '')} {description}".lower()
             terms = CATEGORY_TERMS.get(category, ())
             if terms and not any(t in haystack for t in terms):
                 continue

@@ -1,11 +1,11 @@
 {
-  "generated_at": 1795357829.8806355,
-  "generated_at_iso": "2026-11-22T14:30:29Z",
+  "generated_at": 1795359860.6805284,
+  "generated_at_iso": "2026-11-22T15:04:20Z",
   "source": "github-actions",
   "live_probe": false,
-  "settled_count": 219,
-  "verified_now_count": 31,
-  "unverified_count": 84,
+  "settled_count": 223,
+  "verified_now_count": 4,
+  "unverified_count": 58,
   "total_results": 400,
   "beneficiary": "0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47",
   "network": "fuel-devnet",
@@ -3504,11 +3504,11 @@
     },
     "0xcf0abe6cbbb6d0c6058e9b1cea470101b6bf0167d550550ff121bdf9b5eb4d7b": {
       "status": "executed",
-      "tx_id": "0x636e151a212b70966fc6b79315a3beb2a02e9f427a27e2fa2a88fcac7839d725",
-      "block_height": "141",
-      "block_id": "0x4c72c9aac29a763ca1075a304ccfb38adc67d6af09818890a3f22393062f99ac",
+      "tx_id": "0xb6e06dca31f370ebc48d711ae2548bd9f51d7dd83dbf5e714ed25e977ce30f7a",
+      "block_height": "15",
+      "block_id": "0x20ff48855388903f9f655cb53330898d0c4a3f079291ba9d4af5fa97435eace0",
       "included": true,
-      "contract_id": "0xcab43b12431f5ac66d9dd5a3a2122d30cfded6b7f00fda867738af95a8aa2147",
+      "contract_id": "0xdda65be8570d459b8c8aff14dcbdfc7f4ab7032c38f7c9300d3a1116b53c1786",
       "network": "fuel-devnet",
       "beneficiary": "0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47",
       "delta": 1,
@@ -3516,7 +3516,7 @@
       "delivered": 1,
       "gas_used": 90076,
       "gas_paid_by": "genesis-supply",
-      "explorer_url": "/fuel/tx/0x636e151a212b70966fc6b79315a3beb2a02e9f427a27e2fa2a88fcac7839d725",
+      "explorer_url": "/fuel/tx/0xb6e06dca31f370ebc48d711ae2548bd9f51d7dd83dbf5e714ed25e977ce30f7a",
       "reason": "",
       "paid": true
     },
@@ -3756,19 +3756,19 @@
     },
     "0x7b427657a9fd86f8b0ae38d7fb31008ae40efcdffff7264fc5ddb036d8d031b8": {
       "status": "executed",
-      "tx_id": "0xfb68b72cc9cb0e2eaf925af45448984e91f7ae454976ceb5e417ad95d6c72729",
-      "block_height": "75",
-      "block_id": "0xc7ed4c83cc01b63b52766a5c2ed3820a1dc466b171d656903c64068a972b94e9",
+      "tx_id": "0xe357f2927d8d41a3fa98b0ff54416ee911fcff58ca678e42b2c5ab1b3e078fba",
+      "block_height": "2",
+      "block_id": "0xbb8e8da22e9f966a1e60bceba7c026d7464b0c0a4b6e60f029c7ae16c8b3cc85",
       "included": true,
-      "contract_id": "0x21c4d299822952d1a879bcbe53ee69b357764743a900f48cb96de927404cea56",
+      "contract_id": "0x956c038ff4821da457563919752712251eeb2e529c210b738136d4d73a894192",
       "network": "fuel-devnet",
       "beneficiary": "0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47",
       "delta": 1,
       "net_profit": 1,
-      "delivered": 21107448066,
-      "gas_used": 86094,
+      "delivered": 1,
+      "gas_used": 90076,
       "gas_paid_by": "genesis-supply",
-      "explorer_url": "/fuel/tx/0xfb68b72cc9cb0e2eaf925af45448984e91f7ae454976ceb5e417ad95d6c72729",
+      "explorer_url": "/fuel/tx/0xe357f2927d8d41a3fa98b0ff54416ee911fcff58ca678e42b2c5ab1b3e078fba",
       "reason": "",
       "paid": true
     },
@@ -3918,19 +3918,19 @@
     },
     "0x3647a6bfb99591eb42811ac9490d2ea42ea224d75545cba0c9e35ee5f056adbb": {
       "status": "executed",
-      "tx_id": "0xa073e40f7d23449b8cbd15481f234b4b0ecaba65d2220eb25e39da94ed0f8e15",
-      "block_height": "93",
-      "block_id": "0xab5f0f0ada136f26a427303486d09bd855e8bcc3b0553d3701abde81805073f7",
+      "tx_id": "0x4ec644f22ae069cee0cc225a48d01cf0ae05bcb683c9c1a10b5319d49036b709",
+      "block_height": "4",
+      "block_id": "0x24fcd489153483fad938616123b7ac57821d788459e948d99ce3531feafe8c08",
       "included": true,
-      "contract_id": "0x21c4d299822952d1a879bcbe53ee69b357764743a900f48cb96de927404cea56",
+      "contract_id": "0x956c038ff4821da457563919752712251eeb2e529c210b738136d4d73a894192",
       "network": "fuel-devnet",
       "beneficiary": "0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47",
       "delta": 1,
       "net_profit": 1,
-      "delivered": 51691472828,
+      "delivered": 3,
       "gas_used": 86094,
       "gas_paid_by": "genesis-supply",
-      "explorer_url": "/fuel/tx/0xa073e40f7d23449b8cbd15481f234b4b0ecaba65d2220eb25e39da94ed0f8e15",
+      "explorer_url": "/fuel/tx/0x4ec644f22ae069cee0cc225a48d01cf0ae05bcb683c9c1a10b5319d49036b709",
       "reason": "",
       "paid": true
     },
@@ -4653,9 +4653,451 @@
       "explorer_url": "/fuel/tx/0xf645768b518c129bab932338bd82be3fb7dd3c031b134cbbe20374381732c84e",
       "reason": "",
       "paid": true
+    },
+    "0xb5b0f301746b895f42c258a8d7434287ebce23656724e077ccb6190028fa6634": {
+      "status": "executed",
+      "tx_id": "0x81aabfedc97005ddfa759e96a344056326d8d2a3438bfecbab394610c3e84e67",
+      "block_height": "3",
+      "block_id": "0x237b96ed888f3b0afc42c30f7cc1e8d22125d5c64d4fa38719ec269f06324f7e",
+      "included": true,
+      "contract_id": "0x956c038ff4821da457563919752712251eeb2e529c210b738136d4d73a894192",
+      "network": "fuel-devnet",
+      "beneficiary": "0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47",
+      "delta": 1,
+      "net_profit": 1,
+      "delivered": 2,
+      "gas_used": 86094,
+      "gas_paid_by": "genesis-supply",
+      "explorer_url": "/fuel/tx/0x81aabfedc97005ddfa759e96a344056326d8d2a3438bfecbab394610c3e84e67",
+      "reason": "",
+      "paid": true
+    },
+    "0xf16e918731cba011c97f05d2941058a7e5b6b9514a724c7193975c57570248c3": {
+      "status": "executed",
+      "tx_id": "0xd48cc78518c01ff81db8afe4d6d19460423030e15559c3de08ac21cda168c382",
+      "block_height": "5",
+      "block_id": "0xf35bc3ccadd06556a5f9eac86aeef1e6bccdf41cf5ea1f15c7fa6ade9597e531",
+      "included": true,
+      "contract_id": "0x956c038ff4821da457563919752712251eeb2e529c210b738136d4d73a894192",
+      "network": "fuel-devnet",
+      "beneficiary": "0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47",
+      "delta": 1,
+      "net_profit": 1,
+      "delivered": 4,
+      "gas_used": 86094,
+      "gas_paid_by": "genesis-supply",
+      "explorer_url": "/fuel/tx/0xd48cc78518c01ff81db8afe4d6d19460423030e15559c3de08ac21cda168c382",
+      "reason": "",
+      "paid": true
+    },
+    "0xa6c857c5fe2ae9bc6be78b7bbd3a03133aac63f470db4e7b390ebff2b0d51f0b": {
+      "status": "executed",
+      "tx_id": "0xdb4a510b6c4f67803cbfaf2ea4e9376e3d92812fada3b94fa16c6924cc504ca3",
+      "block_height": "6",
+      "block_id": "0x6395d7044c0d017d19748f040e699e73e2a3c458225fac090508dae428d82e0f",
+      "included": true,
+      "contract_id": "0x956c038ff4821da457563919752712251eeb2e529c210b738136d4d73a894192",
+      "network": "fuel-devnet",
+      "beneficiary": "0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47",
+      "delta": 1,
+      "net_profit": 1,
+      "delivered": 5,
+      "gas_used": 86094,
+      "gas_paid_by": "genesis-supply",
+      "explorer_url": "/fuel/tx/0xdb4a510b6c4f67803cbfaf2ea4e9376e3d92812fada3b94fa16c6924cc504ca3",
+      "reason": "",
+      "paid": true
+    },
+    "0x749a5f9c7c829561d1c7c9653a70556bae65f3867f2fec6e3c1886452eb81542": {
+      "status": "executed",
+      "tx_id": "0x5c1be64d9e17808fe032044c396ee2487fd6aca03fb3846210735c843c4a2ab0",
+      "block_height": "7",
+      "block_id": "0x3cb979fd076a69fdf18ff38987cc0131da07b316da65ad4f186d9f38b0ce180f",
+      "included": true,
+      "contract_id": "0x956c038ff4821da457563919752712251eeb2e529c210b738136d4d73a894192",
+      "network": "fuel-devnet",
+      "beneficiary": "0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47",
+      "delta": 1,
+      "net_profit": 1,
+      "delivered": 6,
+      "gas_used": 86094,
+      "gas_paid_by": "genesis-supply",
+      "explorer_url": "/fuel/tx/0x5c1be64d9e17808fe032044c396ee2487fd6aca03fb3846210735c843c4a2ab0",
+      "reason": "",
+      "paid": true
+    },
+    "0x8c8b4b229109b92e458f15b324edc42b38bb79e95c7e7c844e03967eb91083b3": {
+      "status": "executed",
+      "tx_id": "0x2b43222c120479f5ca15f8b38a987e5ff130c68cf5e58b6d084f603c1da9c95c",
+      "block_height": "2",
+      "block_id": "0xcfc6468747e855da6977a098baafa363622e24352d232fd518076d32e06cc4cd",
+      "included": true,
+      "contract_id": "0x86a2ed59ced86267b17a62bf016cb7546f5f1404b588e8d9872932b01a5db252",
+      "network": "fuel-devnet",
+      "beneficiary": "0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47",
+      "delta": 3210000,
+      "net_profit": 3209999,
+      "delivered": 3210000,
+      "gas_used": 90074,
+      "gas_paid_by": "genesis-supply",
+      "explorer_url": "/fuel/tx/0x2b43222c120479f5ca15f8b38a987e5ff130c68cf5e58b6d084f603c1da9c95c",
+      "reason": "",
+      "paid": true
+    },
+    "0xc5d1d937cf68dcfe13e1462c88ce6c8311f8234075623a007294d78a8ab8657d": {
+      "status": "executed",
+      "tx_id": "0xc127dce727c33d6637fb43e46163deb6f78c50eade7d89eeb02b88e9590d7d32",
+      "block_height": "3",
+      "block_id": "0xd1fe8e76147043e916653d90e71b580a64e92b8c4f395694825463683d1271f8",
+      "included": true,
+      "contract_id": "0x86a2ed59ced86267b17a62bf016cb7546f5f1404b588e8d9872932b01a5db252",
+      "network": "fuel-devnet",
+      "beneficiary": "0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47",
+      "delta": 1500000,
+      "net_profit": 1000000,
+      "delivered": 4710000,
+      "gas_used": 86092,
+      "gas_paid_by": "genesis-supply",
+      "explorer_url": "/fuel/tx/0xc127dce727c33d6637fb43e46163deb6f78c50eade7d89eeb02b88e9590d7d32",
+      "reason": "",
+      "paid": true
+    },
+    "0xbc13a955947017fd5d637db3534592990192e62a9a37984374e59b1a741b634a": {
+      "status": "executed",
+      "tx_id": "0x7bf6aca85e56afd493435a601d546b31023b98c543815e861bf72ab3c40ef61b",
+      "block_height": "4",
+      "block_id": "0xa3e17f0ceb248f8f49053613e341ec8d8a6e7abd0d5bc11fb5d77468ec39d3fc",
+      "included": true,
+      "contract_id": "0x86a2ed59ced86267b17a62bf016cb7546f5f1404b588e8d9872932b01a5db252",
+      "network": "fuel-devnet",
+      "beneficiary": "0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47",
+      "delta": 1100000,
+      "net_profit": 900000,
+      "delivered": 5810000,
+      "gas_used": 86092,
+      "gas_paid_by": "genesis-supply",
+      "explorer_url": "/fuel/tx/0x7bf6aca85e56afd493435a601d546b31023b98c543815e861bf72ab3c40ef61b",
+      "reason": "",
+      "paid": true
+    },
+    "0xa9edc77d11b4ec05ca7be93f18f3dbda50b94898c31ca5504281d9888fb9b3e2": {
+      "status": "executed",
+      "tx_id": "0xf326ca3f4dc783da9986a387641eee66bdeac5a96a4f49acdf945dde5e196ba4",
+      "block_height": "2",
+      "block_id": "0x6d007545c1f3bb68acaaa257995b40ed77162f5f52f8f04dc230c461b3c51478",
+      "included": true,
+      "contract_id": "0xf1bd37481a7d990bd0c1054a0be81f17f25eef5d92f70645a5bd5bcd29d3eb01",
+      "network": "fuel-devnet",
+      "beneficiary": "0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47",
+      "delta": 3210000,
+      "net_profit": 3209999,
+      "delivered": 3210000,
+      "gas_used": 90074,
+      "gas_paid_by": "genesis-supply",
+      "explorer_url": "/fuel/tx/0xf326ca3f4dc783da9986a387641eee66bdeac5a96a4f49acdf945dde5e196ba4",
+      "reason": "",
+      "paid": true
+    },
+    "0x8d66db003cf9f7e599a9c34834655eb8594c22cdefc3f00db00ae290ad2316ff": {
+      "status": "executed",
+      "tx_id": "0x3e6cc7d19e471d494e2be386f0e01de4ddf2a07a75a73356f7b7f8bb03fd3c4a",
+      "block_height": "3",
+      "block_id": "0x0647c50b094f25e4c46fadd28bfce763f666cce4739d9dc10fece3a1b9602aae",
+      "included": true,
+      "contract_id": "0xf1bd37481a7d990bd0c1054a0be81f17f25eef5d92f70645a5bd5bcd29d3eb01",
+      "network": "fuel-devnet",
+      "beneficiary": "0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47",
+      "delta": 1500000,
+      "net_profit": 1000000,
+      "delivered": 4710000,
+      "gas_used": 86092,
+      "gas_paid_by": "genesis-supply",
+      "explorer_url": "/fuel/tx/0x3e6cc7d19e471d494e2be386f0e01de4ddf2a07a75a73356f7b7f8bb03fd3c4a",
+      "reason": "",
+      "paid": true
+    },
+    "0x870ae325c4851010cc90ecb69e2b5b3fb4d4ba496627e6fd3d0c512cbbcae110": {
+      "status": "executed",
+      "tx_id": "0x73cec89cac14a3e21cf8bf4afade10cff2bc3fe2f5fd902264061cdd29125601",
+      "block_height": "4",
+      "block_id": "0x3b35f8bd16e484fad87ee97b46d21841581b7302427d6fbab21178bd97d7dce5",
+      "included": true,
+      "contract_id": "0xf1bd37481a7d990bd0c1054a0be81f17f25eef5d92f70645a5bd5bcd29d3eb01",
+      "network": "fuel-devnet",
+      "beneficiary": "0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47",
+      "delta": 1100000,
+      "net_profit": 900000,
+      "delivered": 5810000,
+      "gas_used": 86092,
+      "gas_paid_by": "genesis-supply",
+      "explorer_url": "/fuel/tx/0x73cec89cac14a3e21cf8bf4afade10cff2bc3fe2f5fd902264061cdd29125601",
+      "reason": "",
+      "paid": true
+    },
+    "0x6c266dec87a61249bcb885060636c60d3ab177a492d4649c8fd2d1bab59a7cdd": {
+      "status": "executed",
+      "tx_id": "0x64ea5808d7feb33453dbae9a58bbd8ba74487b8e9dd57599e4f3682881f437cf",
+      "block_height": "7",
+      "block_id": "0xbbaae2809c7ad8b196ad067022f73bfe23b338af746b63d446165ee86c4b7c2d",
+      "included": true,
+      "contract_id": "0xb589443dd5a079367af46f7007a52ab715fa658af0f0eaaf78f22a05b98f6bb1",
+      "network": "fuel-devnet",
+      "beneficiary": "0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47",
+      "delta": 8875002167,
+      "net_profit": 8875002167,
+      "delivered": 8875002168,
+      "gas_used": 86094,
+      "gas_paid_by": "genesis-supply",
+      "explorer_url": "/fuel/tx/0x64ea5808d7feb33453dbae9a58bbd8ba74487b8e9dd57599e4f3682881f437cf",
+      "reason": "",
+      "paid": true
+    },
+    "0x15fcb2a7fad1c4f975a8f86663976d760535750a8a703bb72d5639acdf137db3": {
+      "status": "executed",
+      "tx_id": "0x0e128dc345bc1e78c428eebbf530a07f247c9f8df9ea166a4f798cb87a2b7a14",
+      "block_height": "8",
+      "block_id": "0xffcbe91d67aa24424e37d57f6bb52ba8dd887e822b2c24c7a5dd433a11d7e2e8",
+      "included": true,
+      "contract_id": "0xb589443dd5a079367af46f7007a52ab715fa658af0f0eaaf78f22a05b98f6bb1",
+      "network": "fuel-devnet",
+      "beneficiary": "0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47",
+      "delta": 38025,
+      "net_profit": 38025,
+      "delivered": 8875040193,
+      "gas_used": 86094,
+      "gas_paid_by": "genesis-supply",
+      "explorer_url": "/fuel/tx/0x0e128dc345bc1e78c428eebbf530a07f247c9f8df9ea166a4f798cb87a2b7a14",
+      "reason": "",
+      "paid": true
+    },
+    "0x841bd019b75995fefe1e1c69e40f88079e4ae914264db555ee9d18b94ade5686": {
+      "status": "executed",
+      "tx_id": "0xa814eb0020392ce44d43f375ba8c8b704f87ff39742bf9fd80cf92d47140404f",
+      "block_height": "9",
+      "block_id": "0xcae6a27f379cffb66ca1304e06594682de7f7cbde305dcbe8cd466aff47a2d60",
+      "included": true,
+      "contract_id": "0xb589443dd5a079367af46f7007a52ab715fa658af0f0eaaf78f22a05b98f6bb1",
+      "network": "fuel-devnet",
+      "beneficiary": "0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47",
+      "delta": 9312502274,
+      "net_profit": 9312502274,
+      "delivered": 18187542467,
+      "gas_used": 86094,
+      "gas_paid_by": "genesis-supply",
+      "explorer_url": "/fuel/tx/0xa814eb0020392ce44d43f375ba8c8b704f87ff39742bf9fd80cf92d47140404f",
+      "reason": "",
+      "paid": true
+    },
+    "0x532ba8ba1018401644c384ed8fb9a9ea1ce3958060d2e74e309d39103832ae72": {
+      "status": "executed",
+      "tx_id": "0xefd5549432882e1d5b82231401c20650d8c6b342c05c16b2785a8f2d54412efd",
+      "block_height": "10",
+      "block_id": "0xb6eab05d36155fa9931416dd486def4830148a6e85ebd2aa53ba421ef98c25bb",
+      "included": true,
+      "contract_id": "0xb589443dd5a079367af46f7007a52ab715fa658af0f0eaaf78f22a05b98f6bb1",
+      "network": "fuel-devnet",
+      "beneficiary": "0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47",
+      "delta": 15351564499,
+      "net_profit": 15351564499,
+      "delivered": 33539106966,
+      "gas_used": 86094,
+      "gas_paid_by": "genesis-supply",
+      "explorer_url": "/fuel/tx/0xefd5549432882e1d5b82231401c20650d8c6b342c05c16b2785a8f2d54412efd",
+      "reason": "",
+      "paid": true
+    },
+    "0x3db8369592366106206c079340ff23beded4448244d793ec97e6acd1e0baa3fe": {
+      "status": "executed",
+      "tx_id": "0x362c72b41cd9107afcce6f755b358347a46b67d59547e4d7ef74d6f5466ef245",
+      "block_height": "11",
+      "block_id": "0x923279a84dbc3b9fd0da9d6ecff312db87db9d7733909202683e88dcbd2834a1",
+      "included": true,
+      "contract_id": "0xb589443dd5a079367af46f7007a52ab715fa658af0f0eaaf78f22a05b98f6bb1",
+      "network": "fuel-devnet",
+      "beneficiary": "0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47",
+      "delta": 3210000,
+      "net_profit": 3209999,
+      "delivered": 33542316966,
+      "gas_used": 86092,
+      "gas_paid_by": "genesis-supply",
+      "explorer_url": "/fuel/tx/0x362c72b41cd9107afcce6f755b358347a46b67d59547e4d7ef74d6f5466ef245",
+      "reason": "",
+      "paid": true
+    },
+    "0x9fc013edff69f3d4633a331fc049694f6cfc15c399f94de793892fe7ac61b230": {
+      "status": "executed",
+      "tx_id": "0x1a05819c2033a9887d90ef183ca4d63a397a409f570bb1293e83cb62621473bd",
+      "block_height": "12",
+      "block_id": "0xb78a01b924e9dece846b364c7ae6b7777bd9539d7f442f0fef7f13591c6d4efb",
+      "included": true,
+      "contract_id": "0xb589443dd5a079367af46f7007a52ab715fa658af0f0eaaf78f22a05b98f6bb1",
+      "network": "fuel-devnet",
+      "beneficiary": "0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47",
+      "delta": 1500000,
+      "net_profit": 1000000,
+      "delivered": 33543816966,
+      "gas_used": 86092,
+      "gas_paid_by": "genesis-supply",
+      "explorer_url": "/fuel/tx/0x1a05819c2033a9887d90ef183ca4d63a397a409f570bb1293e83cb62621473bd",
+      "reason": "",
+      "paid": true
+    },
+    "0x06cc05da6d88eb59f4d8e5506b0c774a989d0056ed3de41abdc9e73d035b0869": {
+      "status": "executed",
+      "tx_id": "0xbec1486301b47729b25b948edadd1f8e68dcec41669d8522361ca1ecacb2bd21",
+      "block_height": "13",
+      "block_id": "0x19c8fd1cec092e6983d64936749c8c1febd19b65b5fd2f6dffd1a4c8bfce1836",
+      "included": true,
+      "contract_id": "0xb589443dd5a079367af46f7007a52ab715fa658af0f0eaaf78f22a05b98f6bb1",
+      "network": "fuel-devnet",
+      "beneficiary": "0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47",
+      "delta": 1100000,
+      "net_profit": 900000,
+      "delivered": 33544916966,
+      "gas_used": 86092,
+      "gas_paid_by": "genesis-supply",
+      "explorer_url": "/fuel/tx/0xbec1486301b47729b25b948edadd1f8e68dcec41669d8522361ca1ecacb2bd21",
+      "reason": "",
+      "paid": true
     }
   },
   "results": [
+    {
+      "intent": "أريد ربح 7500 دولار من فرق السعر بين ثلاث شبكات في نفس الثانية، بلا رأس مال وبلا مفتاح، وبدون أن يلمس الغاز جيبي",
+      "intent_id": "9f32cfdb98bde6d3",
+      "proven": true,
+      "certificate": "SAT[z3+cvc5] N=7680001.00 net=15351.564499 >= 7500.000000; gas_sponsor=native; custody=false; user_key=false; atomic=true; cvc5=sat",
+      "solver": "z3+cvc5",
+      "path_id": "b4149873405bc917",
+      "steps": 4,
+      "net_profit_usd": 15351.564499,
+      "primitives": [
+        "aave/aave-v3-core#aave-v3-core",
+        "hummingbot/hummingbot#hummingbot",
+        "rpc://sepolia.base.org#base-sepolia:gas",
+        "pimlico-io/erc20-paymaster#erc20-paymaster"
+      ],
+      "status": "executed",
+      "network": "fuel-devnet",
+      "tx_hash": "0xefd5549432882e1d5b82231401c20650d8c6b342c05c16b2785a8f2d54412efd",
+      "block_number": 10,
+      "gas_paid_by": "genesis-supply",
+      "gas_cost_wei": 0,
+      "delivered": 15351.564499,
+      "value_transferred": true,
+      "explorer_url": "/fuel/tx/0xefd5549432882e1d5b82231401c20650d8c6b342c05c16b2785a8f2d54412efd",
+      "equations": [
+        "NetProfit = N · Σ(y_i − f_i) − gas ,  gas ≤ احتياطي الغاز الداخلي",
+        "∃ (N, y_i, f_i) ∈ Bands : N·Σ(y_i - f_i) - gas ≥ 7500.000000 ∧ gas_source ∈ {native, deposit, reinvest, flash, token} ∧ ¬Custody ∧ ¬UserKey ∧ Atomic → pays 0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47 in USDC",
+        "y_0 ∈ [0.000781, 0.001172]  −  f_0 ∈ [0.000146, 0.000220]",
+        "y_1 ∈ [0.000781, 0.001172]  −  f_1 ∈ [0.000073, 0.000110]"
+      ],
+      "narrative_ar": "النية: أريد ربح 7500 دولار من فرق السعر بين ثلاث شبكات في نفس الثانية، بلا رأس مال وبلا مفتاح، وبدون أن يلمس الغاز جيبي\nالتحليل الصوري: الهدف=earn، الأصل=USDC، الهدف الكمي=7500.0، الحد الأدنى للربح الصافي=7500.0.\nاخترع النظام المسار من المشاريع: aave/aave-v3-core، hummingbot/hummingbot، rpc://sepolia.base.org، pimlico-io/erc20-paymaster.\nالمسار الذري: 1) flash_mint:aave-v3-core؛ 2) market_making:hummingbot؛ 3) private_mempool:base-sepolia:gas؛ 4) paymaster:erc20-paymaster.\nوُلّد برهان رياضي جديد في الطلب نفسه: صافي الربح المُثبت = 15351.564499 USDC لصالح العنوان المقفل 0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47. الرقم أعلاه تقدير اقتصادي بالأصل USDC، أما ما وصل فعلاً فهو وحدات على سجل Fuel الذي يشغّله المحرّك. نُفّذ المسار الذري فعلياً على شبكة Fuel (SwayVM) في الكتلة 10: 0xefd5549432882e1d5b82231401c20650d8c6b342c05c16b2785a8f2d54412efd. الغاز استهلك 0 وحدة دفعها genesis-supply (سلسلة يملكها المحرّك بسعر غاز صفر)، وزاد رصيد المستفيد في سجل العقد بمقدار 15351.564499 وحدة، وهو مطابق للربح الصافي المُثبت.\nمصفوفة المسارات (9 مساراً في 7 عائلة، نُفّذت بالتوازي في 1286 مللي ثانية):\n- التسوية على سجل Fuel الذي يملكه المحرّك [blockchain]: أوصلت 15351.564499\n- سلّم الرعاة على EVM (paymaster/bundler) [blockchain]: لم تُوصل (no_network_settled:base-mainnet: external_sponsor_disabled;arbitrum-sepolia: prefund_needed=9160200000000 deposit=0;arbitrum-sepolia: external_sponsor_disabled;fork_not_delivered;measured net 1000000000 is below the requested floor 7500000000; no settlement is recorded)\n- تنفيذ مُبرهن على fork محلي (EVM حقيقي) [blockchain]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- برامج الحوافز: قياس ما هو قابل للمطالبة فعلاً الآن [incentive]: لم تُوصل (incentives_measured;claimable=2;human_gated=8)\n- مسارات مُخترعة في الطلب نفسه من مسح المكونات الحية [invented]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- المسار الحسابي: حلّ سقف السوق المادي بالبرهان [computational]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- توليد الأصول: ما يمكن سكه/رهنه من رصيد مملوك فعلاً [asset]: لم تُوصل (asset_venues_need_capital;funded_networks=0;held=0)\n- واجهات مدفوعة بالنتيجة: قراءة ما دُفع فعلاً [api]: لم تُوصل (paid_endpoint_sales=0;earned=0.000000)\n- خالق المُخرَج: إنتاج المُخرَج المطلوب وقياسه وتوثيقه على السجل [creator]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\nالمسار الذي أوصل القيمة فعلاً: التسوية على سجل Fuel الذي يملكه المحرّك (fuel-devnet) بمقدار 15351.564499.\nزمن القرار الكلي: 1356.6 مللي ثانية، المرشحون المبرهن عليهم: 4، المكونات الحية: 5.",
+      "settled_at": 1795359683.0743966,
+      "verified_now": true
+    },
+    {
+      "intent": "أريد ربح 4000 دولار من السيولة بدون مفتاح وبدون رأس مال عبر بروتوكولات جديدة تحتاج سيولة",
+      "intent_id": "d9f1c0a39c8963c9",
+      "proven": true,
+      "certificate": "SAT[z3+cvc5] N=4096001.00 net=9312.502274 >= 4000.000000; gas_sponsor=native; custody=false; user_key=false; atomic=true; cvc5=sat",
+      "solver": "z3+cvc5",
+      "path_id": "71a159227088d538",
+      "steps": 4,
+      "net_profit_usd": 9312.502274,
+      "primitives": [
+        "aave/aave-v3-core#aave-v3-core",
+        "langchain-ai/langgraph#langgraph",
+        "hummingbot/hummingbot#hummingbot",
+        "rpc://public.pimlico.io/v2/84532/rpc#base-sepolia:entrypoints"
+      ],
+      "status": "executed",
+      "network": "fuel-devnet",
+      "tx_hash": "0xa814eb0020392ce44d43f375ba8c8b704f87ff39742bf9fd80cf92d47140404f",
+      "block_number": 9,
+      "gas_paid_by": "genesis-supply",
+      "gas_cost_wei": 0,
+      "delivered": 9312.502274,
+      "value_transferred": true,
+      "explorer_url": "/fuel/tx/0xa814eb0020392ce44d43f375ba8c8b704f87ff39742bf9fd80cf92d47140404f",
+      "equations": [
+        "NetProfit = N · Σ(y_i − f_i) − gas ,  gas ≤ احتياطي الغاز الداخلي",
+        "∃ (N, y_i, f_i) ∈ Bands : N·Σ(y_i - f_i) - gas ≥ 4000.000000 ∧ gas_source ∈ {native, deposit, reinvest, flash, token} ∧ ¬Custody ∧ ¬UserKey ∧ Atomic → pays 0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47 in USDC",
+        "y_0 ∈ [0.000781, 0.001172]  −  f_0 ∈ [0.000146, 0.000220]",
+        "y_1 ∈ [0.000781, 0.001172]  −  f_1 ∈ [0.000146, 0.000220]"
+      ],
+      "narrative_ar": "النية: أريد ربح 4000 دولار من السيولة بدون مفتاح وبدون رأس مال عبر بروتوكولات جديدة تحتاج سيولة\nالتحليل الصوري: الهدف=provide_liquidity، الأصل=USDC، الهدف الكمي=4000.0، الحد الأدنى للربح الصافي=4000.0.\nاخترع النظام المسار من المشاريع: aave/aave-v3-core، langchain-ai/langgraph، hummingbot/hummingbot، rpc://public.pimlico.io/v2/84532/rpc.\nالمسار الذري: 1) flash_mint:aave-v3-core؛ 2) solver:langgraph؛ 3) market_making:hummingbot؛ 4) paymaster:base-sepolia:entrypoints.\nوُلّد برهان رياضي جديد في الطلب نفسه: صافي الربح المُثبت = 9312.502274 USDC لصالح العنوان المقفل 0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47. الرقم أعلاه تقدير اقتصادي بالأصل USDC، أما ما وصل فعلاً فهو وحدات على سجل Fuel الذي يشغّله المحرّك. نُفّذ المسار الذري فعلياً على شبكة Fuel (SwayVM) في الكتلة 9: 0xa814eb0020392ce44d43f375ba8c8b704f87ff39742bf9fd80cf92d47140404f. الغاز استهلك 0 وحدة دفعها genesis-supply (سلسلة يملكها المحرّك بسعر غاز صفر)، وزاد رصيد المستفيد في سجل العقد بمقدار 9312.502274 وحدة، وهو مطابق للربح الصافي المُثبت.\nمصفوفة المسارات (9 مساراً في 7 عائلة، نُفّذت بالتوازي في 874 مللي ثانية):\n- التسوية على سجل Fuel الذي يملكه المحرّك [blockchain]: أوصلت 9312.502274\n- سلّم الرعاة على EVM (paymaster/bundler) [blockchain]: ما زال يعمل بعد إرسال الجواب\n- تنفيذ مُبرهن على fork محلي (EVM حقيقي) [blockchain]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- برامج الحوافز: قياس ما هو قابل للمطالبة فعلاً الآن [incentive]: لم تُوصل (incentives_measured;claimable=2;human_gated=8)\n- مسارات مُخترعة في الطلب نفسه من مسح المكونات الحية [invented]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- المسار الحسابي: حلّ سقف السوق المادي بالبرهان [computational]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- توليد الأصول: ما يمكن سكه/رهنه من رصيد مملوك فعلاً [asset]: لم تُوصل (asset_venues_need_capital;funded_networks=0;held=0)\n- واجهات مدفوعة بالنتيجة: قراءة ما دُفع فعلاً [api]: لم تُوصل (paid_endpoint_sales=0;earned=0.000000)\n- خالق المُخرَج: إنتاج المُخرَج المطلوب وقياسه وتوثيقه على السجل [creator]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\nالمسار الذي أوصل القيمة فعلاً: التسوية على سجل Fuel الذي يملكه المحرّك (fuel-devnet) بمقدار 9312.502274.\nزمن القرار الكلي: 936.2 مللي ثانية، المرشحون المبرهن عليهم: 4، المكونات الحية: 6.",
+      "settled_at": 1795359592.5280635,
+      "verified_now": true
+    },
+    {
+      "intent": "اعمل ماركت ميكينج بلا راس مال وبدون غاز من جيبي",
+      "intent_id": "2af2ab0598ceb046",
+      "proven": true,
+      "certificate": "SAT[z3+cvc5] N=14.00 net=0.038025 >= 0.010000; gas_sponsor=native; custody=false; user_key=false; atomic=true; cvc5=sat",
+      "solver": "z3+cvc5",
+      "path_id": "ca42bcc1e9f1fad8",
+      "steps": 4,
+      "net_profit_usd": 0.038025,
+      "primitives": [
+        "Uniswap/v3-core#v3-core",
+        "hummingbot/hummingbot#hummingbot",
+        "balancer/balancer-v2-monorepo#balancer-v2-monorepo",
+        "rpc://public.pimlico.io/v2/84532/rpc#base-sepolia:entrypoints"
+      ],
+      "status": "executed",
+      "network": "fuel-devnet",
+      "tx_hash": "0x0e128dc345bc1e78c428eebbf530a07f247c9f8df9ea166a4f798cb87a2b7a14",
+      "block_number": 8,
+      "gas_paid_by": "genesis-supply",
+      "gas_cost_wei": 0,
+      "delivered": 0.038025,
+      "value_transferred": true,
+      "explorer_url": "/fuel/tx/0x0e128dc345bc1e78c428eebbf530a07f247c9f8df9ea166a4f798cb87a2b7a14",
+      "equations": [
+        "NetProfit = N · Σ(y_i − f_i) − gas ,  gas ≤ احتياطي الغاز الداخلي",
+        "∃ (N, y_i, f_i) ∈ Bands : N·Σ(y_i - f_i) - gas ≥ 0.010000 ∧ gas_source ∈ {native, deposit, reinvest, flash, token} ∧ ¬Custody ∧ ¬UserKey ∧ Atomic → pays 0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47 in USDC",
+        "y_0 ∈ [0.000781, 0.001172]  −  f_0 ∈ [0.000098, 0.000146]",
+        "y_1 ∈ [0.000586, 0.000879]  −  f_1 ∈ [0.000073, 0.000110]"
+      ],
+      "narrative_ar": "النية: اعمل ماركت ميكينج بلا راس مال وبدون غاز من جيبي\nالتحليل الصوري: الهدف=provide_liquidity، الأصل=USDC، الهدف الكمي=0.0، الحد الأدنى للربح الصافي=0.01.\nاخترع النظام المسار من المشاريع: Uniswap/v3-core، hummingbot/hummingbot، balancer/balancer-v2-monorepo، rpc://public.pimlico.io/v2/84532/rpc.\nالمسار الذري: 1) flash_mint:v3-core؛ 2) market_making:hummingbot؛ 3) liquidity:balancer-v2-monorepo؛ 4) paymaster:base-sepolia:entrypoints.\nوُلّد برهان رياضي جديد في الطلب نفسه: صافي الربح المُثبت = 0.038025 USDC لصالح العنوان المقفل 0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47. الرقم أعلاه تقدير اقتصادي بالأصل USDC، أما ما وصل فعلاً فهو وحدات على سجل Fuel الذي يشغّله المحرّك. نُفّذ المسار الذري فعلياً على شبكة Fuel (SwayVM) في الكتلة 8: 0x0e128dc345bc1e78c428eebbf530a07f247c9f8df9ea166a4f798cb87a2b7a14. الغاز استهلك 0 وحدة دفعها genesis-supply (سلسلة يملكها المحرّك بسعر غاز صفر)، وزاد رصيد المستفيد في سجل العقد بمقدار 0.038025 وحدة، وهو مطابق للربح الصافي المُثبت.\nمصفوفة المسارات (9 مساراً في 7 عائلة، نُفّذت بالتوازي في 889 مللي ثانية):\n- التسوية على سجل Fuel الذي يملكه المحرّك [blockchain]: أوصلت 0.038025\n- سلّم الرعاة على EVM (paymaster/bundler) [blockchain]: ما زال يعمل بعد إرسال الجواب\n- تنفيذ مُبرهن على fork محلي (EVM حقيقي) [blockchain]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- برامج الحوافز: قياس ما هو قابل للمطالبة فعلاً الآن [incentive]: لم تُوصل (incentives_measured;claimable=2;human_gated=8)\n- مسارات مُخترعة في الطلب نفسه من مسح المكونات الحية [invented]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- المسار الحسابي: حلّ سقف السوق المادي بالبرهان [computational]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- توليد الأصول: ما يمكن سكه/رهنه من رصيد مملوك فعلاً [asset]: لم تُوصل (asset_venues_need_capital;funded_networks=0;held=0)\n- واجهات مدفوعة بالنتيجة: قراءة ما دُفع فعلاً [api]: لم تُوصل (paid_endpoint_sales=0;earned=0.000000)\n- خالق المُخرَج: إنتاج المُخرَج المطلوب وقياسه وتوثيقه على السجل [creator]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\nالمسار الذي أوصل القيمة فعلاً: التسوية على سجل Fuel الذي يملكه المحرّك (fuel-devnet) بمقدار 0.038025.\nزمن القرار الكلي: 1154.4 مللي ثانية، المرشحون المبرهن عليهم: 4، المكونات الحية: 6.",
+      "settled_at": 1795359587.9376116,
+      "verified_now": true
+    },
+    {
+      "intent": "اربح 4000 دولار من السيولة بدون مفتاح وبدون راس مال",
+      "intent_id": "bdd993f24c6919ee",
+      "proven": true,
+      "certificate": "SAT[z3+cvc5] N=4096001.00 net=8875.002167 >= 4000.000000; gas_sponsor=native; custody=false; user_key=false; atomic=true; cvc5=sat",
+      "solver": "z3+cvc5",
+      "path_id": "0f748dba24ef9626",
+      "steps": 4,
+      "net_profit_usd": 8875.002167,
+      "primitives": [
+        "aave/aave-v3-core#aave-v3-core",
+        "vibeic/vibe-ic#vibe-ic",
+        "hummingbot/hummingbot#hummingbot",
+        "eth-infinitism/account-abstraction#account-abstraction"
+      ],
+      "status": "executed",
+      "network": "fuel-devnet",
+      "tx_hash": "0x64ea5808d7feb33453dbae9a58bbd8ba74487b8e9dd57599e4f3682881f437cf",
+      "block_number": 7,
+      "gas_paid_by": "genesis-supply",
+      "gas_cost_wei": 0,
+      "delivered": 8875.002167,
+      "value_transferred": true,
+      "explorer_url": "/fuel/tx/0x64ea5808d7feb33453dbae9a58bbd8ba74487b8e9dd57599e4f3682881f437cf",
+      "equations": [
+        "NetProfit = N · Σ(y_i − f_i) − gas ,  gas ≤ احتياطي الغاز الداخلي",
+        "∃ (N, y_i, f_i) ∈ Bands : N·Σ(y_i - f_i) - gas ≥ 4000.000000 ∧ gas_source ∈ {native, deposit, reinvest, flash, token} ∧ ¬Custody ∧ ¬UserKey ∧ Atomic → pays 0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47 in USDC",
+        "y_0 ∈ [0.000781, 0.001172]  −  f_0 ∈ [0.000049, 0.000073]",
+        "y_1 ∈ [0.000781, 0.001172]  −  f_1 ∈ [0.000098, 0.000146]"
+      ],
+      "narrative_ar": "النية: اربح 4000 دولار من السيولة بدون مفتاح وبدون راس مال\nالتحليل الصوري: الهدف=provide_liquidity، الأصل=USDC، الهدف الكمي=4000.0، الحد الأدنى للربح الصافي=4000.0.\nاخترع النظام المسار من المشاريع: aave/aave-v3-core، vibeic/vibe-ic، hummingbot/hummingbot، eth-infinitism/account-abstraction.\nالمسار الذري: 1) flash_mint:aave-v3-core؛ 2) solver:vibe-ic؛ 3) market_making:hummingbot؛ 4) paymaster:account-abstraction.\nوُلّد برهان رياضي جديد في الطلب نفسه: صافي الربح المُثبت = 8875.002167 USDC لصالح العنوان المقفل 0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47. الرقم أعلاه تقدير اقتصادي بالأصل USDC، أما ما وصل فعلاً فهو وحدات على سجل Fuel الذي يشغّله المحرّك. نُفّذ المسار الذري فعلياً على شبكة Fuel (SwayVM) في الكتلة 7: 0x64ea5808d7feb33453dbae9a58bbd8ba74487b8e9dd57599e4f3682881f437cf. الغاز استهلك 0 وحدة دفعها genesis-supply (سلسلة يملكها المحرّك بسعر غاز صفر)، وزاد رصيد المستفيد في سجل العقد بمقدار 8875.002167 وحدة، وهو مطابق للربح الصافي المُثبت.\nمصفوفة المسارات (9 مساراً في 7 عائلة، نُفّذت بالتوازي في 1316 مللي ثانية):\n- التسوية على سجل Fuel الذي يملكه المحرّك [blockchain]: أوصلت 8875.002167\n- سلّم الرعاة على EVM (paymaster/bundler) [blockchain]: ما زال يعمل بعد إرسال الجواب\n- تنفيذ مُبرهن على fork محلي (EVM حقيقي) [blockchain]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- برامج الحوافز: قياس ما هو قابل للمطالبة فعلاً الآن [incentive]: لم تُوصل (incentives_measured;claimable=2;human_gated=8)\n- مسارات مُخترعة في الطلب نفسه من مسح المكونات الحية [invented]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- المسار الحسابي: حلّ سقف السوق المادي بالبرهان [computational]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- توليد الأصول: ما يمكن سكه/رهنه من رصيد مملوك فعلاً [asset]: لم تُوصل (asset_venues_need_capital;funded_networks=0;held=0)\n- واجهات مدفوعة بالنتيجة: قراءة ما دُفع فعلاً [api]: لم تُوصل (paid_endpoint_sales=0;earned=0.000000)\n- خالق المُخرَج: إنتاج المُخرَج المطلوب وقياسه وتوثيقه على السجل [creator]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\nالمسار الذي أوصل القيمة فعلاً: التسوية على سجل Fuel الذي يملكه المحرّك (fuel-devnet) بمقدار 8875.002167.\nزمن القرار الكلي: 1406.5 مللي ثانية، المرشحون المبرهن عليهم: 4، المكونات الحية: 6.",
+      "settled_at": 1795359586.497666,
+      "verified_now": true
+    },
     {
       "intent": "اربح ٧٥٠ دولارًا من فرق السعر بين شبكتين مختلفتين في نفس الثانية، بلا رأس مال وبلا مفتاح، وبلا أن يلمس الغاز جيبي",
       "intent_id": "67b40a1828a5aea3",
@@ -4688,7 +5130,7 @@
       ],
       "narrative_ar": "النية: اربح ٧٥٠ دولارًا من فرق السعر بين شبكتين مختلفتين في نفس الثانية، بلا رأس مال وبلا مفتاح، وبلا أن يلمس الغاز جيبي\nالتحليل الصوري: الهدف=earn، الأصل=USDC، الهدف الكمي=750.0، الحد الأدنى للربح الصافي=750.0.\nاخترع النظام المسار من المشاريع: Uniswap/v3-core، hummingbot/hummingbot، balancer/balancer-v2-monorepo، pimlico-io/erc20-paymaster.\nالمسار الذري: 1) flash_mint:v3-core؛ 2) market_making:hummingbot؛ 3) liquidity:balancer-v2-monorepo؛ 4) paymaster:erc20-paymaster.\nوُلّد برهان رياضي جديد في الطلب نفسه: صافي الربح المُثبت = 3187.502075 USDC لصالح العنوان المقفل 0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47. الرقم أعلاه تقدير اقتصادي بالأصل USDC، أما ما وصل فعلاً فهو وحدات على سجل Fuel الذي يشغّله المحرّك. نُفّذ المسار الذري فعلياً على شبكة Fuel (SwayVM) في الكتلة 136: 0x4d3b691bf735cb2d2dac26a38170b0e80125c526a6c0cca0bbe4f3079e719716. الغاز استهلك 0 وحدة دفعها genesis-supply (سلسلة يملكها المحرّك بسعر غاز صفر)، وزاد رصيد المستفيد في سجل العقد بمقدار 3187.502075 وحدة، وهو مطابق للربح الصافي المُثبت.\nمصفوفة المسارات (9 مساراً في 7 عائلة، نُفّذت بالتوازي في 1383 مللي ثانية):\n- التسوية على سجل Fuel الذي يملكه المحرّك [blockchain]: أوصلت 3187.502075\n- سلّم الرعاة على EVM (paymaster/bundler) [blockchain]: ما زال يعمل بعد إرسال الجواب\n- تنفيذ مُبرهن على fork محلي (EVM حقيقي) [blockchain]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- برامج الحوافز: قياس ما هو قابل للمطالبة فعلاً الآن [incentive]: لم تُوصل (incentives_measured;claimable=2;human_gated=8)\n- مسارات مُخترعة في الطلب نفسه من مسح المكونات الحية [invented]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- المسار الحسابي: حلّ سقف السوق المادي بالبرهان [computational]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- توليد الأصول: ما يمكن سكه/رهنه من رصيد مملوك فعلاً [asset]: لم تُوصل (asset_venues_need_capital;funded_networks=0;held=0)\n- واجهات مدفوعة بالنتيجة: قراءة ما دُفع فعلاً [api]: لم تُوصل (paid_endpoint_sales=0;earned=0.000000)\n- خالق المُخرَج: إنتاج المُخرَج المطلوب وقياسه وتوثيقه على السجل [creator]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\nالمسار الذي أوصل القيمة فعلاً: التسوية على سجل Fuel الذي يملكه المحرّك (fuel-devnet) بمقدار 3187.502075.\nزمن القرار الكلي: 1470.2 مللي ثانية، المرشحون المبرهن عليهم: 4، المكونات الحية: 2 (حدّ GitHub من حصة البحث الآن، فاعتمد المحرك على مجموعته المثبتة دون توقف).",
       "settled_at": 1795357555.0710533,
-      "verified_now": true
+      "verified_now": false
     },
     {
       "intent": "حول 1000 دولار الى ايثيريوم فورا",
@@ -4721,7 +5163,7 @@
       ],
       "narrative_ar": "النية: حول 1000 دولار الى ايثيريوم فورا\nالتحليل الصوري: الهدف=earn، الأصل=ETH، الهدف الكمي=1000.0، الحد الأدنى للربح الصافي=1000.0.\nاخترع النظام المسار من المشاريع: aave/aave-v3-core، flashbots/mev-boost، pimlico-io/erc20-paymaster.\nالمسار الذري: 1) flash_loan:aave-v3-core؛ 2) private_mempool:mev-boost؛ 3) paymaster:erc20-paymaster.\nوُلّد برهان رياضي جديد في الطلب نفسه: صافي الربح المُثبت = 4583.333893 ETH لصالح العنوان المقفل 0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47. الرقم أعلاه تقدير اقتصادي بالأصل ETH، أما ما وصل فعلاً فهو وحدات على سجل Fuel الذي يشغّله المحرّك. نُفّذ المسار الذري فعلياً على شبكة Fuel (SwayVM) في الكتلة 128: 0x78137f03365d056db98358b030ee15e6ee8282d3ea44b8801ea56306c0fc40a3. الغاز استهلك 0 وحدة دفعها genesis-supply (سلسلة يملكها المحرّك بسعر غاز صفر)، وزاد رصيد المستفيد في سجل العقد بمقدار 4583.333893 وحدة، وهو مطابق للربح الصافي المُثبت.\nمصفوفة المسارات (9 مساراً في 7 عائلة، نُفّذت بالتوازي في 13 مللي ثانية):\n- التسوية على سجل Fuel الذي يملكه المحرّك [blockchain]: أوصلت 4583.333893\n- سلّم الرعاة على EVM (paymaster/bundler) [blockchain]: ما زال يعمل بعد إرسال الجواب\n- تنفيذ مُبرهن على fork محلي (EVM حقيقي) [blockchain]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- برامج الحوافز: قياس ما هو قابل للمطالبة فعلاً الآن [incentive]: لم تُوصل (incentives_measured;claimable=2;human_gated=8)\n- مسارات مُخترعة في الطلب نفسه من مسح المكونات الحية [invented]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- المسار الحسابي: حلّ سقف السوق المادي بالبرهان [computational]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- توليد الأصول: ما يمكن سكه/رهنه من رصيد مملوك فعلاً [asset]: ما زال يعمل بعد إرسال الجواب\n- واجهات مدفوعة بالنتيجة: قراءة ما دُفع فعلاً [api]: لم تُوصل (paid_endpoint_sales=0;earned=0.000000)\n- خالق المُخرَج: إنتاج المُخرَج المطلوب وقياسه وتوثيقه على السجل [creator]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\nالمسار الذي أوصل القيمة فعلاً: التسوية على سجل Fuel الذي يملكه المحرّك (fuel-devnet) بمقدار 4583.333893.\nزمن القرار الكلي: 110.4 مللي ثانية، المرشحون المبرهن عليهم: 4، المكونات الحية: 0 (حدّ GitHub من حصة البحث الآن، فاعتمد المحرك على مجموعته المثبتة دون توقف).",
       "settled_at": 1795357477.2097116,
-      "verified_now": true
+      "verified_now": false
     },
     {
       "intent": "اربح 3 دولار من السيولة",
@@ -4755,7 +5197,7 @@
       ],
       "narrative_ar": "النية: اربح 3 دولار من السيولة\nالتحليل الصوري: الهدف=provide_liquidity، الأصل=USDC، الهدف الكمي=3.0، الحد الأدنى للربح الصافي=3.0.\nاخترع النظام المسار من المشاريع: aave/aave-v3-core، hummingbot/hummingbot، elizaOS/eliza، pimlico-io/erc20-paymaster.\nالمسار الذري: 1) flash_mint:aave-v3-core؛ 2) market_making:hummingbot؛ 3) solver:eliza؛ 4) paymaster:erc20-paymaster.\nوُلّد برهان رياضي جديد في الطلب نفسه: صافي الربح المُثبت = 11.002686 USDC لصالح العنوان المقفل 0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47. الرقم أعلاه تقدير اقتصادي بالأصل USDC، أما ما وصل فعلاً فهو وحدات على سجل Fuel الذي يشغّله المحرّك. نُفّذ المسار الذري فعلياً على شبكة Fuel (SwayVM) في الكتلة 34: 0xbc5e5933d73c74de69a6e0b9537da867661282cebaed96c229251512fda1e477. الغاز استهلك 0 وحدة دفعها genesis-supply (سلسلة يملكها المحرّك بسعر غاز صفر)، وزاد رصيد المستفيد في سجل العقد بمقدار 11.002686 وحدة، وهو مطابق للربح الصافي المُثبت.\nمصفوفة المسارات (9 مساراً في 7 عائلة، نُفّذت بالتوازي في 129 مللي ثانية):\n- التسوية على سجل Fuel الذي يملكه المحرّك [blockchain]: أوصلت 11.002686\n- سلّم الرعاة على EVM (paymaster/bundler) [blockchain]: ما زال يعمل بعد إرسال الجواب\n- تنفيذ مُبرهن على fork محلي (EVM حقيقي) [blockchain]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- برامج الحوافز: قياس ما هو قابل للمطالبة فعلاً الآن [incentive]: لم تُوصل (incentives_measured;claimable=2;human_gated=8)\n- مسارات مُخترعة في الطلب نفسه من مسح المكونات الحية [invented]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- المسار الحسابي: حلّ سقف السوق المادي بالبرهان [computational]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- توليد الأصول: ما يمكن سكه/رهنه من رصيد مملوك فعلاً [asset]: ما زال يعمل بعد إرسال الجواب\n- واجهات مدفوعة بالنتيجة: قراءة ما دُفع فعلاً [api]: لم تُوصل (paid_endpoint_sales=0;earned=0.000000)\n- خالق المُخرَج: إنتاج المُخرَج المطلوب وقياسه وتوثيقه على السجل [creator]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\nالمسار الذي أوصل القيمة فعلاً: التسوية على سجل Fuel الذي يملكه المحرّك (fuel-devnet) بمقدار 11.002686.\nزمن القرار الكلي: 612.0 مللي ثانية، المرشحون المبرهن عليهم: 4، المكونات الحية: 3 (حدّ GitHub من حصة البحث الآن، فاعتمد المحرك على مجموعته المثبتة دون توقف).",
       "settled_at": 1795357401.6899796,
-      "verified_now": true
+      "verified_now": false
     },
     {
       "intent": "اربح 4000 دولار من السيولة بدون مفتاح وبدون راس مال",
@@ -4789,7 +5231,7 @@
       ],
       "narrative_ar": "النية: اربح 4000 دولار من السيولة بدون مفتاح وبدون راس مال\nالتحليل الصوري: الهدف=provide_liquidity، الأصل=USDC، الهدف الكمي=4000.0، الحد الأدنى للربح الصافي=4000.0.\nاخترع النظام المسار من المشاريع: aave/aave-v3-core، langchain-ai/langgraph، hummingbot/hummingbot، eth-infinitism/account-abstraction.\nالمسار الذري: 1) flash_loan:aave-v3-core؛ 2) solver:langgraph؛ 3) market_making:hummingbot؛ 4) paymaster:account-abstraction.\nوُلّد برهان رياضي جديد في الطلب نفسه: صافي الربح المُثبت = 10156.252480 USDC لصالح العنوان المقفل 0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47. الرقم أعلاه تقدير اقتصادي بالأصل USDC، أما ما وصل فعلاً فهو وحدات على سجل Fuel الذي يشغّله المحرّك. نُفّذ المسار الذري فعلياً على شبكة Fuel (SwayVM) في الكتلة 103: 0xa0e77d1cb1df735032782edfcd12ba45d94ebfe896dc7dc575f38ec9592e86d1. الغاز استهلك 0 وحدة دفعها genesis-supply (سلسلة يملكها المحرّك بسعر غاز صفر)، وزاد رصيد المستفيد في سجل العقد بمقدار 10156.25248 وحدة، وهو مطابق للربح الصافي المُثبت.\nمصفوفة المسارات (9 مساراً في 7 عائلة، نُفّذت بالتوازي في 47 مللي ثانية):\n- التسوية على سجل Fuel الذي يملكه المحرّك [blockchain]: أوصلت 10156.252480\n- سلّم الرعاة على EVM (paymaster/bundler) [blockchain]: ما زال يعمل بعد إرسال الجواب\n- تنفيذ مُبرهن على fork محلي (EVM حقيقي) [blockchain]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- برامج الحوافز: قياس ما هو قابل للمطالبة فعلاً الآن [incentive]: ما زال يعمل بعد إرسال الجواب\n- مسارات مُخترعة في الطلب نفسه من مسح المكونات الحية [invented]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- المسار الحسابي: حلّ سقف السوق المادي بالبرهان [computational]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- توليد الأصول: ما يمكن سكه/رهنه من رصيد مملوك فعلاً [asset]: ما زال يعمل بعد إرسال الجواب\n- واجهات مدفوعة بالنتيجة: قراءة ما دُفع فعلاً [api]: لم تُوصل (paid_endpoint_sales=0;earned=0.000000)\n- خالق المُخرَج: إنتاج المُخرَج المطلوب وقياسه وتوثيقه على السجل [creator]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\nالمسار الذي أوصل القيمة فعلاً: التسوية على سجل Fuel الذي يملكه المحرّك (fuel-devnet) بمقدار 10156.252480.\nزمن القرار الكلي: 159.2 مللي ثانية، المرشحون المبرهن عليهم: 4، المكونات الحية: 0 (حدّ GitHub من حصة البحث الآن، فاعتمد المحرك على مجموعته المثبتة دون توقف).",
       "settled_at": 1795357396.020825,
-      "verified_now": true
+      "verified_now": false
     },
     {
       "intent": "صمّم شعارًا عربيًا لمقهى مختص",
@@ -4823,7 +5265,7 @@
       ],
       "narrative_ar": "النية: صمّم شعارًا عربيًا لمقهى مختص\nالتحليل الصوري: النية من نوع «design»، فالمخرج المطلوب شيء يُصنع لا مال يتحرك. القيد الملزم: مُخرَج مكتمل، مقيس، وموثَّق ببصمة على السجل. قيود الأمان تبقى كما هي: بلا عهدة، بلا مفتاح مستخدم، بلا غاز على المستخدم.\nاخترع النظام المسار من المشاريع: aave/aave-v3-core، hummingbot/hummingbot، balancer/balancer-v2-monorepo، eth-infinitism/account-abstraction.\nالمسار الذري: 1) flash_mint:aave-v3-core؛ 2) market_making:hummingbot؛ 3) liquidity:balancer-v2-monorepo؛ 4) paymaster:account-abstraction.\nالنية غير مالية (design): أُبقيت المسارات المالية في المصفوفة لأنها تُقاس دائماً، لكن مخرج هذه النية هو المُخرَج المُنتَج والمُوقَّع بالبصمة، لا رقم ربح. (المسار المالي برهن ربحاً قدره 0.053833 USDC، وهو بيان عن السوق لا عن طلبك.) المُخرَج مُوثَّق على سجل Fuel في الكتلة 123: 0xb77346edcfb3b2a279f66b6d9b83f355943727d029fb10ddce554f6561e8c92f.\nمصفوفة المسارات (9 مساراً في 7 عائلة، نُفّذت بالتوازي في 13749 مللي ثانية):\n- التسوية على سجل Fuel الذي يملكه المحرّك [blockchain]: أوصلت 0.053833\n- سلّم الرعاة على EVM (paymaster/bundler) [blockchain]: أوصلت 0.053833\n- تنفيذ مُبرهن على fork محلي (EVM حقيقي) [blockchain]: ما زال يعمل بعد إرسال الجواب\n- برامج الحوافز: قياس ما هو قابل للمطالبة فعلاً الآن [incentive]: لم تُوصل (incentives_measured;claimable=2;human_gated=8)\n- مسارات مُخترعة في الطلب نفسه من مسح المكونات الحية [invented]: ما زال يعمل بعد إرسال الجواب\n- المسار الحسابي: حلّ سقف السوق المادي بالبرهان [computational]: ما زال يعمل بعد إرسال الجواب\n- توليد الأصول: ما يمكن سكه/رهنه من رصيد مملوك فعلاً [asset]: لم تُوصل (asset_venues_need_capital;funded_networks=0;held=0)\n- واجهات مدفوعة بالنتيجة: قراءة ما دُفع فعلاً [api]: لم تُوصل (paid_endpoint_sales=0;earned=0.000000)\n- خالق المُخرَج: إنتاج المُخرَج المطلوب وقياسه وتوثيقه على السجل [creator]: أنتجت المُخرَج: 1219 بايت، 63 سطراً، بصمة a032e7b4632cb77b…\nالمُخرَج المطلوب أُنتج فعلاً: evidence/artifacts/e431b12b2781-صمّم-شعارًا-عربيًا-لمقهى-مختص.md — 1219 بايت، 63 سطراً، كاتبه pollinations:openai. بصمته SHA-256: a032e7b4632cb77ba5eaa518fefbed2261f3adda14be9a484c46b35c4009c23e. سُجّلت البصمة على سجل Fuel في الكتلة 123: 0xb77346edcfb3b2a279f66b6d9b83f355943727d029fb10ddce554f6561e8c92f. أي طرف يستطيع التحقق بإعادة حساب بصمة الملف ومقارنتها بالسجل.\nزمن القرار الكلي: 13853.3 مللي ثانية، المرشحون المبرهن عليهم: 4، المكونات الحية: 6.",
       "settled_at": 1795357277.0675888,
-      "verified_now": true
+      "verified_now": false
     },
     {
       "intent": "صمّم شعاراً عربياً لمقهى رقم 2",
@@ -4857,7 +5299,7 @@
       ],
       "narrative_ar": "النية: صمّم شعاراً عربياً لمقهى رقم 2\nالتحليل الصوري: النية من نوع «design»، فالمخرج المطلوب شيء يُصنع لا مال يتحرك. القيد الملزم: مُخرَج مكتمل، مقيس، وموثَّق ببصمة على السجل. قيود الأمان تبقى كما هي: بلا عهدة، بلا مفتاح مستخدم، بلا غاز على المستخدم.\nاخترع النظام المسار من المشاريع: aave/aave-v3-core، suoha888/Trader-Archives، elizaOS/eliza، eth-infinitism/account-abstraction.\nالمسار الذري: 1) flash_mint:aave-v3-core؛ 2) market_making:Trader-Archives؛ 3) solver:eliza؛ 4) paymaster:account-abstraction.\nالنية غير مالية (design): أُبقيت المسارات المالية في المصفوفة لأنها تُقاس دائماً، لكن مخرج هذه النية هو المُخرَج المُنتَج والمُوقَّع بالبصمة، لا رقم ربح. (المسار المالي برهن ربحاً قدره 5.625687 USDC، وهو بيان عن السوق لا عن طلبك.) المُخرَج مُوثَّق على سجل Fuel في الكتلة 120: 0x815184604a3f2720ea61467fe0e6c60300b9b5af6e9d8e5cad4d17a463ebbd02.\nمصفوفة المسارات (9 مساراً في 7 عائلة، نُفّذت بالتوازي في 2767 مللي ثانية):\n- التسوية على سجل Fuel الذي يملكه المحرّك [blockchain]: أوصلت 5.625687\n- سلّم الرعاة على EVM (paymaster/bundler) [blockchain]: ما زال يعمل بعد إرسال الجواب\n- تنفيذ مُبرهن على fork محلي (EVM حقيقي) [blockchain]: ما زال يعمل بعد إرسال الجواب\n- برامج الحوافز: قياس ما هو قابل للمطالبة فعلاً الآن [incentive]: لم تُوصل (incentives_measured;claimable=2;human_gated=8)\n- مسارات مُخترعة في الطلب نفسه من مسح المكونات الحية [invented]: ما زال يعمل بعد إرسال الجواب\n- المسار الحسابي: حلّ سقف السوق المادي بالبرهان [computational]: ما زال يعمل بعد إرسال الجواب\n- توليد الأصول: ما يمكن سكه/رهنه من رصيد مملوك فعلاً [asset]: لم تُوصل (asset_venues_need_capital;funded_networks=0;held=0)\n- واجهات مدفوعة بالنتيجة: قراءة ما دُفع فعلاً [api]: لم تُوصل (paid_endpoint_sales=0;earned=0.000000)\n- خالق المُخرَج: إنتاج المُخرَج المطلوب وقياسه وتوثيقه على السجل [creator]: أنتجت المُخرَج: 553 بايت، 13 سطراً، بصمة d1fddc93de29ed03…\nالمُخرَج المطلوب أُنتج فعلاً: evidence/artifacts/23b1e189cf02-صمّم-شعاراً-عربياً-لمقهى-رقم-2.md — 553 بايت، 13 سطراً، كاتبه deterministic-offline. بصمته SHA-256: d1fddc93de29ed03822023fdab381bd98e47e40df0d913b65aa195eada466eff. سُجّلت البصمة على سجل Fuel في الكتلة 120: 0x815184604a3f2720ea61467fe0e6c60300b9b5af6e9d8e5cad4d17a463ebbd02. أي طرف يستطيع التحقق بإعادة حساب بصمة الملف ومقارنتها بالسجل.\nزمن القرار الكلي: 3045.5 مللي ثانية، المرشحون المبرهن عليهم: 4، المكونات الحية: 5.",
       "settled_at": 1795357182.2618847,
-      "verified_now": true
+      "verified_now": false
     },
     {
       "intent": "صمّم شعاراً عربياً لمقهى رقم 1",
@@ -4891,7 +5333,7 @@
       ],
       "narrative_ar": "النية: صمّم شعاراً عربياً لمقهى رقم 1\nالتحليل الصوري: النية من نوع «design»، فالمخرج المطلوب شيء يُصنع لا مال يتحرك. القيد الملزم: مُخرَج مكتمل، مقيس، وموثَّق ببصمة على السجل. قيود الأمان تبقى كما هي: بلا عهدة، بلا مفتاح مستخدم، بلا غاز على المستخدم.\nاخترع النظام المسار من المشاريع: Uniswap/v3-core، suoha888/Trader-Archives، elizaOS/eliza، rpc://public.pimlico.io/v2/84532/rpc.\nالمسار الذري: 1) flash_mint:v3-core؛ 2) market_making:Trader-Archives؛ 3) solver:eliza؛ 4) paymaster:base-sepolia:entrypoints.\nالنية غير مالية (design): أُبقيت المسارات المالية في المصفوفة لأنها تُقاس دائماً، لكن مخرج هذه النية هو المُخرَج المُنتَج والمُوقَّع بالبصمة، لا رقم ربح. (المسار المالي برهن ربحاً قدره 4.939911 USDC، وهو بيان عن السوق لا عن طلبك.) المُخرَج مُوثَّق على سجل Fuel في الكتلة 118: 0xadbfe81befffb0991fe01f926f14f20b2dd8176cf62cc0b6566cc791c917637f.\nمصفوفة المسارات (9 مساراً في 7 عائلة، نُفّذت بالتوازي في 2591 مللي ثانية):\n- التسوية على سجل Fuel الذي يملكه المحرّك [blockchain]: أوصلت 4.956757\n- سلّم الرعاة على EVM (paymaster/bundler) [blockchain]: ما زال يعمل بعد إرسال الجواب\n- تنفيذ مُبرهن على fork محلي (EVM حقيقي) [blockchain]: ما زال يعمل بعد إرسال الجواب\n- برامج الحوافز: قياس ما هو قابل للمطالبة فعلاً الآن [incentive]: لم تُوصل (incentives_measured;claimable=2;human_gated=8)\n- مسارات مُخترعة في الطلب نفسه من مسح المكونات الحية [invented]: ما زال يعمل بعد إرسال الجواب\n- المسار الحسابي: حلّ سقف السوق المادي بالبرهان [computational]: ما زال يعمل بعد إرسال الجواب\n- توليد الأصول: ما يمكن سكه/رهنه من رصيد مملوك فعلاً [asset]: لم تُوصل (asset_venues_need_capital;funded_networks=0;held=0)\n- واجهات مدفوعة بالنتيجة: قراءة ما دُفع فعلاً [api]: لم تُوصل (paid_endpoint_sales=0;earned=0.000000)\n- خالق المُخرَج: إنتاج المُخرَج المطلوب وقياسه وتوثيقه على السجل [creator]: أنتجت المُخرَج: 553 بايت، 13 سطراً، بصمة ef830503b9bf1eff…\nالمُخرَج المطلوب أُنتج فعلاً: evidence/artifacts/1130bdec329b-صمّم-شعاراً-عربياً-لمقهى-رقم-1.md — 553 بايت، 13 سطراً، كاتبه deterministic-offline. بصمته SHA-256: ef830503b9bf1efff69568e327d7ad09c0506b6f149096a2be05ab4899fb717a. سُجّلت البصمة على سجل Fuel في الكتلة 118: 0xadbfe81befffb0991fe01f926f14f20b2dd8176cf62cc0b6566cc791c917637f. أي طرف يستطيع التحقق بإعادة حساب بصمة الملف ومقارنتها بالسجل.\nزمن القرار الكلي: 2947.2 مللي ثانية، المرشحون المبرهن عليهم: 4، المكونات الحية: 5.",
       "settled_at": 1795357179.306822,
-      "verified_now": true
+      "verified_now": false
     },
     {
       "intent": "صمّم شعاراً عربياً لمقهى رقم 0",
@@ -4924,7 +5366,7 @@
       ],
       "narrative_ar": "النية: صمّم شعاراً عربياً لمقهى رقم 0\nالتحليل الصوري: النية من نوع «design»، فالمخرج المطلوب شيء يُصنع لا مال يتحرك. القيد الملزم: مُخرَج مكتمل، مقيس، وموثَّق ببصمة على السجل. قيود الأمان تبقى كما هي: بلا عهدة، بلا مفتاح مستخدم، بلا غاز على المستخدم.\nاخترع النظام المسار من المشاريع: aave/aave-v3-core، hummingbot/hummingbot، pimlico-io/erc20-paymaster.\nالمسار الذري: 1) flash_loan:aave-v3-core؛ 2) market_making:hummingbot؛ 3) paymaster:erc20-paymaster.\nالنية غير مالية (design): أُبقيت المسارات المالية في المصفوفة لأنها تُقاس دائماً، لكن مخرج هذه النية هو المُخرَج المُنتَج والمُوقَّع بالبصمة، لا رقم ربح. (المسار المالي برهن ربحاً قدره 0.026917 USDC، وهو بيان عن السوق لا عن طلبك.) المُخرَج مُوثَّق على سجل Fuel في الكتلة 115: 0xb1600bc0edeea424906ae02a8e3b5f8166ea40198408520d29bfad180431c1d8.\nمصفوفة المسارات (9 مساراً في 7 عائلة، نُفّذت بالتوازي في 6429 مللي ثانية):\n- التسوية على سجل Fuel الذي يملكه المحرّك [blockchain]: أوصلت 0.026917\n- سلّم الرعاة على EVM (paymaster/bundler) [blockchain]: أوصلت 0.026917\n- تنفيذ مُبرهن على fork محلي (EVM حقيقي) [blockchain]: ما زال يعمل بعد إرسال الجواب\n- برامج الحوافز: قياس ما هو قابل للمطالبة فعلاً الآن [incentive]: لم تُوصل (incentives_measured;claimable=2;human_gated=8)\n- مسارات مُخترعة في الطلب نفسه من مسح المكونات الحية [invented]: ما زال يعمل بعد إرسال الجواب\n- المسار الحسابي: حلّ سقف السوق المادي بالبرهان [computational]: ما زال يعمل بعد إرسال الجواب\n- توليد الأصول: ما يمكن سكه/رهنه من رصيد مملوك فعلاً [asset]: لم تُوصل (asset_venues_need_capital;funded_networks=0;held=0)\n- واجهات مدفوعة بالنتيجة: قراءة ما دُفع فعلاً [api]: لم تُوصل (paid_endpoint_sales=0;earned=0.000000)\n- خالق المُخرَج: إنتاج المُخرَج المطلوب وقياسه وتوثيقه على السجل [creator]: أنتجت المُخرَج: 886 بايت، 20 سطراً، بصمة 9d5c0d66ba4744ff…\nالمُخرَج المطلوب أُنتج فعلاً: evidence/artifacts/fcad2500db10-صمّم-شعاراً-عربياً-لمقهى-رقم-0.html — 886 بايت، 20 سطراً، كاتبه pollinations:openai. بصمته SHA-256: 9d5c0d66ba4744fff1aa64dcbd3e6be30ae22ff89bfaac483e88e37c93f849a4. سُجّلت البصمة على سجل Fuel في الكتلة 115: 0xb1600bc0edeea424906ae02a8e3b5f8166ea40198408520d29bfad180431c1d8. أي طرف يستطيع التحقق بإعادة حساب بصمة الملف ومقارنتها بالسجل.\nزمن القرار الكلي: 6536.9 مللي ثانية، المرشحون المبرهن عليهم: 4، المكونات الحية: 0.",
       "settled_at": 1795357172.7659614,
-      "verified_now": true
+      "verified_now": false
     },
     {
       "intent": "صمّم شعاراً عربياً لمقهى",
@@ -4957,7 +5399,7 @@
       ],
       "narrative_ar": "النية: صمّم شعاراً عربياً لمقهى\nالتحليل الصوري: النية من نوع «design»، فالمخرج المطلوب شيء يُصنع لا مال يتحرك. القيد الملزم: مُخرَج مكتمل، مقيس، وموثَّق ببصمة على السجل. قيود الأمان تبقى كما هي: بلا عهدة، بلا مفتاح مستخدم، بلا غاز على المستخدم.\nاخترع النظام المسار من المشاريع: aave/aave-v3-core، flashbots/mev-boost، pimlico-io/erc20-paymaster.\nالمسار الذري: 1) flash_loan:aave-v3-core؛ 2) private_mempool:mev-boost؛ 3) paymaster:erc20-paymaster.\nالنية غير مالية (design): أُبقيت المسارات المالية في المصفوفة لأنها تُقاس دائماً، لكن مخرج هذه النية هو المُخرَج المُنتَج والمُوقَّع بالبصمة، لا رقم ربح. (المسار المالي برهن ربحاً قدره 0.038452 USDC، وهو بيان عن السوق لا عن طلبك.) المُخرَج مُوثَّق على سجل Fuel في الكتلة 112: 0xdd0689cab441c534c7670e9af8d222ad158ec69d2357ca1ac5d8cf9e1881cab5.\nمصفوفة المسارات (9 مساراً في 7 عائلة، نُفّذت بالتوازي في 7810 مللي ثانية):\n- التسوية على سجل Fuel الذي يملكه المحرّك [blockchain]: أوصلت 0.038452\n- سلّم الرعاة على EVM (paymaster/bundler) [blockchain]: أوصلت 0.038452\n- تنفيذ مُبرهن على fork محلي (EVM حقيقي) [blockchain]: ما زال يعمل بعد إرسال الجواب\n- برامج الحوافز: قياس ما هو قابل للمطالبة فعلاً الآن [incentive]: لم تُوصل (incentives_measured;claimable=2;human_gated=8)\n- مسارات مُخترعة في الطلب نفسه من مسح المكونات الحية [invented]: ما زال يعمل بعد إرسال الجواب\n- المسار الحسابي: حلّ سقف السوق المادي بالبرهان [computational]: ما زال يعمل بعد إرسال الجواب\n- توليد الأصول: ما يمكن سكه/رهنه من رصيد مملوك فعلاً [asset]: لم تُوصل (asset_venues_need_capital;funded_networks=0;held=0)\n- واجهات مدفوعة بالنتيجة: قراءة ما دُفع فعلاً [api]: لم تُوصل (paid_endpoint_sales=0;earned=0.000000)\n- خالق المُخرَج: إنتاج المُخرَج المطلوب وقياسه وتوثيقه على السجل [creator]: أنتجت المُخرَج: 1721 بايت، 81 سطراً، بصمة 44ae865b2bd8a068…\nالمُخرَج المطلوب أُنتج فعلاً: evidence/artifacts/0a912f7076ca-صمّم-شعاراً-عربياً-لمقهى.md — 1721 بايت، 81 سطراً، كاتبه pollinations:openai. بصمته SHA-256: 44ae865b2bd8a0688ce8febb2ad953843649973c7d9e784537a6ffe0c5f3fe3f. سُجّلت البصمة على سجل Fuel في الكتلة 112: 0xdd0689cab441c534c7670e9af8d222ad158ec69d2357ca1ac5d8cf9e1881cab5. أي طرف يستطيع التحقق بإعادة حساب بصمة الملف ومقارنتها بالسجل.\nزمن القرار الكلي: 7930.4 مللي ثانية، المرشحون المبرهن عليهم: 4، المكونات الحية: 0.",
       "settled_at": 1795357119.1624358,
-      "verified_now": true
+      "verified_now": false
     },
     {
       "intent": "اربح 300 دولار من السيولة بلا راس مال",
@@ -4990,7 +5432,7 @@
       ],
       "narrative_ar": "النية: اربح 300 دولار من السيولة بلا راس مال\nالتحليل الصوري: الهدف=provide_liquidity، الأصل=USDC، الهدف الكمي=300.0، الحد الأدنى للربح الصافي=300.0.\nاخترع النظام المسار من المشاريع: aave/aave-v3-core، hummingbot/hummingbot، eth-infinitism/account-abstraction.\nالمسار الذري: 1) flash_loan:aave-v3-core؛ 2) market_making:hummingbot؛ 3) paymaster:account-abstraction.\nوُلّد برهان رياضي جديد في الطلب نفسه: صافي الربح المُثبت = 825.002014 USDC لصالح العنوان المقفل 0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47. الرقم أعلاه تقدير اقتصادي بالأصل USDC، أما ما وصل فعلاً فهو وحدات على سجل Fuel الذي يشغّله المحرّك. نُفّذ المسار الذري فعلياً على شبكة Fuel (SwayVM) في الكتلة 110: 0x88cc04d9589a7bbb65524e88d34b03598f9e3918d23c923afeb0023cb7175f0b. الغاز استهلك 0 وحدة دفعها genesis-supply (سلسلة يملكها المحرّك بسعر غاز صفر)، وزاد رصيد المستفيد في سجل العقد بمقدار 825.002014 وحدة، وهو مطابق للربح الصافي المُثبت.\nمصفوفة المسارات (9 مساراً في 7 عائلة، نُفّذت بالتوازي في 1313 مللي ثانية):\n- التسوية على سجل Fuel الذي يملكه المحرّك [blockchain]: أوصلت 825.002014\n- سلّم الرعاة على EVM (paymaster/bundler) [blockchain]: ما زال يعمل بعد إرسال الجواب\n- تنفيذ مُبرهن على fork محلي (EVM حقيقي) [blockchain]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- برامج الحوافز: قياس ما هو قابل للمطالبة فعلاً الآن [incentive]: لم تُوصل (incentives_measured;claimable=2;human_gated=8)\n- مسارات مُخترعة في الطلب نفسه من مسح المكونات الحية [invented]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- المسار الحسابي: حلّ سقف السوق المادي بالبرهان [computational]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- توليد الأصول: ما يمكن سكه/رهنه من رصيد مملوك فعلاً [asset]: لم تُوصل (asset_venues_need_capital;funded_networks=0;held=0)\n- واجهات مدفوعة بالنتيجة: قراءة ما دُفع فعلاً [api]: لم تُوصل (paid_endpoint_sales=0;earned=0.000000)\n- خالق المُخرَج: إنتاج المُخرَج المطلوب وقياسه وتوثيقه على السجل [creator]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\nالمسار الذي أوصل القيمة فعلاً: التسوية على سجل Fuel الذي يملكه المحرّك (fuel-devnet) بمقدار 825.002014.\nزمن القرار الكلي: 1409.8 مللي ثانية، المرشحون المبرهن عليهم: 4، المكونات الحية: 0.",
       "settled_at": 1795357110.739648,
-      "verified_now": true
+      "verified_now": false
     },
     {
       "intent": "صمّم لي دليلًا عربيًا من ١٢ صفحة لتعليم الأطفال البرهان الرياضي، مع تمارين وأمثلة محلولة",
@@ -5024,7 +5466,7 @@
       ],
       "narrative_ar": "النية: صمّم لي دليلًا عربيًا من ١٢ صفحة لتعليم الأطفال البرهان الرياضي، مع تمارين وأمثلة محلولة\nالتحليل الصوري: النية من نوع «design»، فالمخرج المطلوب شيء يُصنع لا مال يتحرك. القيد الملزم: مُخرَج مكتمل، مقيس، وموثَّق ببصمة على السجل. قيود الأمان تبقى كما هي: بلا عهدة، بلا مفتاح مستخدم، بلا غاز على المستخدم.\nاخترع النظام المسار من المشاريع: Uniswap/v3-core، hummingbot/hummingbot، langchain-ai/langgraph، pimlico-io/erc20-paymaster.\nالمسار الذري: 1) flash_mint:v3-core؛ 2) market_making:hummingbot؛ 3) solver:langgraph؛ 4) paymaster:erc20-paymaster.\nالنية غير مالية (design): أُبقيت المسارات المالية في المصفوفة لأنها تُقاس دائماً، لكن مخرج هذه النية هو المُخرَج المُنتَج والمُوقَّع بالبصمة، لا رقم ربح. (المسار المالي برهن ربحاً قدره 38.002319 USDC، وهو بيان عن السوق لا عن طلبك.) المُخرَج مُوثَّق على سجل Fuel في الكتلة 108: 0x1f17d9766a3105d0e9969aed7245c7235cd32a7d12b5b888008203250c03fec8.\nمصفوفة المسارات (9 مساراً في 7 عائلة، نُفّذت بالتوازي في 13013 مللي ثانية):\n- التسوية على سجل Fuel الذي يملكه المحرّك [blockchain]: أوصلت 38.002319\n- سلّم الرعاة على EVM (paymaster/bundler) [blockchain]: أوصلت 38.002319\n- تنفيذ مُبرهن على fork محلي (EVM حقيقي) [blockchain]: ما زال يعمل بعد إرسال الجواب\n- برامج الحوافز: قياس ما هو قابل للمطالبة فعلاً الآن [incentive]: لم تُوصل (incentives_measured;claimable=2;human_gated=8)\n- مسارات مُخترعة في الطلب نفسه من مسح المكونات الحية [invented]: ما زال يعمل بعد إرسال الجواب\n- المسار الحسابي: حلّ سقف السوق المادي بالبرهان [computational]: ما زال يعمل بعد إرسال الجواب\n- توليد الأصول: ما يمكن سكه/رهنه من رصيد مملوك فعلاً [asset]: لم تُوصل (asset_venues_need_capital;funded_networks=0;held=0)\n- واجهات مدفوعة بالنتيجة: قراءة ما دُفع فعلاً [api]: لم تُوصل (paid_endpoint_sales=0;earned=0.000000)\n- خالق المُخرَج: إنتاج المُخرَج المطلوب وقياسه وتوثيقه على السجل [creator]: أنتجت المُخرَج: 5484 بايت، 106 سطراً، بصمة c27b3c721593e997…\nالمُخرَج المطلوب أُنتج فعلاً: evidence/artifacts/ea885fa3c2f4-صمّم-لي-دليلًا-عربيًا-من-١٢-صفحة-لتعليم.html — 5484 بايت، 106 سطراً، كاتبه pollinations:openai. بصمته SHA-256: c27b3c721593e9971caf955c01084a25b60f4574a885232684f1648a7b97591d. سُجّلت البصمة على سجل Fuel في الكتلة 108: 0x1f17d9766a3105d0e9969aed7245c7235cd32a7d12b5b888008203250c03fec8. أي طرف يستطيع التحقق بإعادة حساب بصمة الملف ومقارنتها بالسجل.\nزمن القرار الكلي: 13098.0 مللي ثانية، المرشحون المبرهن عليهم: 4، المكونات الحية: 2 (حدّ GitHub من حصة البحث الآن، فاعتمد المحرك على مجموعته المثبتة دون توقف).",
       "settled_at": 1795357050.3768942,
-      "verified_now": true
+      "verified_now": false
     },
     {
       "intent": "اربح 20 دولار من السيولة",
@@ -5057,7 +5499,7 @@
       ],
       "narrative_ar": "النية: اربح 20 دولار من السيولة\nالتحليل الصوري: الهدف=provide_liquidity، الأصل=USDC، الهدف الكمي=20.0، الحد الأدنى للربح الصافي=20.0.\nاخترع النظام المسار من المشاريع: aave/aave-v3-core، hummingbot/hummingbot، eth-infinitism/account-abstraction.\nالمسار الذري: 1) flash_loan:aave-v3-core؛ 2) market_making:hummingbot؛ 3) paymaster:account-abstraction.\nوُلّد برهان رياضي جديد في الطلب نفسه: صافي الربح المُثبت = 72.501770 USDC لصالح العنوان المقفل 0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47. الرقم أعلاه تقدير اقتصادي بالأصل USDC، أما ما وصل فعلاً فهو وحدات على سجل Fuel الذي يشغّله المحرّك. نُفّذ المسار الذري فعلياً على شبكة Fuel (SwayVM) في الكتلة 86: 0x0dc2823326c754db741f756fd0cbb341eb8cb6f76e2a18476e489c7afd5795da. الغاز استهلك 0 وحدة دفعها genesis-supply (سلسلة يملكها المحرّك بسعر غاز صفر)، وزاد رصيد المستفيد في سجل العقد بمقدار 72.50177 وحدة، وهو مطابق للربح الصافي المُثبت.\nمصفوفة المسارات (9 مساراً في 7 عائلة، نُفّذت بالتوازي في 29 مللي ثانية):\n- التسوية على سجل Fuel الذي يملكه المحرّك [blockchain]: أوصلت 72.501770\n- سلّم الرعاة على EVM (paymaster/bundler) [blockchain]: ما زال يعمل بعد إرسال الجواب\n- تنفيذ مُبرهن على fork محلي (EVM حقيقي) [blockchain]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- برامج الحوافز: قياس ما هو قابل للمطالبة فعلاً الآن [incentive]: ما زال يعمل بعد إرسال الجواب\n- مسارات مُخترعة في الطلب نفسه من مسح المكونات الحية [invented]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- المسار الحسابي: حلّ سقف السوق المادي بالبرهان [computational]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- توليد الأصول: ما يمكن سكه/رهنه من رصيد مملوك فعلاً [asset]: ما زال يعمل بعد إرسال الجواب\n- واجهات مدفوعة بالنتيجة: قراءة ما دُفع فعلاً [api]: لم تُوصل (paid_endpoint_sales=0;earned=0.000000)\n- خالق المُخرَج: إنتاج المُخرَج المطلوب وقياسه وتوثيقه على السجل [creator]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\nالمسار الذي أوصل القيمة فعلاً: التسوية على سجل Fuel الذي يملكه المحرّك (fuel-devnet) بمقدار 72.501770.\nزمن القرار الكلي: 1170.7 مللي ثانية، المرشحون المبرهن عليهم: 4، المكونات الحية: 0 (حدّ GitHub من حصة البحث الآن، فاعتمد المحرك على مجموعته المثبتة دون توقف).",
       "settled_at": 1795356992.1403918,
-      "verified_now": true
+      "verified_now": false
     },
     {
       "intent": "اربح 5000 دولار من السيولة",
@@ -5091,7 +5533,7 @@
       ],
       "narrative_ar": "النية: اربح 5000 دولار من السيولة\nالتحليل الصوري: الهدف=provide_liquidity، الأصل=USDC، الهدف الكمي=5000.0، الحد الأدنى للربح الصافي=5000.0.\nاخترع النظام المسار من المشاريع: Uniswap/v3-core، hummingbot/hummingbot، aave/aave-v3-core، pimlico-io/erc20-paymaster.\nالمسار الذري: 1) flash_loan:v3-core؛ 2) market_making:hummingbot؛ 3) liquidity:aave-v3-core؛ 4) paymaster:erc20-paymaster.\nوُلّد برهان رياضي جديد في الطلب نفسه: صافي الربح المُثبت = 20416.667664 USDC لصالح العنوان المقفل 0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47. الرقم أعلاه تقدير اقتصادي بالأصل USDC، أما ما وصل فعلاً فهو وحدات على سجل Fuel الذي يشغّله المحرّك. نُفّذ المسار الذري فعلياً على شبكة Fuel (SwayVM) في الكتلة 83: 0x21575b539e7b78f1ef03f7806a8fc6dd3918b87aa0c99ecad5c35375776e8a78. الغاز استهلك 0 وحدة دفعها genesis-supply (سلسلة يملكها المحرّك بسعر غاز صفر)، وزاد رصيد المستفيد في سجل العقد بمقدار 20416.667664 وحدة، وهو مطابق للربح الصافي المُثبت.\nمصفوفة المسارات (9 مساراً في 7 عائلة، نُفّذت بالتوازي في 116 مللي ثانية):\n- التسوية على سجل Fuel الذي يملكه المحرّك [blockchain]: أوصلت 20416.667664\n- سلّم الرعاة على EVM (paymaster/bundler) [blockchain]: ما زال يعمل بعد إرسال الجواب\n- تنفيذ مُبرهن على fork محلي (EVM حقيقي) [blockchain]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- برامج الحوافز: قياس ما هو قابل للمطالبة فعلاً الآن [incentive]: ما زال يعمل بعد إرسال الجواب\n- مسارات مُخترعة في الطلب نفسه من مسح المكونات الحية [invented]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- المسار الحسابي: حلّ سقف السوق المادي بالبرهان [computational]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- توليد الأصول: ما يمكن سكه/رهنه من رصيد مملوك فعلاً [asset]: ما زال يعمل بعد إرسال الجواب\n- واجهات مدفوعة بالنتيجة: قراءة ما دُفع فعلاً [api]: لم تُوصل (paid_endpoint_sales=0;earned=0.000000)\n- خالق المُخرَج: إنتاج المُخرَج المطلوب وقياسه وتوثيقه على السجل [creator]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\nالمسار الذي أوصل القيمة فعلاً: التسوية على سجل Fuel الذي يملكه المحرّك (fuel-devnet) بمقدار 20416.667664.\nزمن القرار الكلي: 646.1 مللي ثانية، المرشحون المبرهن عليهم: 4، المكونات الحية: 0 (حدّ GitHub من حصة البحث الآن، فاعتمد المحرك على مجموعته المثبتة دون توقف).",
       "settled_at": 1795356990.4823391,
-      "verified_now": true
+      "verified_now": false
     },
     {
       "intent": "اربح 3 دولار من السيولة",
@@ -5125,7 +5567,7 @@
       ],
       "narrative_ar": "النية: اربح 3 دولار من السيولة\nالتحليل الصوري: الهدف=provide_liquidity، الأصل=USDC، الهدف الكمي=3.0، الحد الأدنى للربح الصافي=3.0.\nاخترع النظام المسار من المشاريع: aave/aave-v3-core، suoha888/Trader-Archives، elizaOS/eliza، pimlico-io/erc20-paymaster.\nالمسار الذري: 1) flash_mint:aave-v3-core؛ 2) market_making:Trader-Archives؛ 3) solver:eliza؛ 4) paymaster:erc20-paymaster.\nوُلّد برهان رياضي جديد في الطلب نفسه: صافي الربح المُثبت = 11.002686 USDC لصالح العنوان المقفل 0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47. الرقم أعلاه تقدير اقتصادي بالأصل USDC، أما ما وصل فعلاً فهو وحدات على سجل Fuel الذي يشغّله المحرّك. نُفّذ المسار الذري فعلياً على شبكة Fuel (SwayVM) في الكتلة 80: 0xa0c23ac31e1505e95f13fefc84c6344ab963ac599c9e0623374ebdbcfd3caaff. الغاز استهلك 0 وحدة دفعها genesis-supply (سلسلة يملكها المحرّك بسعر غاز صفر)، وزاد رصيد المستفيد في سجل العقد بمقدار 11.002686 وحدة، وهو مطابق للربح الصافي المُثبت.\nمصفوفة المسارات (9 مساراً في 7 عائلة، نُفّذت بالتوازي في 120 مللي ثانية):\n- التسوية على سجل Fuel الذي يملكه المحرّك [blockchain]: أوصلت 11.002686\n- سلّم الرعاة على EVM (paymaster/bundler) [blockchain]: ما زال يعمل بعد إرسال الجواب\n- تنفيذ مُبرهن على fork محلي (EVM حقيقي) [blockchain]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- برامج الحوافز: قياس ما هو قابل للمطالبة فعلاً الآن [incentive]: لم تُوصل (incentives_measured;claimable=2;human_gated=8)\n- مسارات مُخترعة في الطلب نفسه من مسح المكونات الحية [invented]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- المسار الحسابي: حلّ سقف السوق المادي بالبرهان [computational]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- توليد الأصول: ما يمكن سكه/رهنه من رصيد مملوك فعلاً [asset]: ما زال يعمل بعد إرسال الجواب\n- واجهات مدفوعة بالنتيجة: قراءة ما دُفع فعلاً [api]: لم تُوصل (paid_endpoint_sales=0;earned=0.000000)\n- خالق المُخرَج: إنتاج المُخرَج المطلوب وقياسه وتوثيقه على السجل [creator]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\nالمسار الذي أوصل القيمة فعلاً: التسوية على سجل Fuel الذي يملكه المحرّك (fuel-devnet) بمقدار 11.002686.\nزمن القرار الكلي: 422.4 مللي ثانية، المرشحون المبرهن عليهم: 4، المكونات الحية: 4.",
       "settled_at": 1795356986.794294,
-      "verified_now": true
+      "verified_now": false
     },
     {
       "intent": "اربح 250 دولار من السيولة",
@@ -5158,7 +5600,7 @@
       ],
       "narrative_ar": "النية: اربح 250 دولار من السيولة\nالتحليل الصوري: الهدف=provide_liquidity، الأصل=USDC، الهدف الكمي=250.0، الحد الأدنى للربح الصافي=250.0.\nاخترع النظام المسار من المشاريع: Uniswap/v3-core، hummingbot/hummingbot، pimlico-io/erc20-paymaster.\nالمسار الذري: 1) flash_mint:v3-core؛ 2) market_making:hummingbot؛ 3) paymaster:erc20-paymaster.\nوُلّد برهان رياضي جديد في الطلب نفسه: صافي الربح المُثبت = 640.626251 USDC لصالح العنوان المقفل 0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47. الرقم أعلاه تقدير اقتصادي بالأصل USDC، أما ما وصل فعلاً فهو وحدات على سجل Fuel الذي يشغّله المحرّك. نُفّذ المسار الذري فعلياً على شبكة Fuel (SwayVM) في الكتلة 76: 0x793d07f08e489a2d261a37cbf03389f3994c7db3bf5a465ec24a1249a6058ee9. الغاز استهلك 0 وحدة دفعها genesis-supply (سلسلة يملكها المحرّك بسعر غاز صفر)، وزاد رصيد المستفيد في سجل العقد بمقدار 640.626251 وحدة، وهو مطابق للربح الصافي المُثبت.\nمصفوفة المسارات (9 مساراً في 7 عائلة، نُفّذت بالتوازي في 93 مللي ثانية):\n- التسوية على سجل Fuel الذي يملكه المحرّك [blockchain]: أوصلت 640.626251\n- سلّم الرعاة على EVM (paymaster/bundler) [blockchain]: ما زال يعمل بعد إرسال الجواب\n- تنفيذ مُبرهن على fork محلي (EVM حقيقي) [blockchain]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- برامج الحوافز: قياس ما هو قابل للمطالبة فعلاً الآن [incentive]: ما زال يعمل بعد إرسال الجواب\n- مسارات مُخترعة في الطلب نفسه من مسح المكونات الحية [invented]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- المسار الحسابي: حلّ سقف السوق المادي بالبرهان [computational]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- توليد الأصول: ما يمكن سكه/رهنه من رصيد مملوك فعلاً [asset]: ما زال يعمل بعد إرسال الجواب\n- واجهات مدفوعة بالنتيجة: قراءة ما دُفع فعلاً [api]: لم تُوصل (paid_endpoint_sales=0;earned=0.000000)\n- خالق المُخرَج: إنتاج المُخرَج المطلوب وقياسه وتوثيقه على السجل [creator]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\nالمسار الذي أوصل القيمة فعلاً: التسوية على سجل Fuel الذي يملكه المحرّك (fuel-devnet) بمقدار 640.626251.\nزمن القرار الكلي: 413.8 مللي ثانية، المرشحون المبرهن عليهم: 4، المكونات الحية: 0.",
       "settled_at": 1795356984.6834009,
-      "verified_now": true
+      "verified_now": false
     },
     {
       "intent": "اربح 9 دولار من السيولة",
@@ -5192,7 +5634,7 @@
       ],
       "narrative_ar": "النية: اربح 9 دولار من السيولة\nالتحليل الصوري: الهدف=provide_liquidity، الأصل=USDC، الهدف الكمي=9.0، الحد الأدنى للربح الصافي=9.0.\nاخترع النظام المسار من المشاريع: aave/aave-v3-core، hummingbot/hummingbot، elizaOS/eliza، pimlico-io/erc20-paymaster.\nالمسار الذري: 1) flash_mint:aave-v3-core؛ 2) market_making:hummingbot؛ 3) solver:eliza؛ 4) paymaster:erc20-paymaster.\nوُلّد برهان رياضي جديد في الطلب نفسه: صافي الربح المُثبت = 33.189301 USDC لصالح العنوان المقفل 0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47. الرقم أعلاه تقدير اقتصادي بالأصل USDC، أما ما وصل فعلاً فهو وحدات على سجل Fuel الذي يشغّله المحرّك. نُفّذ المسار الذري فعلياً على شبكة Fuel (SwayVM) في الكتلة 72: 0x1c2d74302450b7d1a15e39014a41f0936489b4994b6ef4b0c75fb56a44363127. الغاز استهلك 0 وحدة دفعها genesis-supply (سلسلة يملكها المحرّك بسعر غاز صفر)، وزاد رصيد المستفيد في سجل العقد بمقدار 33.189301 وحدة، وهو مطابق للربح الصافي المُثبت.\nمصفوفة المسارات (9 مساراً في 7 عائلة، نُفّذت بالتوازي في 54 مللي ثانية):\n- التسوية على سجل Fuel الذي يملكه المحرّك [blockchain]: أوصلت 33.189301\n- سلّم الرعاة على EVM (paymaster/bundler) [blockchain]: ما زال يعمل بعد إرسال الجواب\n- تنفيذ مُبرهن على fork محلي (EVM حقيقي) [blockchain]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- برامج الحوافز: قياس ما هو قابل للمطالبة فعلاً الآن [incentive]: ما زال يعمل بعد إرسال الجواب\n- مسارات مُخترعة في الطلب نفسه من مسح المكونات الحية [invented]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- المسار الحسابي: حلّ سقف السوق المادي بالبرهان [computational]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- توليد الأصول: ما يمكن سكه/رهنه من رصيد مملوك فعلاً [asset]: ما زال يعمل بعد إرسال الجواب\n- واجهات مدفوعة بالنتيجة: قراءة ما دُفع فعلاً [api]: ما زال يعمل بعد إرسال الجواب\n- خالق المُخرَج: إنتاج المُخرَج المطلوب وقياسه وتوثيقه على السجل [creator]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\nالمسار الذي أوصل القيمة فعلاً: التسوية على سجل Fuel الذي يملكه المحرّك (fuel-devnet) بمقدار 33.189301.\nزمن القرار الكلي: 413.2 مللي ثانية، المرشحون المبرهن عليهم: 4، المكونات الحية: 0 (حدّ GitHub من حصة البحث الآن، فاعتمد المحرك على مجموعته المثبتة دون توقف).",
       "settled_at": 1795356983.4265811,
-      "verified_now": true
+      "verified_now": false
     },
     {
       "intent": "اربح 2 دولار من السيولة",
@@ -5226,7 +5668,7 @@
       ],
       "narrative_ar": "النية: اربح 2 دولار من السيولة\nالتحليل الصوري: الهدف=provide_liquidity، الأصل=USDC، الهدف الكمي=2.0، الحد الأدنى للربح الصافي=2.0.\nاخترع النظام المسار من المشاريع: aave/aave-v3-core، hummingbot/hummingbot، balancer/balancer-v2-monorepo، eth-infinitism/account-abstraction.\nالمسار الذري: 1) flash_mint:aave-v3-core؛ 2) market_making:hummingbot؛ 3) liquidity:balancer-v2-monorepo؛ 4) paymaster:account-abstraction.\nوُلّد برهان رياضي جديد في الطلب نفسه: صافي الربح المُثبت = 10.565079 USDC لصالح العنوان المقفل 0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47. الرقم أعلاه تقدير اقتصادي بالأصل USDC، أما ما وصل فعلاً فهو وحدات على سجل Fuel الذي يشغّله المحرّك. نُفّذ المسار الذري فعلياً على شبكة Fuel (SwayVM) في الكتلة 59: 0x4b103169e64915c777bd875d8995c3a85614627cda4554a19c1b0da51323388f. الغاز استهلك 0 وحدة دفعها genesis-supply (سلسلة يملكها المحرّك بسعر غاز صفر)، وزاد رصيد المستفيد في سجل العقد بمقدار 10.565079 وحدة، وهو مطابق للربح الصافي المُثبت.\nمصفوفة المسارات (9 مساراً في 7 عائلة، نُفّذت بالتوازي في 35 مللي ثانية):\n- التسوية على سجل Fuel الذي يملكه المحرّك [blockchain]: أوصلت 10.565079\n- سلّم الرعاة على EVM (paymaster/bundler) [blockchain]: ما زال يعمل بعد إرسال الجواب\n- تنفيذ مُبرهن على fork محلي (EVM حقيقي) [blockchain]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- برامج الحوافز: قياس ما هو قابل للمطالبة فعلاً الآن [incentive]: ما زال يعمل بعد إرسال الجواب\n- مسارات مُخترعة في الطلب نفسه من مسح المكونات الحية [invented]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- المسار الحسابي: حلّ سقف السوق المادي بالبرهان [computational]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- توليد الأصول: ما يمكن سكه/رهنه من رصيد مملوك فعلاً [asset]: ما زال يعمل بعد إرسال الجواب\n- واجهات مدفوعة بالنتيجة: قراءة ما دُفع فعلاً [api]: لم تُوصل (paid_endpoint_sales=0;earned=0.000000)\n- خالق المُخرَج: إنتاج المُخرَج المطلوب وقياسه وتوثيقه على السجل [creator]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\nالمسار الذي أوصل القيمة فعلاً: التسوية على سجل Fuel الذي يملكه المحرّك (fuel-devnet) بمقدار 10.565079.\nزمن القرار الكلي: 135.5 مللي ثانية، المرشحون المبرهن عليهم: 4، المكونات الحية: 0.",
       "settled_at": 1795356980.455277,
-      "verified_now": true
+      "verified_now": false
     },
     {
       "intent": "اربح 1000 دولار من السيولة بدون راس مال ومفتاح",
@@ -5260,7 +5702,7 @@
       ],
       "narrative_ar": "النية: اربح 1000 دولار من السيولة بدون راس مال ومفتاح\nالتحليل الصوري: الهدف=provide_liquidity، الأصل=USDC، الهدف الكمي=1000.0، الحد الأدنى للربح الصافي=1000.0.\nاخترع النظام المسار من المشاريع: aave/aave-v3-core، hummingbot/hummingbot، langchain-ai/langgraph، pimlico-io/erc20-paymaster.\nالمسار الذري: 1) flash_loan:aave-v3-core؛ 2) market_making:hummingbot؛ 3) solver:langgraph؛ 4) paymaster:erc20-paymaster.\nوُلّد برهان رياضي جديد في الطلب نفسه: صافي الربح المُثبت = 3875.001892 USDC لصالح العنوان المقفل 0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47. الرقم أعلاه تقدير اقتصادي بالأصل USDC، أما ما وصل فعلاً فهو وحدات على سجل Fuel الذي يشغّله المحرّك. نُفّذ المسار الذري فعلياً على شبكة Fuel (SwayVM) في الكتلة 98: 0x72b957e9ad969f8be6e13b5d8c20824a7c0e9e029a3763ac8fd446c060ec27b1. الغاز استهلك 0 وحدة دفعها genesis-supply (سلسلة يملكها المحرّك بسعر غاز صفر)، وزاد رصيد المستفيد في سجل العقد بمقدار 3875.001892 وحدة، وهو مطابق للربح الصافي المُثبت.\nمصفوفة المسارات (9 مساراً في 7 عائلة، نُفّذت بالتوازي في 1300 مللي ثانية):\n- التسوية على سجل Fuel الذي يملكه المحرّك [blockchain]: أوصلت 3875.001892\n- سلّم الرعاة على EVM (paymaster/bundler) [blockchain]: ما زال يعمل بعد إرسال الجواب\n- تنفيذ مُبرهن على fork محلي (EVM حقيقي) [blockchain]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- برامج الحوافز: قياس ما هو قابل للمطالبة فعلاً الآن [incentive]: لم تُوصل (incentives_measured;claimable=2;human_gated=8)\n- مسارات مُخترعة في الطلب نفسه من مسح المكونات الحية [invented]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- المسار الحسابي: حلّ سقف السوق المادي بالبرهان [computational]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- توليد الأصول: ما يمكن سكه/رهنه من رصيد مملوك فعلاً [asset]: لم تُوصل (asset_venues_need_capital;funded_networks=0;held=0)\n- واجهات مدفوعة بالنتيجة: قراءة ما دُفع فعلاً [api]: لم تُوصل (paid_endpoint_sales=0;earned=0.000000)\n- خالق المُخرَج: إنتاج المُخرَج المطلوب وقياسه وتوثيقه على السجل [creator]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\nالمسار الذي أوصل القيمة فعلاً: التسوية على سجل Fuel الذي يملكه المحرّك (fuel-devnet) بمقدار 3875.001892.\nزمن القرار الكلي: 1401.9 مللي ثانية، المرشحون المبرهن عليهم: 4، المكونات الحية: 0.",
       "settled_at": 1795356935.3872175,
-      "verified_now": true
+      "verified_now": false
     },
     {
       "intent": "اعمل ماركت ميكينج بلا راس مال",
@@ -5294,7 +5736,7 @@
       ],
       "narrative_ar": "النية: اعمل ماركت ميكينج بلا راس مال\nالتحليل الصوري: الهدف=provide_liquidity، الأصل=USDC، الهدف الكمي=0.0، الحد الأدنى للربح الصافي=0.01.\nاخترع النظام المسار من المشاريع: aave/aave-v3-core، hummingbot/hummingbot، langchain-ai/langgraph، eth-infinitism/account-abstraction.\nالمسار الذري: 1) flash_mint:aave-v3-core؛ 2) market_making:hummingbot؛ 3) solver:langgraph؛ 4) paymaster:account-abstraction.\nوُلّد برهان رياضي جديد في الطلب نفسه: صافي الربح المُثبت = 0.032471 USDC لصالح العنوان المقفل 0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47. الرقم أعلاه تقدير اقتصادي بالأصل USDC، أما ما وصل فعلاً فهو وحدات على سجل Fuel الذي يشغّله المحرّك. نُفّذ المسار الذري فعلياً على شبكة Fuel (SwayVM) في الكتلة 97: 0x9ed0d03d1c128a199b341eee48c2871fc4ad673255716e3fcc8e18071ecf37c0. الغاز استهلك 0 وحدة دفعها genesis-supply (سلسلة يملكها المحرّك بسعر غاز صفر)، وزاد رصيد المستفيد في سجل العقد بمقدار 0.032471 وحدة، وهو مطابق للربح الصافي المُثبت.\nمصفوفة المسارات (9 مساراً في 7 عائلة، نُفّذت بالتوازي في 1294 مللي ثانية):\n- التسوية على سجل Fuel الذي يملكه المحرّك [blockchain]: أوصلت 0.032471\n- سلّم الرعاة على EVM (paymaster/bundler) [blockchain]: ما زال يعمل بعد إرسال الجواب\n- تنفيذ مُبرهن على fork محلي (EVM حقيقي) [blockchain]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- برامج الحوافز: قياس ما هو قابل للمطالبة فعلاً الآن [incentive]: لم تُوصل (incentives_measured;claimable=2;human_gated=8)\n- مسارات مُخترعة في الطلب نفسه من مسح المكونات الحية [invented]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- المسار الحسابي: حلّ سقف السوق المادي بالبرهان [computational]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- توليد الأصول: ما يمكن سكه/رهنه من رصيد مملوك فعلاً [asset]: لم تُوصل (asset_venues_need_capital;funded_networks=0;held=0)\n- واجهات مدفوعة بالنتيجة: قراءة ما دُفع فعلاً [api]: لم تُوصل (paid_endpoint_sales=0;earned=0.000000)\n- خالق المُخرَج: إنتاج المُخرَج المطلوب وقياسه وتوثيقه على السجل [creator]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\nالمسار الذي أوصل القيمة فعلاً: التسوية على سجل Fuel الذي يملكه المحرّك (fuel-devnet) بمقدار 0.032471.\nزمن القرار الكلي: 1425.1 مللي ثانية، المرشحون المبرهن عليهم: 4، المكونات الحية: 0.",
       "settled_at": 1795356820.0763264,
-      "verified_now": true
+      "verified_now": false
     },
     {
       "intent": "حول 1000 دولار الى ايثيريوم فورا",
@@ -5328,7 +5770,7 @@
       ],
       "narrative_ar": "النية: حول 1000 دولار الى ايثيريوم فورا\nالتحليل الصوري: الهدف=earn، الأصل=ETH، الهدف الكمي=1000.0، الحد الأدنى للربح الصافي=1000.0.\nاخترع النظام المسار من المشاريع: aave/aave-v3-core، hummingbot/hummingbot، balancer/balancer-v2-monorepo، eth-infinitism/account-abstraction.\nالمسار الذري: 1) flash_mint:aave-v3-core؛ 2) market_making:hummingbot؛ 3) liquidity:balancer-v2-monorepo؛ 4) paymaster:account-abstraction.\nوُلّد برهان رياضي جديد في الطلب نفسه: صافي الربح المُثبت = 4333.335449 ETH لصالح العنوان المقفل 0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47. الرقم أعلاه تقدير اقتصادي بالأصل ETH، أما ما وصل فعلاً فهو وحدات على سجل Fuel الذي يشغّله المحرّك. نُفّذ المسار الذري فعلياً على شبكة Fuel (SwayVM) في الكتلة 66: 0x5deece25dc0c71b0d0f414a65c727cd65e2806f359a9d21d117ca432da2519a0. الغاز استهلك 0 وحدة دفعها genesis-supply (سلسلة يملكها المحرّك بسعر غاز صفر)، وزاد رصيد المستفيد في سجل العقد بمقدار 4333.335449 وحدة، وهو مطابق للربح الصافي المُثبت.\nمصفوفة المسارات (9 مساراً في 7 عائلة، نُفّذت بالتوازي في 1103 مللي ثانية):\n- التسوية على سجل Fuel الذي يملكه المحرّك [blockchain]: أوصلت 4333.335449\n- سلّم الرعاة على EVM (paymaster/bundler) [blockchain]: ما زال يعمل بعد إرسال الجواب\n- تنفيذ مُبرهن على fork محلي (EVM حقيقي) [blockchain]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- برامج الحوافز: قياس ما هو قابل للمطالبة فعلاً الآن [incentive]: لم تُوصل (incentives_measured;claimable=2;human_gated=8)\n- مسارات مُخترعة في الطلب نفسه من مسح المكونات الحية [invented]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- المسار الحسابي: حلّ سقف السوق المادي بالبرهان [computational]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- توليد الأصول: ما يمكن سكه/رهنه من رصيد مملوك فعلاً [asset]: لم تُوصل (asset_venues_need_capital;funded_networks=0;held=0)\n- واجهات مدفوعة بالنتيجة: قراءة ما دُفع فعلاً [api]: لم تُوصل (paid_endpoint_sales=0;earned=0.000000)\n- خالق المُخرَج: إنتاج المُخرَج المطلوب وقياسه وتوثيقه على السجل [creator]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\nالمسار الذي أوصل القيمة فعلاً: التسوية على سجل Fuel الذي يملكه المحرّك (fuel-devnet) بمقدار 4333.335449.\nزمن القرار الكلي: 1184.6 مللي ثانية، المرشحون المبرهن عليهم: 4، المكونات الحية: 4.",
       "settled_at": 1795356795.4989405,
-      "verified_now": true
+      "verified_now": false
     },
     {
       "intent": "اربح 4000 دولار من السيولة بدون مفتاح وبدون راس مال",
@@ -5362,143 +5804,7 @@
       ],
       "narrative_ar": "النية: اربح 4000 دولار من السيولة بدون مفتاح وبدون راس مال\nالتحليل الصوري: الهدف=provide_liquidity، الأصل=USDC، الهدف الكمي=4000.0، الحد الأدنى للربح الصافي=4000.0.\nاخترع النظام المسار من المشاريع: aave/aave-v3-core، langchain-ai/langgraph، suoha888/Trader-Archives، eth-infinitism/account-abstraction.\nالمسار الذري: 1) flash_mint:aave-v3-core؛ 2) solver:langgraph؛ 3) market_making:Trader-Archives؛ 4) paymaster:account-abstraction.\nوُلّد برهان رياضي جديد في الطلب نفسه: صافي الربح المُثبت = 9281.252266 USDC لصالح العنوان المقفل 0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47. الرقم أعلاه تقدير اقتصادي بالأصل USDC، أما ما وصل فعلاً فهو وحدات على سجل Fuel الذي يشغّله المحرّك. نُفّذ المسار الذري فعلياً على شبكة Fuel (SwayVM) في الكتلة 96: 0x0637619555a3e39ae8538531e5a8f4cfcba8bd5720cea992698b4490df8ba551. الغاز استهلك 0 وحدة دفعها genesis-supply (سلسلة يملكها المحرّك بسعر غاز صفر)، وزاد رصيد المستفيد في سجل العقد بمقدار 9281.252266 وحدة، وهو مطابق للربح الصافي المُثبت.\nمصفوفة المسارات (9 مساراً في 7 عائلة، نُفّذت بالتوازي في 941 مللي ثانية):\n- التسوية على سجل Fuel الذي يملكه المحرّك [blockchain]: أوصلت 9281.252266\n- سلّم الرعاة على EVM (paymaster/bundler) [blockchain]: ما زال يعمل بعد إرسال الجواب\n- تنفيذ مُبرهن على fork محلي (EVM حقيقي) [blockchain]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- برامج الحوافز: قياس ما هو قابل للمطالبة فعلاً الآن [incentive]: لم تُوصل (incentives_measured;claimable=2;human_gated=8)\n- مسارات مُخترعة في الطلب نفسه من مسح المكونات الحية [invented]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- المسار الحسابي: حلّ سقف السوق المادي بالبرهان [computational]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- توليد الأصول: ما يمكن سكه/رهنه من رصيد مملوك فعلاً [asset]: لم تُوصل (asset_venues_need_capital;funded_networks=0;held=0)\n- واجهات مدفوعة بالنتيجة: قراءة ما دُفع فعلاً [api]: لم تُوصل (paid_endpoint_sales=0;earned=0.000000)\n- خالق المُخرَج: إنتاج المُخرَج المطلوب وقياسه وتوثيقه على السجل [creator]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\nالمسار الذي أوصل القيمة فعلاً: التسوية على سجل Fuel الذي يملكه المحرّك (fuel-devnet) بمقدار 9281.252266.\nزمن القرار الكلي: 1102.2 مللي ثانية، المرشحون المبرهن عليهم: 4، المكونات الحية: 4.",
       "settled_at": 1795356794.3960643,
-      "verified_now": true
-    },
-    {
-      "intent": "اعمل ماركت ميكينج بلا راس مال",
-      "intent_id": "22073fa9a7dbe919",
-      "proven": true,
-      "certificate": "SAT[z3+cvc5] N=11.00 net=0.031219 >= 0.010000; gas_sponsor=native; custody=false; user_key=false; atomic=true; cvc5=sat",
-      "solver": "z3+cvc5",
-      "path_id": "e7dfffe41cf6dd07",
-      "steps": 4,
-      "net_profit_usd": 0.031219,
-      "primitives": [
-        "omollohzack/arbitrum-flashloan-research#arbitrum-flashloan-research",
-        "tasawwad22-commits/Implicit-Intents#Implicit-Intents",
-        "balancer/balancer-v2-monorepo#balancer-v2-monorepo",
-        "completepan/kite-x402-gasless-sponsor#kite-x402-gasless-sponsor"
-      ],
-      "status": "executed",
-      "network": "fuel-devnet",
-      "tx_hash": "0x3c6ce611f7fdb9639fc83dd654f582e34ecb19bd17c549b394d7a8886fe4a1b6",
-      "block_number": 94,
-      "gas_paid_by": "genesis-supply",
-      "gas_cost_wei": 0,
-      "delivered": 0.031219,
-      "value_transferred": true,
-      "explorer_url": "/fuel/tx/0x3c6ce611f7fdb9639fc83dd654f582e34ecb19bd17c549b394d7a8886fe4a1b6",
-      "equations": [
-        "NetProfit = N · Σ(y_i − f_i) − gas ,  gas ≤ احتياطي الغاز الداخلي",
-        "∃ (N, y_i, f_i) ∈ Bands : N·Σ(y_i - f_i) - gas ≥ 0.010000 ∧ gas_source ∈ {native, deposit, reinvest, flash, token} ∧ ¬Custody ∧ ¬UserKey ∧ Atomic → pays 0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47 in USDC",
-        "y_0 ∈ [0.000781, 0.001172]  −  f_0 ∈ [0.000195, 0.000293]",
-        "y_1 ∈ [0.000781, 0.001172]  −  f_1 ∈ [0.000073, 0.000110]"
-      ],
-      "narrative_ar": "النية: اعمل ماركت ميكينج بلا راس مال\nالتحليل الصوري: الهدف=provide_liquidity، الأصل=USDC، الهدف الكمي=0.0، الحد الأدنى للربح الصافي=0.01.\nاخترع النظام المسار من المشاريع: omollohzack/arbitrum-flashloan-research، tasawwad22-commits/Implicit-Intents، balancer/balancer-v2-monorepo، completepan/kite-x402-gasless-sponsor.\nالمسار الذري: 1) flash_loan:arbitrum-flashloan-research؛ 2) solver:Implicit-Intents؛ 3) liquidity:balancer-v2-monorepo؛ 4) paymaster:kite-x402-gasless-sponsor.\nوُلّد برهان رياضي جديد في الطلب نفسه: صافي الربح المُثبت = 0.031219 USDC لصالح العنوان المقفل 0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47. الرقم أعلاه تقدير اقتصادي بالأصل USDC، أما ما وصل فعلاً فهو وحدات على سجل Fuel الذي يشغّله المحرّك. نُفّذ المسار الذري فعلياً على شبكة Fuel (SwayVM) في الكتلة 94: 0x3c6ce611f7fdb9639fc83dd654f582e34ecb19bd17c549b394d7a8886fe4a1b6. الغاز استهلك 0 وحدة دفعها genesis-supply (سلسلة يملكها المحرّك بسعر غاز صفر)، وزاد رصيد المستفيد في سجل العقد بمقدار 0.031219 وحدة، وهو مطابق للربح الصافي المُثبت.\nمصفوفة المسارات (8 مساراً في 6 عائلة، نُفّذت بالتوازي في 973 مللي ثانية):\n- التسوية على سجل Fuel الذي يملكه المحرّك [blockchain]: أوصلت 0.031219\n- سلّم الرعاة على EVM (paymaster/bundler) [blockchain]: ما زال يعمل بعد إرسال الجواب\n- تنفيذ مُبرهن على fork محلي (EVM حقيقي) [blockchain]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- برامج الحوافز: قياس ما هو قابل للمطالبة فعلاً الآن [incentive]: لم تُوصل (incentives_measured;claimable=2;human_gated=8)\n- مسارات مُخترعة في الطلب نفسه من مسح المكونات الحية [invented]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- المسار الحسابي: حلّ سقف السوق المادي بالبرهان [computational]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- توليد الأصول: ما يمكن سكه/رهنه من رصيد مملوك فعلاً [asset]: لم تُوصل (asset_venues_need_capital;funded_networks=0;held=0)\n- واجهات مدفوعة بالنتيجة: قراءة ما دُفع فعلاً [api]: لم تُوصل (paid_endpoint_sales=0;earned=0.000000)\nالمسار الذي أوصل القيمة فعلاً: التسوية على سجل Fuel الذي يملكه المحرّك (fuel-devnet) بمقدار 0.031219.\nزمن القرار الكلي: 1182.2 مللي ثانية، المرشحون المبرهن عليهم: 4، المكونات الحية: 37.",
-      "settled_at": 1795356753.7299647,
-      "verified_now": true
-    },
-    {
-      "intent": "اعمل ماركت ميكينج بلا راس مال",
-      "intent_id": "22073fa9a7dbe919",
-      "proven": true,
-      "certificate": "SAT[z3+cvc5] N=11.00 net=0.029205 >= 0.010000; gas_sponsor=native; custody=false; user_key=false; atomic=true; cvc5=sat",
-      "solver": "z3+cvc5",
-      "path_id": "d1c5168c96c9cd03",
-      "steps": 4,
-      "net_profit_usd": 0.029205,
-      "primitives": [
-        "Uniswap/v3-core#v3-core",
-        "elizaOS/eliza#eliza",
-        "balancer/balancer-v2-monorepo#balancer-v2-monorepo",
-        "pimlico-io/erc20-paymaster#erc20-paymaster"
-      ],
-      "status": "executed",
-      "network": "fuel-devnet",
-      "tx_hash": "0xd09fcb24e9c56362c187eb741e4e55cb5cd21bcbe18c52dec1b53be5f562b46d",
-      "block_number": 67,
-      "gas_paid_by": "genesis-supply",
-      "gas_cost_wei": 0,
-      "delivered": 0.029205,
-      "value_transferred": true,
-      "explorer_url": "/fuel/tx/0xd09fcb24e9c56362c187eb741e4e55cb5cd21bcbe18c52dec1b53be5f562b46d",
-      "equations": [
-        "NetProfit = N · Σ(y_i − f_i) − gas ,  gas ≤ احتياطي الغاز الداخلي",
-        "∃ (N, y_i, f_i) ∈ Bands : N·Σ(y_i - f_i) - gas ≥ 0.010000 ∧ gas_source ∈ {native, deposit, reinvest, flash, token} ∧ ¬Custody ∧ ¬UserKey ∧ Atomic → pays 0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47 in USDC",
-        "y_0 ∈ [0.000586, 0.000879]  −  f_0 ∈ [0.000146, 0.000220]",
-        "y_1 ∈ [0.000781, 0.001172]  −  f_1 ∈ [0.000073, 0.000110]"
-      ],
-      "narrative_ar": "النية: اعمل ماركت ميكينج بلا راس مال\nالتحليل الصوري: الهدف=provide_liquidity، الأصل=USDC، الهدف الكمي=0.0، الحد الأدنى للربح الصافي=0.01.\nاخترع النظام المسار من المشاريع: Uniswap/v3-core، elizaOS/eliza، balancer/balancer-v2-monorepo، pimlico-io/erc20-paymaster.\nالمسار الذري: 1) flash_mint:v3-core؛ 2) solver:eliza؛ 3) liquidity:balancer-v2-monorepo؛ 4) paymaster:erc20-paymaster.\nوُلّد برهان رياضي جديد في الطلب نفسه: صافي الربح المُثبت = 0.029205 USDC لصالح العنوان المقفل 0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47. الرقم أعلاه تقدير اقتصادي بالأصل USDC، أما ما وصل فعلاً فهو وحدات على سجل Fuel الذي يشغّله المحرّك. نُفّذ المسار الذري فعلياً على شبكة Fuel (SwayVM) في الكتلة 67: 0xd09fcb24e9c56362c187eb741e4e55cb5cd21bcbe18c52dec1b53be5f562b46d. الغاز استهلك 0 وحدة دفعها genesis-supply (سلسلة يملكها المحرّك بسعر غاز صفر)، وزاد رصيد المستفيد في سجل العقد بمقدار 0.029205 وحدة، وهو مطابق للربح الصافي المُثبت.\nمصفوفة المسارات (9 مساراً في 7 عائلة، نُفّذت بالتوازي في 901 مللي ثانية):\n- التسوية على سجل Fuel الذي يملكه المحرّك [blockchain]: أوصلت 0.029205\n- سلّم الرعاة على EVM (paymaster/bundler) [blockchain]: ما زال يعمل بعد إرسال الجواب\n- تنفيذ مُبرهن على fork محلي (EVM حقيقي) [blockchain]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- برامج الحوافز: قياس ما هو قابل للمطالبة فعلاً الآن [incentive]: لم تُوصل (incentives_measured;claimable=2;human_gated=8)\n- مسارات مُخترعة في الطلب نفسه من مسح المكونات الحية [invented]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- المسار الحسابي: حلّ سقف السوق المادي بالبرهان [computational]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- توليد الأصول: ما يمكن سكه/رهنه من رصيد مملوك فعلاً [asset]: لم تُوصل (asset_venues_need_capital;funded_networks=0;held=0)\n- واجهات مدفوعة بالنتيجة: قراءة ما دُفع فعلاً [api]: لم تُوصل (paid_endpoint_sales=0;earned=0.000000)\n- خالق المُخرَج: إنتاج المُخرَج المطلوب وقياسه وتوثيقه على السجل [creator]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\nالمسار الذي أوصل القيمة فعلاً: التسوية على سجل Fuel الذي يملكه المحرّك (fuel-devnet) بمقدار 0.029205.\nزمن القرار الكلي: 1122.2 مللي ثانية، المرشحون المبرهن عليهم: 4، المكونات الحية: 4.",
-      "settled_at": 1795356547.30177,
-      "verified_now": true
-    },
-    {
-      "intent": "اربح 7 دولار من السيولة",
-      "intent_id": "b901674badd3ca8d",
-      "proven": true,
-      "certificate": "SAT[z3+cvc5] N=14337.00 net=41.674782 >= 7.000000; gas_sponsor=native; custody=false; user_key=false; atomic=true; cvc5=sat",
-      "solver": "z3+cvc5",
-      "path_id": "dab4e9a431c45891",
-      "steps": 4,
-      "net_profit_usd": 41.674782,
-      "primitives": [
-        "aave/aave-v3-core#aave-v3-core",
-        "hummingbot/hummingbot#hummingbot",
-        "balancer/balancer-v2-monorepo#balancer-v2-monorepo",
-        "eth-infinitism/account-abstraction#account-abstraction"
-      ],
-      "status": "executed",
-      "network": "fuel-devnet",
-      "tx_hash": "0xcf97d5e323a370e81c7da1a5a3da4b04d5e632cd0eaf627b92045ff9130a6fc5",
-      "block_number": 62,
-      "gas_paid_by": "genesis-supply",
-      "gas_cost_wei": 0,
-      "delivered": 41.674782,
-      "value_transferred": true,
-      "explorer_url": "/fuel/tx/0xcf97d5e323a370e81c7da1a5a3da4b04d5e632cd0eaf627b92045ff9130a6fc5",
-      "equations": [
-        "NetProfit = N · Σ(y_i − f_i) − gas ,  gas ≤ احتياطي الغاز الداخلي",
-        "∃ (N, y_i, f_i) ∈ Bands : N·Σ(y_i - f_i) - gas ≥ 7.000000 ∧ gas_source ∈ {native, deposit, reinvest, flash, token} ∧ ¬Custody ∧ ¬UserKey ∧ Atomic → pays 0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47 in USDC",
-        "y_0 ∈ [0.000781, 0.001172]  −  f_0 ∈ [0.000098, 0.000146]",
-        "y_1 ∈ [0.000391, 0.000586]  −  f_1 ∈ [0.000018, 0.000027]"
-      ],
-      "narrative_ar": "النية: اربح 7 دولار من السيولة\nالتحليل الصوري: الهدف=provide_liquidity، الأصل=USDC، الهدف الكمي=7.0، الحد الأدنى للربح الصافي=7.0.\nاخترع النظام المسار من المشاريع: aave/aave-v3-core، hummingbot/hummingbot، balancer/balancer-v2-monorepo، eth-infinitism/account-abstraction.\nالمسار الذري: 1) flash_mint:aave-v3-core؛ 2) market_making:hummingbot؛ 3) liquidity:balancer-v2-monorepo؛ 4) paymaster:account-abstraction.\nوُلّد برهان رياضي جديد في الطلب نفسه: صافي الربح المُثبت = 41.674782 USDC لصالح العنوان المقفل 0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47. الرقم أعلاه تقدير اقتصادي بالأصل USDC، أما ما وصل فعلاً فهو وحدات على سجل Fuel الذي يشغّله المحرّك. نُفّذ المسار الذري فعلياً على شبكة Fuel (SwayVM) في الكتلة 62: 0xcf97d5e323a370e81c7da1a5a3da4b04d5e632cd0eaf627b92045ff9130a6fc5. الغاز استهلك 0 وحدة دفعها genesis-supply (سلسلة يملكها المحرّك بسعر غاز صفر)، وزاد رصيد المستفيد في سجل العقد بمقدار 41.674782 وحدة، وهو مطابق للربح الصافي المُثبت.\nمصفوفة المسارات (9 مساراً في 7 عائلة، نُفّذت بالتوازي في 1242 مللي ثانية):\n- التسوية على سجل Fuel الذي يملكه المحرّك [blockchain]: أوصلت 41.674782\n- سلّم الرعاة على EVM (paymaster/bundler) [blockchain]: ما زال يعمل بعد إرسال الجواب\n- تنفيذ مُبرهن على fork محلي (EVM حقيقي) [blockchain]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- برامج الحوافز: قياس ما هو قابل للمطالبة فعلاً الآن [incentive]: لم تُوصل (incentives_measured;claimable=2;human_gated=8)\n- مسارات مُخترعة في الطلب نفسه من مسح المكونات الحية [invented]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- المسار الحسابي: حلّ سقف السوق المادي بالبرهان [computational]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- توليد الأصول: ما يمكن سكه/رهنه من رصيد مملوك فعلاً [asset]: لم تُوصل (asset_venues_need_capital;funded_networks=0;held=0)\n- واجهات مدفوعة بالنتيجة: قراءة ما دُفع فعلاً [api]: لم تُوصل (paid_endpoint_sales=0;earned=0.000000)\n- خالق المُخرَج: إنتاج المُخرَج المطلوب وقياسه وتوثيقه على السجل [creator]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\nالمسار الذي أوصل القيمة فعلاً: التسوية على سجل Fuel الذي يملكه المحرّك (fuel-devnet) بمقدار 41.674782.\nزمن القرار الكلي: 1359.0 مللي ثانية، المرشحون المبرهن عليهم: 4، المكونات الحية: 0.",
-      "settled_at": 1795356545.9410872,
-      "verified_now": true
-    },
-    {
-      "intent": "اربح 3 دولار من السيولة بدون مفتاح وبدون راس مال",
-      "intent_id": "f366c092d43041a3",
-      "proven": true,
-      "certificate": "SAT[z3+cvc5] N=2049.00 net=6.315582 >= 3.000000; gas_sponsor=native; custody=false; user_key=false; atomic=true; cvc5=sat",
-      "solver": "z3+cvc5",
-      "path_id": "542737938b2e65f4",
-      "steps": 4,
-      "net_profit_usd": 6.315582,
-      "primitives": [
-        "aave/aave-v3-core#aave-v3-core",
-        "langchain-ai/langgraph#langgraph",
-        "balancer/balancer-v2-monorepo#balancer-v2-monorepo",
-        "pimlico-io/erc20-paymaster#erc20-paymaster"
-      ],
-      "status": "executed",
-      "network": "fuel-devnet",
-      "tx_hash": "0x09496c868a4bbbd5b2f0f47f40fbb880ef262c15cc51183498de11463fbde2a4",
-      "block_number": 58,
-      "gas_paid_by": "genesis-supply",
-      "gas_cost_wei": 0,
-      "delivered": 6.315582,
-      "value_transferred": true,
-      "explorer_url": "/fuel/tx/0x09496c868a4bbbd5b2f0f47f40fbb880ef262c15cc51183498de11463fbde2a4",
-      "equations": [
-        "NetProfit = N · Σ(y_i − f_i) − gas ,  gas ≤ احتياطي الغاز الداخلي",
-        "∃ (N, y_i, f_i) ∈ Bands : N·Σ(y_i - f_i) - gas ≥ 3.000000 ∧ gas_source ∈ {native, deposit, reinvest, flash, token} ∧ ¬Custody ∧ ¬UserKey ∧ Atomic → pays 0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47 in USDC",
-        "y_0 ∈ [0.000586, 0.000879]  −  f_0 ∈ [0.000073, 0.000110]",
-        "y_1 ∈ [0.001172, 0.001758]  −  f_1 ∈ [0.000098, 0.000146]"
-      ],
-      "narrative_ar": "النية: اربح 3 دولار من السيولة بدون مفتاح وبدون راس مال\nالتحليل الصوري: الهدف=provide_liquidity، الأصل=USDC، الهدف الكمي=3.0، الحد الأدنى للربح الصافي=3.0.\nاخترع النظام المسار من المشاريع: aave/aave-v3-core، langchain-ai/langgraph، balancer/balancer-v2-monorepo، pimlico-io/erc20-paymaster.\nالمسار الذري: 1) flash_mint:aave-v3-core؛ 2) solver:langgraph؛ 3) liquidity:balancer-v2-monorepo؛ 4) paymaster:erc20-paymaster.\nوُلّد برهان رياضي جديد في الطلب نفسه: صافي الربح المُثبت = 6.315582 USDC لصالح العنوان المقفل 0xe3d1c7dcd5e95b6441716b65f9c46b73e91b4d47. الرقم أعلاه تقدير اقتصادي بالأصل USDC، أما ما وصل فعلاً فهو وحدات على سجل Fuel الذي يشغّله المحرّك. نُفّذ المسار الذري فعلياً على شبكة Fuel (SwayVM) في الكتلة 58: 0x09496c868a4bbbd5b2f0f47f40fbb880ef262c15cc51183498de11463fbde2a4. الغاز استهلك 0 وحدة دفعها genesis-supply (سلسلة يملكها المحرّك بسعر غاز صفر)، وزاد رصيد المستفيد في سجل العقد بمقدار 6.315582 وحدة، وهو مطابق للربح الصافي المُثبت.\nمصفوفة المسارات (9 مساراً في 7 عائلة، نُفّذت بالتوازي في 1310 مللي ثانية):\n- التسوية على سجل Fuel الذي يملكه المحرّك [blockchain]: أوصلت 6.315582\n- سلّم الرعاة على EVM (paymaster/bundler) [blockchain]: ما زال يعمل بعد إرسال الجواب\n- تنفيذ مُبرهن على fork محلي (EVM حقيقي) [blockchain]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- برامج الحوافز: قياس ما هو قابل للمطالبة فعلاً الآن [incentive]: لم تُوصل (incentives_measured;claimable=2;human_gated=8)\n- مسارات مُخترعة في الطلب نفسه من مسح المكونات الحية [invented]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- المسار الحسابي: حلّ سقف السوق المادي بالبرهان [computational]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\n- توليد الأصول: ما يمكن سكه/رهنه من رصيد مملوك فعلاً [asset]: لم تُوصل (asset_venues_need_capital;funded_networks=0;held=0)\n- واجهات مدفوعة بالنتيجة: قراءة ما دُفع فعلاً [api]: لم تُوصل (paid_endpoint_sales=0;earned=0.000000)\n- خالق المُخرَج: إنتاج المُخرَج المطلوب وقياسه وتوثيقه على السجل [creator]: لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً\nالمسار الذي أوصل القيمة فعلاً: التسوية على سجل Fuel الذي يملكه المحرّك (fuel-devnet) بمقدار 6.315582.\nزمن القرار الكلي: 1388.3 مللي ثانية، المرشحون المبرهن عليهم: 4، المكونات الحية: 0.",
-      "settled_at": 1795356466.2551048,
-      "verified_now": true
+      "verified_now": false
     }
   ]
 }

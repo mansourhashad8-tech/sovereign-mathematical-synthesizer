@@ -219,3 +219,43 @@ def test_a_starred_but_unrelated_repo_is_not_a_component():
         scanner_mod.httpx.get = original
 
     assert [p.repo for p in found] == ["Z3Prover/z3"]
+
+
+def test_a_repo_claiming_the_category_only_through_topics_is_not_a_component():
+    """Topics are self-assigned, so they cannot vouch for a repository.
+
+    A live "market-making" search returned a tweet archive that matched only
+    through a topic tag. The narrative would have cited it as a market-making
+    component, which is the same unverifiable citation the relevance gate exists
+    to prevent.
+    """
+    from synthesizer.scanner import GitHubScanner
+    import synthesizer.scanner as scanner_mod
+
+    items = [
+        {"name": "Trader-Archives", "full_name": "suoha888/Trader-Archives",
+         "description": "An archive of trading tweets, fully open data lake",
+         "topics": ["market-making", "crypto-trading", "twitter-archive"],
+         "html_url": "u", "stargazers_count": 308,
+         "pushed_at": "2099-01-01T00:00:00Z"},
+        {"name": "hummingbot", "full_name": "hummingbot/hummingbot",
+         "description": "Open source market making and arbitrage bot",
+         "html_url": "u", "stargazers_count": 12000,
+         "pushed_at": "2099-01-01T00:00:00Z"},
+    ]
+
+    class _Resp:
+        status_code = 200
+
+        def json(self):
+            return {"items": items}
+
+    scanner = GitHubScanner()
+    original = scanner_mod.httpx.get
+    scanner_mod.httpx.get = lambda *a, **k: _Resp()
+    try:
+        found = scanner._search("market-making", "market_making", 6)
+    finally:
+        scanner_mod.httpx.get = original
+
+    assert [p.repo for p in found] == ["hummingbot/hummingbot"]
