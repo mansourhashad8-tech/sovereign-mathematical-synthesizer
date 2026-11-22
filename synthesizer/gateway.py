@@ -180,3 +180,157 @@ def _g2(points: list) -> bytes:
     x_c0, x_c1 = int(points[0][0]), int(points[0][1])
     y_c0, y_c1 = int(points[1][0]), int(points[1][1])
     return _word(x_c1) + _word(x_c0) + _word(y_c1) + _word(y_c0)
+
+
+class BroadcastGateway:
+    """Submit the same settlement calldata to a public chain.
+
+    ``ForkGateway`` proves the mechanics on a chain this process owns. This class
+    is the step that makes the same claim checkable by a stranger: the verifier
+    and the gateway are deployed once to a real network, and every settlement is a
+    transaction anyone can read on an explorer.
+
+    It is gated rather than optimistic. A public chain charges for the write, so
+    this refuses to pretend it ran when it has no RPC, no funded key, or no
+    deployed gateway. Every refusal names which of those is missing, because "it
+    did not broadcast" and "it broadcast and paid" are different statements and
+    the difference is the whole point.
+    """
+
+    def __init__(self, rpc_url: str | None = None, key: str = "",
+                 chain_id: int = 0, explorer: str = "") -> None:
+        # None means "use the configured default"; "" means "there is no RPC",
+        # which is a different and reportable state.
+        self.rpc_url = SETTINGS.rpc_url if rpc_url is None else rpc_url
+        self.key = key
+        self.chain_id = chain_id or SETTINGS.chain_id
+        self.explorer = explorer
+        self.verifier = ""
+        self.gateway = ""
+
+    # -- readiness ---------------------------------------------------------
+    def _rpc(self, method: str, params: list) -> dict | None:
+        import httpx
+
+        try:
+            resp = httpx.post(
+                self.rpc_url,
+                json={"jsonrpc": "2.0", "id": 1, "method": method, "params": params},
+                timeout=12.0,
+            )
+            body = resp.json()
+        except Exception:  # noqa: BLE001 - a dead RPC is a reported state
+            return None
+        if "error" in body:
+            return None
+        return body.get("result")
+
+    def block_number(self) -> int:
+        result = self._rpc("eth_blockNumber", [])
+        try:
+            return int(result, 16) if result else 0
+        except (TypeError, ValueError):
+            return 0
+
+    def balance_wei(self) -> int:
+        if not self.key:
+            return 0
+        account = Account.from_key(self.key).address
+        result = self._rpc("eth_getBalance", [account, "latest"])
+        try:
+            return int(result, 16) if result else 0
+        except (TypeError, ValueError):
+            return 0
+
+    def why_not(self) -> str:
+        """The precise reason a broadcast cannot happen, or '' when it can."""
+        if not self.rpc_url:
+            return "no_rpc_configured"
+        if self.block_number() == 0:
+            return "rpc_unreachable"
+        if not self.key:
+            return "no_relayer_key"
+        if self.balance_wei() <= 0:
+            return "relayer_unfunded"
+        if not self.gateway:
+            return "gateway_not_deployed"
+        return ""
+
+    # -- write -------------------------------------------------------------
+    def send(self, to: str, data: bytes) -> dict:
+        """Sign and broadcast one call. Returns measured chain facts."""
+        blocker = self.why_not()
+        if blocker:
+            return {"ok": False, "reason": blocker}
+
+        account = Account.from_key(self.key)
+        nonce_hex = self._rpc("eth_getTransactionCount", [account.address, "pending"])
+        gas_hex = self._rpc(
+            "eth_estimateGas",
+            [{"from": account.address, "to": to, "data": "0x" + data.hex()}],
+        )
+        try:
+            nonce = int(nonce_hex, 16)
+            gas = int(gas_hex, 16)
+        except (TypeError, ValueError):
+            return {"ok": False, "reason": "rpc_did_not_return_nonce_or_gas"}
+
+        gas_price_hex = self._rpc("eth_gasPrice", [])
+        try:
+            gas_price = int(gas_price_hex, 16)
+        except (TypeError, ValueError):
+            return {"ok": False, "reason": "rpc_did_not_return_gas_price"}
+
+        tx = {
+            "to": to_checksum_address(to),
+            "data": data,
+            "nonce": nonce,
+            "gas": gas,
+            "gasPrice": gas_price,
+            "chainId": self.chain_id,
+            "value": 0,
+        }
+        signed = Account.sign_transaction(tx, self.key)
+        raw = getattr(signed, "raw_transaction", None) or signed.rawTransaction
+        tx_hash = self._rpc("eth_sendRawTransaction", ["0x" + raw.hex()])
+        if not tx_hash:
+            return {"ok": False, "reason": "rpc_rejected_the_transaction"}
+        return {
+            "ok": True,
+            "tx_hash": tx_hash,
+            "nonce": nonce,
+            "gas": gas,
+            "gas_price": gas_price,
+            "explorer_url": f"{self.explorer.rstrip('/')}/tx/{tx_hash}" if self.explorer else "",
+        }
+
+    def record(self, proof: SettlementProof, intent_id: str) -> RecordedSettlement:
+        """Submit a real proof to the deployed gateway on the public chain."""
+        p_a, p_b, p_c, signals_hex = solidity_calldata(proof.proof, proof.public_signals)
+        signals = [int(x, 16) for x in signals_hex]
+        data = _selector(
+            "recordSettlement(bytes32,bytes32,uint256[2],uint256[2][2],uint256[2],uint256[6])"
+        )
+        payload = (
+            intent_id_bytes(intent_id)
+            + _bytes32(proof.commitment)
+            + b"".join(_word(int(x, 16)) for x in p_a)
+            + b"".join(_word(int(x, 16)) for pair in p_b for x in pair)
+            + b"".join(_word(int(x, 16)) for x in p_c)
+            + b"".join(_word(s) for s in signals)
+        )
+        sent = self.send(self.gateway, data + payload)
+        return RecordedSettlement(
+            intent_id=intent_id,
+            gateway=self.gateway,
+            verifier=self.verifier,
+            tx_hash=sent.get("tx_hash", ""),
+            block=0,
+            gas_used=int(sent.get("gas", 0) or 0),
+            delta=signals[3],
+            net_profit=signals[4],
+            commitment=proof.commitment,
+            beneficiary=SETTINGS.beneficiary,
+            verified_onchain=bool(sent.get("ok")),
+            network=f"chain-{self.chain_id}",
+        )

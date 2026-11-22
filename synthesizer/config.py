@@ -68,6 +68,10 @@ class Settings:
 
     # --- GitHub live scan ---
     github_lookback_hours: int = _env_int("SYNTH_GH_LOOKBACK_HOURS", 48)
+    # A repository with no stars and no description is not a primitive, whatever
+    # the search returns: the narrative names these as composed components, so a
+    # name nobody can vouch for must not be cited as one.
+    github_min_stars: int = _env_int("SYNTH_GH_MIN_STARS", 25)
     github_max_repos: int = _env_int("SYNTH_GH_MAX_REPOS", 40)
     github_token: str = _env("GITHUB_WRITE_TOKEN", "") or _env("GITHUB_TOKEN", "")
 
@@ -208,10 +212,20 @@ class Settings:
     # money had in fact landed. The matrix returns as soon as any lane delivers,
     # so this is a ceiling, not a wait.
     matrix_budget_s: float = float(_env("SYNTH_MATRIX_BUDGET_S", "1.6"))
+    # Lanes from finished requests may keep working, but only this many at once
+    # across the whole process. Without a ceiling, repeated requests were measured
+    # to grow the thread count on every call until each answer overran its
+    # deadline under the contention.
+    matrix_max_inflight: int = _env_int("SYNTH_MATRIX_MAX_INFLIGHT", 48)
     # The whole request must answer by this deadline. The matrix is given
     # whatever time is left after parsing and proving, so a slow proof does not
     # push the answer past the deadline and a fast one does not waste the window.
     request_deadline_s: float = float(_env("SYNTH_REQUEST_DEADLINE_S", "1.5"))
+    # How long a non-finance request may wait for its deliverable. There is no
+    # paying venue to race in that case, so the content *is* the answer and the
+    # only question is whether the model answered. Bounded so a stalled model
+    # cannot hold a request open forever.
+    creator_deadline_s: float = float(_env("SYNTH_CREATOR_DEADLINE_S", "45"))
     # One thread per lane: a queued lane is an untried route, and the matrix
     # must try every route it claims to have entered.
     matrix_workers: int = _env_int("SYNTH_MATRIX_WORKERS", 12)

@@ -748,17 +748,24 @@ class Executor:
         delta_units = net_units
 
         commitment = self._fuel_commitment(path)
-        settlement = hand.settle(delta_units, net_units, commitment)
-        if settlement.status == "unavailable":
-            return None
-        if settlement.status == "rejected" and "already on the ledger" in settlement.reason:
-            # This exact settlement already paid. Report the original
-            # transaction rather than calling it pending: the money did arrive,
-            # just on an earlier run, and pretending otherwise would be a lie in
-            # the other direction.
-            previous = hand.journal_lookup(commitment)
-            if previous:
-                settlement = hand.replay_result(commitment, previous)
+        # The commitment is a pure function of the path, so a journal hit means
+        # this exact settlement already paid. Answering from the journal avoids a
+        # node round-trip whose only outcome would be the same replay: measured
+        # at ~1s per repeat, which is the whole request budget.
+        previous = hand.journal_lookup(commitment)
+        if previous:
+            settlement = hand.replay_result(commitment, previous)
+        else:
+            settlement = hand.settle(delta_units, net_units, commitment)
+            if settlement.status == "unavailable":
+                return None
+            if settlement.status == "rejected" and "already on the ledger" in settlement.reason:
+                # The journal was stale but the chain disagrees. Report the
+                # original transaction rather than calling it pending: the money
+                # did arrive, just on an earlier run.
+                previous = hand.journal_lookup(commitment)
+                if previous:
+                    settlement = hand.replay_result(commitment, previous)
 
         self._fuel_gas.record(settlement)
         elapsed_ms = (time.time() - started) * 1000.0

@@ -363,6 +363,13 @@ async def synthesize(body: IntentBody) -> JSONResponse:
         headers["X-Matrix-Categories"] = ",".join(result.matrix.get("covered_categories", []))
         if result.matrix.get("winner"):
             headers["X-Matrix-Winner"] = result.matrix["winner"]["lane_id"]
+    if result.artifact:
+        # The deliverable's identity is on the wire so a client can verify it
+        # without parsing the body: recompute the file's hash and compare.
+        headers["X-Artifact-Domain"] = str(result.artifact.get("domain", ""))
+        headers["X-Artifact-Sha256"] = str(result.artifact.get("sha256", ""))
+        headers["X-Artifact-Bytes"] = str(result.artifact.get("bytes", 0))
+        headers["X-Artifact-Settled"] = str(bool(result.artifact.get("settled"))).lower()
     return JSONResponse(payload, headers=headers)
 
 
@@ -444,6 +451,35 @@ async def proof(iid: str) -> JSONResponse:
             else None,
         }
     )
+
+
+@app.get("/artifact/{iid}")
+async def artifact(iid: str) -> JSONResponse:
+    """Serve the deliverable a synthesized intent produced.
+
+    The hash is returned beside the content, so a caller can recompute it from
+    the bytes it received and compare. That is the whole verification: the file
+    is the evidence, and the ledger holds the same hash.
+    """
+    result = synth.latest(iid)
+    if result is None or not result.artifact:
+        return JSONResponse({"error": "no_artifact", "intent_id": iid}, status_code=404)
+    record = dict(result.artifact)
+    path = record.get("path", "")
+    try:
+        from pathlib import Path
+
+        from .artifacts import ROOT
+
+        target = Path(path)
+        if not target.is_absolute():
+            target = ROOT / path
+        record["content"] = target.read_text(encoding="utf-8")
+        record["content_available"] = True
+    except Exception:  # noqa: BLE001 - the receipt still describes the artifact
+        record["content"] = ""
+        record["content_available"] = False
+    return JSONResponse(record)
 
 
 @app.get("/", response_class=HTMLResponse)

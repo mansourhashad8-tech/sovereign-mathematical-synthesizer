@@ -48,6 +48,7 @@ CATEGORIES = (
     "asset",
     "incentive",
     "invented",
+    "creator",
 )
 
 CATEGORY_AR = {
@@ -57,6 +58,7 @@ CATEGORY_AR = {
     "asset": "توليد أصول",
     "incentive": "حوافز ومكافآت",
     "invented": "مسار مُخترع",
+    "creator": "خلق المُخرَج",
 }
 
 
@@ -79,6 +81,19 @@ class Lane:
     # measurably slows the route that pays. CPU lanes are started in a second
     # wave, after the I/O lanes have had their window.
     cpu_bound: bool = False
+    # True for lanes whose work is worth doing only if nothing has paid yet. It
+    # is separate from ``cpu_bound`` because the reason is different: the creator
+    # lane waits on a socket, not on the GIL, but spending a model call on every
+    # request that already settled would be waste and would burn a rate limit.
+    deferred: bool = False
+    # False for lanes that produce a deliverable rather than a payment (the
+    # artifact creator). Such a lane can finish and report its output, but it is
+    # never selected as the payer, so a produced document cannot be presented as
+    # money that arrived.
+    pays: bool = True
+    # The unit ``delivers`` is denominated in, so a magnitude is never read as
+    # dollars by mistake.
+    unit: str = "USD"
     # Filled by the lane.
     status: str = "queued"  # queued|running|delivered|blocked|stalled|failed
     reason: str = ""
@@ -99,8 +114,17 @@ class Lane:
 
     @property
     def delivered(self) -> bool:
-        """True only when value was measured reaching the beneficiary."""
-        return self.status == "delivered" and self.delivers > 0
+        """True only when value was measured reaching the beneficiary.
+
+        A lane that produces a deliverable instead of a payment never satisfies
+        this, because the matrix uses it to choose who paid.
+        """
+        return self.pays and self.status == "delivered" and self.delivers > 0
+
+    @property
+    def produced(self) -> bool:
+        """True when a non-paying lane finished and produced its artifact."""
+        return not self.pays and self.status == "produced"
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -111,6 +135,9 @@ class Lane:
             "status": self.status,
             "reason": self.reason,
             "delivers": round(self.delivers, 6),
+            "unit": self.unit,
+            "pays": self.pays,
+            "produced": self.produced,
             "tx_hash": self.tx_hash,
             "network": self.network,
             "explorer_url": self.explorer_url,
@@ -132,7 +159,33 @@ class MatrixOutcome:
 
     @property
     def delivered_total(self) -> float:
-        return sum(l.delivers for l in self.lanes if l.delivered)
+        """What arrived for this request, on the ledger that won it.
+
+        Lanes settle on separate ledgers (the engine-owned Fuel chain and the
+        local EVM fork are different books). Adding their amounts would report
+        one settlement twice: two lanes each delivering 38 were being shown as
+        76. The honest single number is the winner's measured delivery, and
+        ``delivered_by_network`` keeps the rest visible without adding them.
+        """
+        return self.winner.delivers if self.winner else 0.0
+
+    @property
+    def delivered_by_network(self) -> dict[str, float]:
+        """Measured delivery per ledger, so separate books stay separate."""
+        totals: dict[str, float] = {}
+        for lane in self.lanes:
+            if lane.delivered:
+                key = lane.network or lane.lane_id
+                totals[key] = round(totals.get(key, 0.0) + lane.delivers, 6)
+        return totals
+
+    @property
+    def producer(self) -> Lane | None:
+        """The lane that produced a deliverable, if one did."""
+        for lane in self.lanes:
+            if lane.produced:
+                return lane
+        return None
 
     @property
     def covered_categories(self) -> list[str]:
@@ -146,6 +199,7 @@ class MatrixOutcome:
             "beneficiary": self.beneficiary,
             "winner": self.winner.to_dict() if self.winner else None,
             "delivered_total": round(self.delivered_total, 6),
+            "delivered_by_network": self.delivered_by_network,
             "covered_categories": self.covered_categories,
             "elapsed_ms": round(self.elapsed_ms, 1),
             "lanes": [l.to_dict() for l in self.lanes],
@@ -166,9 +220,17 @@ class PathMatrix:
         # would have reported routes as "continuing" that had not been tried at
         # all. Lanes are I/O-bound, so one thread each is the right shape.
         self.workers = workers or SETTINGS.matrix_workers
+        # A lane that outlives its request keeps working, which is intended: it
+        # may still pay. What is not intended is that those lanes accumulate. A
+        # run of repeated requests was measured to grow the thread count without
+        # bound, and the contention pushed each answer past its deadline. The
+        # cap keeps the backlog finite so a new request is never starved by the
+        # leftovers of earlier ones.
+        self._inflight = threading.BoundedSemaphore(SETTINGS.matrix_max_inflight)
 
     def run(self, lanes: list[Lane], target: float, asset: str,
-            beneficiary: str, budget_s: float | None = None) -> MatrixOutcome:
+            beneficiary: str, budget_s: float | None = None,
+            require_producer: bool = False) -> MatrixOutcome:
         started = time.time()
         outcome = MatrixOutcome(
             target_value=target, asset=asset, beneficiary=beneficiary, lanes=lanes
@@ -193,12 +255,21 @@ class PathMatrix:
         # solver sweeps); they are speculative and would otherwise hold the GIL
         # while a paying lane waits for a socket, which was measured to add
         # ~500ms to a delivery that takes 1.27s on its own.
-        io_lanes = [l for l in lanes if not l.cpu_bound]
+        io_lanes = [l for l in lanes if not l.cpu_bound and not l.deferred]
+        deferred_lanes = [l for l in lanes if l.deferred and not l.cpu_bound]
         cpu_lanes = [l for l in lanes if l.cpu_bound]
 
         futures = {}
         for lane in io_lanes:
             futures[pool.submit(self._run_lane, lane)] = lane
+
+        # The first lane to pay ends the search -- unless the caller asked for a
+        # deliverable, in which case a payment does not answer the request and the
+        # matrix keeps going until the producer lane finishes or the budget ends.
+        def _settled() -> bool:
+            if outcome.winner is None:
+                return False
+            return not require_producer or outcome.producer is not None
 
         deadline = time.time() + max(0.1, budget)
         pending = set(futures)
@@ -217,20 +288,21 @@ class PathMatrix:
                     lane.ended_at = time.time()
                 if lane.delivered and outcome.winner is None:
                     outcome.winner = lane
-            # The first lane to pay ends the search.
-            if outcome.winner is not None:
+            if _settled():
                 break
 
         # Only when nothing has paid is the speculative CPU work worth starting.
         # If a lane delivered, the extra work is stood down and reported as such.
-        for lane in cpu_lanes:
-            if outcome.winner is not None:
+        # A required deliverable is exempt: it is the answer, so it is started
+        # even after a venue paid.
+        for lane in cpu_lanes + deferred_lanes:
+            if outcome.winner is not None and not require_producer:
                 lane.status = "stood_down"
                 lane.reason = "not_needed_a_network_lane_delivered"
                 continue
             futures[pool.submit(self._run_lane, lane)] = lane
 
-        if outcome.winner is None:
+        if not _settled():
             pending = {f for f, l in futures.items() if l.status in ("queued", "running")}
             while pending and time.time() < deadline:
                 done, pending = wait(
@@ -247,7 +319,7 @@ class PathMatrix:
                         lane.ended_at = time.time()
                     if lane.delivered and outcome.winner is None:
                         outcome.winner = lane
-                if outcome.winner is not None:
+                if _settled():
                     break
 
         for lane in lanes:
@@ -263,6 +335,13 @@ class PathMatrix:
         return outcome
 
     def _run_lane(self, lane: Lane) -> None:
+        # A lane that cannot get a slot is reported as deferred to the next
+        # request rather than silently skipped: the reason says the engine was
+        # busy with earlier work, which is true and is not a failure of the lane.
+        if not self._inflight.acquire(timeout=0.05):
+            lane.status = "queued"
+            lane.reason = "engine_busy_with_earlier_lanes"
+            return
         lane.status = "running"
         lane.started_at = time.time()
         try:
@@ -272,6 +351,7 @@ class PathMatrix:
             if lane.status in ("queued", "running"):
                 lane.status = "blocked"
                 lane.reason = lane.reason or "lane_returned_without_a_verdict"
+            self._inflight.release()
 
 
 def _record_execution(lane: Lane, execution) -> None:
@@ -500,6 +580,61 @@ def build_lanes(synth, constraints, path, primitives) -> list[Lane]:
         title_ar="واجهات مدفوعة بالنتيجة: قراءة ما دُفع فعلاً",
         run=run_api,
         timeout_s=timeout,
+    ))
+
+    # The creator: produce the thing the intent asked for, whatever it is, and
+    # attest it. This lane does not pay, so it can never be reported as money
+    # that arrived; it exists so that an intent which is not about moving funds
+    # is still served with a real, measured, on-chain-attested deliverable.
+    def run_creator(lane: Lane) -> None:
+        from .artifacts import ArtifactCreator, attest, write_receipt
+        from .fuel import FuelHand
+
+        domain = getattr(constraints.goal, "domain", "finance")
+        creator = ArtifactCreator()
+        artifact = creator.create(
+            intent_id=path.intent_id if path else constraints.beneficiary,
+            raw_intent=constraints.goal.raw_intent,
+            domain=domain,
+            primitives=primitives,
+        )
+        if not artifact.ok:
+            lane.status = "blocked"
+            lane.reason = "artifact_not_produced;" + ";".join(artifact.notes)
+            lane.detail = artifact.to_dict()
+            return
+        artifact = attest(artifact, FuelHand())
+        write_receipt(artifact)
+        lane.status = "produced"
+        lane.delivers = float(artifact.bytes_written)
+        lane.unit = "bytes"
+        lane.tx_hash = artifact.settlement_tx
+        lane.network = artifact.network
+        lane.explorer_url = (
+            f"/fuel/tx/{artifact.settlement_tx}" if artifact.settlement_tx else ""
+        )
+        lane.reason = (
+            f"artifact_created;domain={domain};bytes={artifact.bytes_written};"
+            f"lines={artifact.lines};sha256={artifact.sha256[:16]};"
+            f"ledger={'settled' if artifact.settled else 'unsettled'}"
+        )
+        lane.detail = artifact.to_dict()
+
+    lanes.append(Lane(
+        lane_id="creator",
+        category="creator",
+        title_ar="خالق المُخرَج: إنتاج المُخرَج المطلوب وقياسه وتوثيقه على السجل",
+        run=run_creator,
+        timeout_s=timeout * 6,
+        # Writing is an HTTP call to the model, so it waits on a socket and does
+        # not hold the GIL. On a non-finance intent the deliverable *is* the
+        # answer, so it runs in the first wave; on a finance intent it is
+        # deferred, because a model call is only worth spending when no venue
+        # has already paid.
+        cpu_bound=False,
+        deferred=getattr(constraints.goal, "domain", "finance") == "finance",
+        pays=False,
+        unit="bytes",
     ))
 
     return lanes

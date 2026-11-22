@@ -42,6 +42,24 @@ QUERIES: dict[str, str] = {
     "market-making": "market_making",
 }
 
+# Category -> the words a repository must actually use about itself to be
+# adopted for that category. GitHub's search matches loosely ("market-making"
+# returned a tweet archive, "formal-verification" returned a physics paper), and
+# the narrative names these as the components it composed, so relevance has to
+# be checked rather than inferred from the query that happened to find them.
+CATEGORY_TERMS: dict[str, tuple[str, ...]] = {
+    "paymaster": ("paymaster", "gas sponsor", "erc-4337", "account abstraction"),
+    "flash_mint": ("flash mint", "flashmint", "flash loan", "flashloan", "erc-3156"),
+    "flash_loan": ("flash loan", "flashloan", "erc-3156", "liquidity"),
+    "liquidity": ("liquidity", "amm", "balancer", "pool"),
+    "verification": ("formal", "verif", "smt", "solver", "proof", "theorem", "z3", "cvc5"),
+    "solver": ("solver", "intent", "agent", "orchestrat", "graph"),
+    "session_key": ("session key", "sessionkey", "module", "smart account", "safe"),
+    "private_mempool": ("mempool", "mev", "bundle", "flashbots"),
+    "market_making": ("market mak", "market-mak", "marketmaking", "arbitrage", "trading bot"),
+    "account": ("account", "wallet", "agentkit", "smart account"),
+}
+
 # Category -> known-good seed repos (used when live search yields nothing).
 SEED_BY_CATEGORY: dict[str, list[str]] = {
     "paymaster": ["pimlico-io/erc20-paymaster", "eth-infinitism/account-abstraction"],
@@ -119,14 +137,33 @@ class GitHubScanner:
             hours = _hours_since(pushed)
             if hours > SETTINGS.github_lookback_hours:
                 continue
+            stars = item.get("stargazers_count", 0) or 0
+            description = (item.get("description") or "").strip()
+            # The narrative names these repositories as the components it
+            # composed. A repository nobody has starred and nobody has described
+            # cannot be vouched for, so it is not adopted as a primitive: the
+            # seed set is a better answer than an unvetted name.
+            if stars < SETTINGS.github_min_stars or not description:
+                continue
+            # Stars prove attention, not relevance. The search that found the
+            # repository also has to be reflected in how the repository describes
+            # itself, or the composition would cite a component for a job it does
+            # not do.
+            haystack = " ".join((
+                item.get("name", ""), description,
+                " ".join(item.get("topics") or []),
+            )).lower()
+            terms = CATEGORY_TERMS.get(category, ())
+            if terms and not any(t in haystack for t in terms):
+                continue
             out.append(
                 Primitive(
                     name=item.get("name", ""),
                     repo=item.get("full_name", ""),
                     category=category,
-                    description=(item.get("description") or "")[:240],
+                    description=description[:240],
                     url=item.get("html_url", ""),
-                    stars=item.get("stargazers_count", 0),
+                    stars=stars,
                     pushed_at=pushed,
                     freshness_hours=round(hours, 2),
                     properties={"language": item.get("language"), "source": "live"},
@@ -188,6 +225,11 @@ class GitHubScanner:
         def _run() -> None:
             try:
                 self._refresh()
+            except Exception:  # noqa: BLE001 - the seed set already answered
+                # A background refresh that fails leaves the seed set in place,
+                # which is a complete answer. It is retried on the next request,
+                # so there is nothing to report and nothing to interrupt.
+                pass
             finally:
                 with self._cache.lock:
                     self._cache.warming = False

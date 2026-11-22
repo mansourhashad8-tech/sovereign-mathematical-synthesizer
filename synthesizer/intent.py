@@ -48,6 +48,29 @@ _NO_SIGNUP = ["بدون تسجيل", "بدون حساب", "no signup", "no accou
 _NO_GAS = ["بدون غاز", "بلا غاز", "no gas", "بدون رسوم", "gasless", "بدون رسوم غاز"]
 _FAST = ["فورا", "فوراً", "حالا", "حالاً", "الان", "الآن", "now", "immediately", "فوري"]
 
+# What kind of thing the user is asking for. "finance" is the default because
+# the engine's venues price money; the other domains are served by producing a
+# real artifact (see ``artifacts.py``) rather than by moving funds, so a request
+# that is not about money is still creatable instead of being forced into a
+# swap it never asked for.
+_DOMAIN_WORDS: tuple[tuple[str, list[str]], ...] = (
+    ("code", ["كود", "برمجة", "سكربت", "برنامج", "تطبيق", "دالة", "api", "code",
+              "script", "program", "function", "bug", "refactor", "class"]),
+    ("writing", ["مقال", "اكتب", "أكتب", "كتابة", "قصة", "قصيدة", "خطاب", "محتوى",
+                 "write", "essay", "article", "story", "poem", "copy", "content", "post"]),
+    ("research", ["ابحث", "بحث", "دراسة", "تحليل", "تقرير", "ورقة", "research",
+                  "study", "analysis", "report", "paper", "survey"]),
+    ("data", ["بيانات", "جدول", "قاعدة بيانات", "dataset", "data", "table",
+              "csv", "schema", "database"]),
+    ("design", ["تصميم", "صمم", "صمّم", "واجهة", "شعار", "design", "ui", "ux",
+                "logo", "layout", "mockup"]),
+    ("plan", ["خطة", "خطّط", "خطط", "استراتيجية", "جدول اعمال", "plan", "strategy",
+              "roadmap", "schedule", "checklist"]),
+    ("translation", ["ترجم", "ترجمة", "translate", "translation"]),
+    ("math", ["معادلة", "برهان", "اثبت", "أثبت", "نظرية", "proof", "theorem",
+              "equation", "derive", "prove"]),
+)
+
 _NUMBER_RE = re.compile(r"(\d+(?:\.\d+)?)")
 _AMOUNT_WORDS = {
     "مليار": 1_000_000_000, "billion": 1_000_000_000,
@@ -88,6 +111,31 @@ def _pick_objective(text: str) -> str:
     return "earn"
 
 
+def _pick_domain(text: str) -> str:
+    """Classify what the user wants made, not just what money they want.
+
+    Domains are scored rather than matched in order: "صمم واجهة لتطبيق" mentions
+    both design and an application, and the first table to match would call it
+    code. The domain with the most hits is the one the sentence is about.
+    """
+    lowered = text.lower()
+    money_hits = sum(1 for w in _EARN_WORDS + _SWAP_WORDS + _LIQ_WORDS + _STAKE_WORDS
+                     if w in lowered or w in text)
+    best_domain, best_hits = "finance", 0
+    for domain, words in _DOMAIN_WORDS:
+        hits = sum(1 for w in words if w in lowered or w in text)
+        if hits > best_hits:
+            best_domain, best_hits = domain, hits
+    if best_hits == 0:
+        return "finance"
+    # A finance verb alongside a domain verb is a money intent that names a
+    # deliverable ("اربح بكتابة مقال"), which the artifact lane can serve. Money
+    # only wins when it is clearly the subject.
+    if money_hits >= 2 and money_hits >= best_hits:
+        return "finance"
+    return best_domain
+
+
 def _pick_asset(text: str) -> str:
     lowered = text.lower()
     for asset, words in _ASSET_WORDS.items():
@@ -121,6 +169,7 @@ def parse_deterministic(raw_intent: str) -> Constraints:
         asset=asset,
         target_amount=target,
         raw_intent=raw_intent,
+        domain=_pick_domain(text),
     )
     # NetProfit > 0, tightened to the target when the user named one.
     floor = SETTINGS.min_net_profit_usd
@@ -199,7 +248,7 @@ def parse(raw_intent: str, brain: Brain | None = None,
     extra = list(dict.fromkeys(base.extra + [str(c) for c in data.get("constraints", [])]))
 
     goal = Goal(objective=objective, asset=asset, target_amount=target,
-                raw_intent=raw_intent)
+                raw_intent=raw_intent, domain=base.goal.domain)
     floor = SETTINGS.min_net_profit_usd
     if target > 0:
         floor = max(floor, target)

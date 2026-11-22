@@ -273,7 +273,7 @@ function render(d){
   if(d.equations&&d.equations.length){
     h += '<div class="eq">'+d.equations.map(escapeHtml).join('<br>')+'</div>';
   }
-  if(d.matrix) h += matrixPanel(d.matrix);
+  if(d.matrix) h += matrixPanel(d.matrix, (d.constraints&&d.constraints.goal&&d.constraints.goal.domain)||'finance');
   h += '<div class="kv">';
   const ms = d._rtt_ms ? d._rtt_ms.toFixed(0) : ((d.elapsed_seconds||0)*1000).toFixed(0);
   const srcLabel = d.source==='template' ? 'قالب مُثبت مسبقاً'
@@ -293,21 +293,32 @@ function render(d){
 // Every route the engine entered for this target value, and what each one
 // reported. Showing all of them, not just the winner, is the point: a blocked
 // route is visibly one blocked route rather than the system's answer.
-function matrixPanel(m){
+function matrixPanel(m, domain){
   const lanes = m.lanes||[];
+  const money = (domain||'finance')==='finance';
   const catAr = {blockchain:'بلوكشين',api:'واجهات برمجية',computational:'حسابية',
                  asset:'توليد أصول',incentive:'حوافز',invented:'مُخترع'};
   const stAr = {delivered:'أوصلت',blocked:'لم تُوصل',failed:'تعذّرت',
                 stood_down:'لم تُشغَّل',continuing:'تعمل الآن',queued:'في الانتظار'};
   const rows = lanes.map(l=>{
     const cls = l.status==='delivered' ? 'ok' : (l.status==='continuing'?'wait':'no');
-    const amt = l.status==='delivered' ? ` · ${l.delivers}` : '';
+    // A design or writing request is not paid in money, so its money lanes are
+    // reported as measurements rather than as a delivery the user received.
+    const amt = l.status==='delivered' ? (money ? ` · ${l.delivers}` : ' · قياس سوقي') : '';
     return `<li class="${cls}"><b>${escapeHtml(catAr[l.category]||l.category)}</b>: `
       + `${escapeHtml(l.title_ar)} — <b>${escapeHtml(stAr[l.status]||l.status)}</b>${amt}</li>`;
   }).join('');
-  const win = m.winner
-    ? `أوصلت القيمة فعلاً: <b>${escapeHtml(m.winner.title_ar)}</b> بمقدار <b>${m.delivered_total}</b>`
-    : 'لم يُوصل أي مسار داخل نافذة الطلب؛ المسارات الشبكية تُكمل في الخلفية.';
+  let win;
+  if(!money){
+    const art = m.lanes && m.lanes.find(l=>l.status==='produced');
+    win = art
+      ? `المُخرَج المطلوب أُنتج ووُثّق. المسارات المالية أعلاه قياس للسوق، لا مبلغ وصل إليك.`
+      : 'لم يكتمل المُخرَج داخل نافذة الطلب؛ المسارات تُكمل في الخلفية.';
+  } else {
+    win = m.winner
+      ? `أوصلت القيمة فعلاً: <b>${escapeHtml(m.winner.title_ar)}</b> بمقدار <b>${m.delivered_total}</b>`
+      : 'لم يُوصل أي مسار داخل نافذة الطلب؛ المسارات الشبكية تُكمل في الخلفية.';
+  }
   return `<div class="matrix"><div class="mh">مصفوفة المسارات: `
     + `<b>${lanes.length}</b> مساراً في <b>${(m.covered_categories||[]).length}</b> عائلة، `
     + `بالتوازي في <b>${(m.elapsed_ms||0).toFixed(0)}</b> مللي ثانية</div>`

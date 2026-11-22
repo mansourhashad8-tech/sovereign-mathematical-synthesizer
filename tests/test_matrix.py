@@ -220,3 +220,28 @@ def test_no_lane_is_left_in_a_running_state_when_the_answer_is_sent():
     assert lane.status == "continuing"
     assert "still_working" in lane.reason
     assert lane.delivered is False
+
+
+def test_two_ledgers_are_not_added_together():
+    """Two lanes settling the same amount on different books is not double money.
+
+    The Fuel chain and the local fork are separate ledgers. Summing them reported
+    one settlement as two, so a design request showed 76 delivered when 38 had
+    arrived on each book. Both lanes really do deliver when they race, so the
+    outcome is built directly rather than hoping the scheduler produces one.
+    """
+    def _lane(lid, net, amount):
+        lane = Lane(lane_id=lid, category="blockchain", title_ar=lid,
+                    run=lambda l: None, timeout_s=3.0)
+        lane.status = "delivered"
+        lane.delivers = amount
+        lane.network = net
+        lane.tx_hash = "0x" + lid
+        return lane
+
+    fuel, fork = _lane("fuel", "fuel-devnet", 38.0), _lane("fork", "local-fork", 38.0)
+    outcome = MatrixOutcome(target_value=38.0, asset="USDC", beneficiary="0xlocked",
+                            lanes=[fuel, fork], winner=fuel)
+
+    assert outcome.delivered_total == 38.0
+    assert outcome.delivered_by_network == {"fuel-devnet": 38.0, "local-fork": 38.0}

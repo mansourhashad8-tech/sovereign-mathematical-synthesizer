@@ -164,17 +164,55 @@ class Synthesizer:
                 t0 = time.time()
                 # The request has a deadline; the matrix gets the remainder.
                 # Lanes that outlive it keep working and are reported as such.
-                remaining = SETTINGS.request_deadline_s - (time.time() - started)
+                #
+                # A finance intent is racing venues, so it is held to the short
+                # request deadline: the user wants to know the value moved, not
+                # to watch it move. A non-finance intent is different in kind --
+                # the artifact *is* the answer, so there is nothing to race and
+                # waiting for the content is what the user asked for.
+                domain = getattr(constraints.goal, "domain", "finance")
+                if domain == "finance":
+                    budget = max(0.4, SETTINGS.request_deadline_s - (time.time() - started))
+                else:
+                    budget = SETTINGS.creator_deadline_s
                 matrix = self.matrix.run(
                     build_lanes(self, constraints, chosen, primitives),
                     target=constraints.net_profit_usd_min,
                     asset=constraints.goal.asset,
                     beneficiary=constraints.beneficiary,
-                    budget_s=max(0.4, remaining),
+                    budget_s=budget,
+                    require_producer=domain != "finance",
                 )
                 timings["matrix"] = (time.time() - t0) * 1000.0
                 winner = matrix.winner
-                if winner is not None:
+                producer = matrix.producer
+                if domain != "finance" and producer is not None:
+                    # The deliverable is the answer. Whatever a money lane proved
+                    # for this intent did not arise from the request and is not
+                    # the user's outcome, so it is not reported as one: the
+                    # execution describes the attested artifact, and the artifact
+                    # block carries the measured facts.
+                    detail = producer.detail or {}
+                    execution = ExecutionResult(
+                        status="executed" if detail.get("settled") else "unsettled_value",
+                        tx_hash=detail.get("settlement_tx", ""),
+                        explorer_url=producer.explorer_url,
+                        network=detail.get("network", "fuel-devnet"),
+                        beneficiary=constraints.beneficiary,
+                        amount_usd=0.0,
+                        reason=(
+                            f"artifact_attested;domain={domain};"
+                            f"sha256={detail.get('sha256', '')[:16]};"
+                            f"bytes={detail.get('bytes', 0)}"
+                        ),
+                        gas_mode="protocol",
+                        gas_paid_by="engine",
+                        block_number=int(detail.get("block") or 0),
+                        value_transferred=False,
+                        delivered=0.0,
+                    )
+                    chosen.intent_id = iid
+                elif winner is not None:
                     execution = ExecutionResult(
                         status="executed",
                         tx_hash=winner.tx_hash,
@@ -242,6 +280,11 @@ class Synthesizer:
             absolute_limit=absolute_limit,
             timings_ms=timings,
             matrix=matrix.to_dict() if matrix is not None else None,
+            artifact=(
+                matrix.producer.detail
+                if matrix is not None and matrix.producer is not None
+                else None
+            ),
         )
         self._results[iid] = result
         self._record(result)
@@ -429,11 +472,24 @@ class Synthesizer:
 
         if proof is not None and proof.satisfied and path is not None:
             net = proof.model.get("net_profit_usd", 0.0)
-            exec_line = (
-                f"وُلّد برهان رياضي جديد في الطلب نفسه: صافي الربح المُثبت = "
-                f"{net:.6f} {g.asset} لصالح العنوان المقفل {constraints.beneficiary}."
-            )
-            if execution is not None and execution.network == "fuel-devnet":
+            if getattr(g, "domain", "finance") == "finance":
+                exec_line = (
+                    f"وُلّد برهان رياضي جديد في الطلب نفسه: صافي الربح المُثبت = "
+                    f"{net:.6f} {g.asset} لصالح العنوان المقفل {constraints.beneficiary}."
+                )
+            else:
+                # The proved figure belongs to the engine's money route, not to
+                # this request. Naming it as this intent's profit would be a false
+                # statement about a document.
+                exec_line = (
+                    f"النية غير مالية ({g.domain}): أُبقيت المسارات المالية في "
+                    f"المصفوفة لأنها تُقاس دائماً، لكن مخرج هذه النية هو المُخرَج "
+                    f"المُنتَج والمُوقَّع بالبصمة، لا رقم ربح. "
+                    f"(المسار المالي برهن ربحاً قدره {net:.6f} {g.asset}، وهو "
+                    f"بيان عن السوق لا عن طلبك.)"
+                )
+            if (execution is not None and execution.network == "fuel-devnet"
+                    and getattr(g, "domain", "finance") == "finance"):
                 # The proof prices the path in the goal asset; the ledger credits
                 # its own unit. Saying both without naming the difference would
                 # read as if USDC had landed in a public wallet.
@@ -442,7 +498,14 @@ class Synthesizer:
                     f"فهو وحدات على سجل Fuel الذي يشغّله المحرّك."
                 )
             if execution is not None and execution.status == "executed":
-                if execution.network == "fuel-devnet":
+                if execution.network == "fuel-devnet" and getattr(g, "domain", "finance") != "finance":
+                    # The artifact was attested on this chain; no money moved for
+                    # this intent, so only the attestation is described.
+                    exec_line += (
+                        f" المُخرَج مُوثَّق على سجل Fuel في الكتلة "
+                        f"{execution.block_number or '-'}: {execution.tx_hash}."
+                    )
+                elif execution.network == "fuel-devnet":
                     exec_line += (
                         f" نُفّذ المسار الذري فعلياً على شبكة Fuel (SwayVM) في الكتلة "
                         f"{execution.block_number}: {execution.tx_hash}. الغاز استهلك "
@@ -516,6 +579,10 @@ class Synthesizer:
             # be described as having failed — that would misreport the matrix.
             verdict_ar = {
                 "delivered": lambda l: f"أوصلت {l.delivers:.6f}",
+                "produced": lambda l: (
+                    f"أنتجت المُخرَج: {l.detail.get('bytes', 0)} بايت، "
+                    f"{l.detail.get('lines', 0)} سطراً، بصمة {l.detail.get('sha256', '')[:16]}…"
+                ),
                 "blocked": lambda l: f"لم تُوصل ({l.reason})",
                 "failed": lambda l: f"تعذّر تشغيلها ({l.reason})",
                 "stood_down": lambda l: "لم تُشغَّل: مسار شبكي آخر أوصل القيمة أولاً",
@@ -530,25 +597,70 @@ class Synthesizer:
                     f"{lane.title_ar} [{lane.category}]: {describe(lane)}"
                 )
             winner = matrix.winner
+            producer = matrix.producer
+            # A money lane that happened to settle while a document was being
+            # written did not answer this request, so its figure is not reported
+            # as the outcome of a non-finance intent.
+            asks_for_money = getattr(g, "domain", "finance") == "finance"
+            if winner is not None and asks_for_money:
+                winner_line = (
+                    f"\nالمسار الذي أوصل القيمة فعلاً: {winner.title_ar} "
+                    f"({winner.network}) بمقدار {winner.delivers:.6f}."
+                )
+            elif producer is not None:
+                winner_line = ""
+            elif winner is not None:
+                winner_line = (
+                    f"\nمسار مالي أوصل قيمة لم تتعلق بهذه النية: {winner.title_ar} "
+                    f"({winner.network}). النية المطلوبة غير مالية، فمخرجها هو "
+                    f"المُخرَج أدناه لا هذا الرقم."
+                )
+            else:
+                winner_line = (
+                    "\nلم يُوصل أي مسار داخل هذه الثواني. العائق يخص "
+                    "المسارات المجرَّبة، لا النتيجة: المسارات تُعاد في الخلفية "
+                    "ويُضاف كل مسار جديد يظهر في المسح."
+                )
+            if producer is not None:
+                d = producer.detail or {}
+                winner_line += (
+                    f"\nالمُخرَج المطلوب أُنتج فعلاً: {d.get('path', '')} — "
+                    f"{d.get('bytes', 0)} بايت، {d.get('lines', 0)} سطراً، "
+                    f"كاتبه {d.get('producer', '')}. "
+                    f"بصمته SHA-256: {d.get('sha256', '')}. "
+                    + (
+                        f"سُجّلت البصمة على سجل Fuel في الكتلة {d.get('block', '')}: "
+                        f"{d.get('settlement_tx', '')}. "
+                        if d.get("settled")
+                        else "لم تُسجَّل البصمة على السجل بعد. "
+                    )
+                    + "أي طرف يستطيع التحقق بإعادة حساب بصمة الملف ومقارنتها بالسجل."
+                )
             matrix_line = (
                 f"\nمصفوفة المسارات ({len(matrix.lanes)} مساراً في "
                 f"{len(matrix.covered_categories)} عائلة، نُفّذت بالتوازي في "
                 f"{matrix.elapsed_ms:.0f} مللي ثانية):\n- "
                 + "\n- ".join(parts)
-                + (
-                    f"\nالمسار الذي أوصل القيمة فعلاً: {winner.title_ar} "
-                    f"({winner.network}) بمقدار {winner.delivers:.6f}."
-                    if winner is not None
-                    else "\nلم يُوصل أي مسار داخل هذه الثواني. العائق يخص "
-                    "المسارات المجرَّبة، لا النتيجة: المسارات تُعاد في الخلفية "
-                    "ويُضاف كل مسار جديد يظهر في المسح."
-                )
+                + winner_line
+            )
+
+        if getattr(g, "domain", "finance") == "finance":
+            analysis_line = (
+                f"التحليل الصوري: الهدف={g.objective}، الأصل={g.asset}، "
+                f"الهدف الكمي={g.target_amount}، "
+                f"الحد الأدنى للربح الصافي={constraints.net_profit_usd_min}.\n"
+            )
+        else:
+            analysis_line = (
+                f"التحليل الصوري: النية من نوع «{g.domain}»، فالمخرج المطلوب شيء "
+                f"يُصنع لا مال يتحرك. القيد الملزم: مُخرَج مكتمل، مقيس، وموثَّق "
+                f"ببصمة على السجل. قيود الأمان تبقى كما هي: بلا عهدة، بلا مفتاح "
+                f"مستخدم، بلا غاز على المستخدم.\n"
             )
 
         narrative = (
             f"النية: {g.raw_intent}\n"
-            f"التحليل الصوري: الهدف={g.objective}، الأصل={g.asset}، الهدف الكمي={g.target_amount}، "
-            f"الحد الأدنى للربح الصافي={constraints.net_profit_usd_min}.\n"
+            f"{analysis_line}"
             f"{'اخترع النظام' if invented else 'استحضر النظام'} المسار من المشاريع: {prims_desc or '—'}.\n"
             f"المسار الذري: {steps_desc or '—'}.\n"
             f"{exec_line}"

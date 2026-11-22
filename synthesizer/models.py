@@ -33,6 +33,11 @@ class Goal:
     asset: str  # "USDC", "ETH", ...
     target_amount: float  # desired net amount of `asset`
     raw_intent: str  # the original Arabic text
+    # What has to be produced: "finance" (move money) or a made-thing domain
+    # ("code", "writing", "research", "data", "design", "plan", "translation",
+    # "math"). Non-finance intents are served by the artifact creator, which
+    # still settles a measured deliverable on-chain.
+    domain: str = "finance"
 
 
 @dataclass
@@ -242,6 +247,11 @@ class IntentResult:
     absolute_limit: bool = False
     # Per-stage timings in milliseconds, so latency is auditable.
     timings_ms: dict[str, float] = field(default_factory=dict)
+    # The deliverable the creator produced, when the intent asked for something
+    # to be made rather than for money to move. Distinct from `execution`, which
+    # reports value that arrived: an artifact is measured in bytes and carries a
+    # hash, never a dollar figure.
+    artifact: dict[str, Any] | None = None
     # Every route the engine tried for this intent's target value, with what each
     # one reported. The matrix is the answer to "which paths exist", so it is
     # carried in full rather than reduced to the winner.
@@ -266,6 +276,7 @@ class IntentResult:
             "absolute_limit": self.absolute_limit,
             "timings_ms": {k: round(v, 3) for k, v in self.timings_ms.items()},
             "matrix": self.matrix,
+            "artifact": self.artifact,
         }
 
     def to_json(self) -> str:
