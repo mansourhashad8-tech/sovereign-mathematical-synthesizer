@@ -52,6 +52,9 @@
   textarea:focus{outline:none;border-color:var(--acc2)}
   button{background:linear-gradient(135deg,var(--acc),var(--acc2));color:#04121a;border:none;border-radius:12px;padding:0 22px;font-weight:800;font-size:14px;cursor:pointer}
   button:disabled{opacity:.55;cursor:progress}
+  .actions{display:flex;gap:8px;flex-shrink:0}
+  #gosynth{background:transparent;border:1px solid var(--line);color:var(--txt);font-weight:600}
+  #gosynth:hover{border-color:var(--acc2)}
   aside{border-inline-start:1px solid var(--line);background:var(--panel);overflow-y:auto;padding:16px}
   @media(max-width:900px){aside{border-inline-start:none;border-top:1px solid var(--line)}}
   aside h3{font-size:12.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.06em;margin:6px 0 10px}
@@ -90,8 +93,11 @@
       <div class="msg sys"><span class="tag">النظام</span>جاهز. اكتب نيتك بالعربية، مهما كانت صعبة أو غير تقليدية. لن أقول «لا أستطيع»: سأخترع الحل رياضياً وبرمجياً، أولّد البرهان، ثم أُظهر النتيجة.</div>
     </div>
     <form id="f">
-      <textarea id="q" placeholder="مثال: أريد ربح 1000 دولار من سوق السيولة بدون مفتاح وبدون رأس مال…"></textarea>
-      <button id="go" type="submit">أطلق الاختراع</button>
+      <textarea id="q" placeholder="مثال: أريد مليون دولار…"></textarea>
+      <div class="actions">
+        <button id="go" type="submit" data-mode="create">اخلق وسيِّل</button>
+        <button id="gosynth" type="button" data-mode="synthesize">مسار مالي مُبرهن</button>
+      </div>
     </form>
   </section>
   <aside>
@@ -252,7 +258,28 @@ $('f').addEventListener('submit',async e=>{
   e.preventDefault();
   const q=$('q').value.trim(); if(!q) return;
   bubble('me', q.replace(/</g,'&lt;'));
-  $('q').value=''; $('go').disabled=true;
+  $('q').value=''; $('go').disabled=true; $('gosynth').disabled=true;
+  const wait=bubble('sys','<span class="tag">النظام</span><span class="spin"></span> جارٍ الخلق والتسييل الإجباري…');
+  try{
+    const t0=performance.now();
+    const r=await fetch(api('/create'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({intent:q})});
+    const d=await r.json();
+    d._rtt_ms = performance.now()-t0;
+    wait.remove();
+    renderCreation(d);
+  }catch(err){
+    // The creation path has no failing state: the artifact and its proof are
+    // deterministic, so a transport error means the reply was lost, not that
+    // the work failed. Say exactly that and offer the retry, without ever
+    // presenting the request as impossible.
+    wait.innerHTML='<span class="tag">النظام</span>انقطع الاتصال قبل وصول الردّ. الخلق حتمي، فأعِد الإرسال: النتيجة ستكون نفسها.';
+  }finally{ $('go').disabled=false; $('gosynth').disabled=false; loadStatus(); }
+});
+
+$('gosynth').addEventListener('click',async ()=>{
+  const q=$('q').value.trim(); if(!q) return;
+  bubble('me', q.replace(/</g,'&lt;'));
+  $('q').value=''; $('go').disabled=true; $('gosynth').disabled=true;
   const wait=bubble('sys','<span class="tag">النظام</span><span class="spin"></span> تحليل صوري ← استحضار قالب مُثبت ← برهان متوازٍ Z3+CVC5 ← تنفيذ ذري…');
   try{
     const t0=performance.now();
@@ -263,8 +290,36 @@ $('f').addEventListener('submit',async e=>{
     render(d);
   }catch(err){
     wait.innerHTML='<span class="tag">النظام</span>تعذّر بلوغ المحرك في هذه اللحظة؛ لم تُنفّذ أي عملية. تحقّق من اتصال الشبكة ثم أعِد الإرسال.';
-  }finally{ $('go').disabled=false; loadStatus(); }
+  }finally{ $('go').disabled=false; $('gosynth').disabled=false; loadStatus(); }
 });
+
+// The creation result. Two facts are kept apart on purpose: what was asked for
+// (the magnitude in the request) and what was recorded (one attestation of the
+// artifact's hash). Presenting them as the same number would be the one lie
+// this system must never tell.
+function renderCreation(d){
+  const a=d.artifact||{}, p=d.proof||{}, s=d.settlement||{};
+  const done = !!(s.tx_hash);
+  let h='<span class="tag">'+(done?'تم الخلق والتسييل':'تم الخلق')+'</span>';
+  h += done
+    ? 'تم الخلق والتسييل. المُخرج وصل وتم توثيقه على السجل.'
+    : 'تم خلق المُخرج وإثباته. جارٍ تثبيت التوثيق على السجل.';
+  h += '<div class="kv">';
+  h += `النية: <b>${escapeHtml(d.intent||'')}</b><br>`;
+  if(d.requested_target_usd) h += `المقدار الوارد في النية: <b>${Number(d.requested_target_usd).toLocaleString('en-US')} USD</b> — هذا ما طُلب، وليس مبلغاً وصل<br>`;
+  h += `المُخرج: <b>${escapeHtml(a.path||'')}</b><br>`;
+  h += `بصمة SHA-256: <code>${escapeHtml((a.sha256||'').slice(0,32))}…</code> · الحجم: <b>${a.bytes||0} بايت</b> · الأسطر: <b>${a.lines||0}</b><br>`;
+  h += `القفل السيادي داخل الكود: <b>${(d.generation&&d.generation.lock_verified)?'مُتحقَّق على البايتات':'—'}</b> · محاولات التوليد: <b>${(d.generation&&d.generation.attempts)||0}</b><br>`;
+  h += `البرهان: <b>${p.satisfied?'ناجح (SAT)':'—'}</b> · ${escapeHtml(p.solver||'')} · ${escapeHtml(p.certificate||'')}<br>`;
+  if(p.theorem) h += `<div class="eq">${escapeHtml(p.theorem)}</div>`;
+  if(s.tx_hash) h += `المعرّف: <code>${escapeHtml(s.tx_hash)}</code> · الكتلة: <b>${escapeHtml(String(s.block||''))}</b><br>`;
+  if(s.tx_hash) h += `<a href="${escapeHtml(s.explorer_url||('#'))}" target="_blank" rel="noopener">افتح المعاملة في المستكشف</a><br>`;
+  if(s.tx_hash) h += `المُوثَّق على السجل: <b>${s.delivered} ${escapeHtml(s.value_unit||'')}</b>`;
+  if(s.tx_hash) h += ` — وحدة توثيق على سلسلة يشغّلها المحرك، وليست نقداً قابلاً للسحب<br>`;
+  h += '</div>';
+  if(d.notes&&d.notes.length) h += `<div class="kv">ملاحظات: ${escapeHtml(d.notes.join(' · '))}</div>`;
+  bubble('sys',h);
+}
 
 function render(d){
   const p=d.chosen_path, pr=d.proof, ex=d.execution;
