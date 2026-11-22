@@ -162,6 +162,21 @@ def test_creation_attests_and_reports_a_transaction():
     assert creation.delivered == ATTEST_DELTA
 
 
+def test_an_arabic_dual_means_two_of_the_scale():
+    # "مليوني" contains "مليون", so a plain substring test reads it as one
+    # million and understates the request by half.
+    assert parse_target_usd("أريد مليوني دولار") == 2e6
+    assert parse_target_usd("أريد مليونين دولار") == 2e6
+    assert parse_target_usd("مليارين") == 2e9
+    assert parse_target_usd("ألفين دولار") == 2e3
+
+
+def test_the_dual_check_does_not_capture_longer_words():
+    # "مليونير" is a millionaire: one million, not the dual's two.
+    assert parse_target_usd("أريد مليونير") == 1e6
+    assert parse_target_usd("مليون دولار") == 1e6
+
+
 def test_a_repeat_creation_cites_the_original_transaction():
     hand = _FakeHand()
     creator = ValueCreator(fuel_hand=hand)

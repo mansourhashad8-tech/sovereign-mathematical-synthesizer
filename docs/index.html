@@ -259,7 +259,7 @@ $('f').addEventListener('submit',async e=>{
   const q=$('q').value.trim(); if(!q) return;
   bubble('me', q.replace(/</g,'&lt;'));
   $('q').value=''; $('go').disabled=true; $('gosynth').disabled=true;
-  const wait=bubble('sys','<span class="tag">النظام</span><span class="spin"></span> جارٍ الخلق والتسييل الإجباري…');
+  const wait=bubble('sys','<span class="tag">النظام</span><span class="spin"></span> جارٍ الخلق والإثبات والتوثيق…');
   try{
     const t0=performance.now();
     const r=await fetch(api('/create'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({intent:q})});
@@ -300,9 +300,9 @@ $('gosynth').addEventListener('click',async ()=>{
 function renderCreation(d){
   const a=d.artifact||{}, p=d.proof||{}, s=d.settlement||{};
   const done = !!(s.tx_hash);
-  let h='<span class="tag">'+(done?'تم الخلق والتسييل':'تم الخلق')+'</span>';
+  let h='<span class="tag">'+(done?'تم الخلق والتوثيق':'تم الخلق')+'</span>';
   h += done
-    ? 'تم الخلق والتسييل. المُخرج وصل وتم توثيقه على السجل.'
+    ? 'تم الخلق والتوثيق. المُخرج أُنتج، وبصمته مسجّلة على السجل.'
     : 'تم خلق المُخرج وإثباته. جارٍ تثبيت التوثيق على السجل.';
   h += '<div class="kv">';
   h += `النية: <b>${escapeHtml(d.intent||'')}</b><br>`;

@@ -72,6 +72,14 @@ except Exception:  # noqa: BLE001
 # Reading the requested magnitude
 # ---------------------------------------------------------------------------
 
+_ARABIC_DUALS: tuple[tuple[str, float], ...] = (
+    ("مليار", 2e9),
+    ("مليون", 2e6),
+    ("ألف", 2e3),
+    ("الف", 2e3),
+    ("thousand", 2e3),
+)
+
 _ARABIC_SCALES: tuple[tuple[str, float], ...] = (
     ("مليار", 1e9),
     ("billion", 1e9),
@@ -82,23 +90,47 @@ _ARABIC_SCALES: tuple[tuple[str, float], ...] = (
     ("thousand", 1e3),
 )
 
+_ARABIC_LETTER = re.compile(r"[\u0621-\u064A]")
+
+
+def _dual_scale(lowered: str) -> float:
+    """The scale for an Arabic dual, e.g. "مليوني دولار" = two million.
+
+    The dual is checked first because its stem contains the singular
+    ("مليوني" contains "مليون"), so a plain substring test would read it as
+    one million. The negative lookahead keeps "مليونير" (millionaire, a single
+    million) from matching the construct form.
+    """
+    for stem, factor in _ARABIC_DUALS:
+        for suffix in ("ين", "ان", "ي"):
+            index = lowered.find(stem + suffix)
+            while index != -1:
+                after = lowered[index + len(stem) + len(suffix):]
+                if not (after and _ARABIC_LETTER.match(after[0])):
+                    return factor
+                index = lowered.find(stem + suffix, index + 1)
+    return 0.0
+
 
 def parse_target_usd(text: str) -> float:
     """Extract the requested magnitude, or 0.0 when the request names none.
 
-    Handles digits with or without separators and the Arabic scale words. A
-    scale word multiplies a preceding numeral when one is present, so
-    "1.5 مليون" is 1.5e6 and a bare "مليون" is 1e6.
+    Handles digits with or without separators, the Arabic scale words, and the
+    Arabic dual. A scale word multiplies a preceding numeral when one is
+    present, so "1.5 مليون" is 1.5e6 and a bare "مليون" is 1e6.
     """
     raw = (text or "").strip()
     if not raw:
         return 0.0
     lowered = raw.lower()
+    dual = _dual_scale(lowered)
     scale = 1.0
     for word, factor in _ARABIC_SCALES:
         if word in lowered:
             scale = factor
             break
+    if dual:
+        scale = dual
     numbers = re.findall(r"\d[\d,٬\s]*(?:\.\d+)?", raw)
     value = 0.0
     for token in numbers:
