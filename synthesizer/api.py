@@ -127,6 +127,62 @@ async def create(body: CreateBody) -> JSONResponse:
     return JSONResponse(payload, headers=headers)
 
 
+class BondBody(BaseModel):
+    intent: str
+
+
+@app.post("/bond")
+async def bond(body: BondBody) -> JSONResponse:
+    """Strike a collateralized bond for the magnitude the intent names.
+
+    The magnitude comes from the same Arabic reader the creation path uses, so
+    "٣ مليون" and "3,000,000" mean the same thing here as everywhere else.
+
+    The response is one of two states and never a third:
+
+      SETTLED            the chain moved the full face value to the beneficiary,
+                         and ``money_is_real`` is true because that was measured
+      FAILED_COLLATERAL  the collateral the engine can see is below the claim,
+                         with ``shortfall_units`` naming the gap
+
+    A failed attempt is not an apology: it says what is missing, and a caller
+    with other collateral can retry with it.
+    """
+    from decimal import Decimal
+
+    from .bond import TOKEN_DECIMALS, engine
+    from .valuecreator import parse_target_usd
+
+    requested = parse_target_usd(body.intent)
+    if requested <= 0:
+        payload = {
+            "status": "FAILED_COLLATERAL",
+            "intent": body.intent,
+            "requested_usd": 0.0,
+            "reason": "the intent names no magnitude",
+            "shortfall_units": "0",
+            "money_is_real": False,
+        }
+        return JSONResponse(payload, status_code=422)
+
+    # Base units are 18 decimal places, and a float cannot hold that many
+    # significant digits: 3000000.0 * 10**18 lands on 2999999999999999949668352.
+    # Decimal keeps the magnitude the intent named.
+    target_units = int(Decimal(str(requested)) * (10**TOKEN_DECIMALS))
+    result = await asyncio.to_thread(engine().settle, body.intent, target_units)
+    payload = result.to_dict()
+    payload["network"] = engine().network
+    headers = {
+        "X-Bond-Status": result.status,
+        "X-Bond-Money-Is-Real": str(result.money_is_real).lower(),
+        "X-Bond-Delivered": str(result.delivered),
+        "X-Bond-Face-Value": str(result.face_value),
+    }
+    if result.tx_hash:
+        headers["X-Bond-Tx"] = result.tx_hash
+    return JSONResponse(payload, headers=headers)
+
+
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok", "version": __version__, "engine": "sovereign-synthesizer"}
