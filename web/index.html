@@ -97,6 +97,7 @@
       <div class="actions">
         <button id="go" type="submit" data-mode="create">اخلق وسيِّل</button>
         <button id="gosynth" type="button" data-mode="synthesize">مسار مالي مُبرهن</button>
+        <button id="gobond" type="button" data-mode="bond">سند مضمون ذاتي التسييل</button>
       </div>
     </form>
   </section>
@@ -272,6 +273,62 @@ $('gosynth').addEventListener('click',async ()=>{
     wait.innerHTML='<span class="tag">النظام</span>تعذّر بلوغ المحرك في هذه اللحظة؛ لم تُنفّذ أي عملية. تحقّق من اتصال الشبكة ثم أعِد الإرسال.';
   }finally{ $('go').disabled=false; $('gosynth').disabled=false; loadStatus(); }
 });
+
+// The bond mode. Two facts stay apart here too: what the intent asked for and
+// what the chain actually moved. The second is measured before and after the
+// strike, so a settlement is only presented as real when the beneficiary's
+// balance changed by the full face value.
+$('gobond').addEventListener('click',async ()=>{
+  const q=$('q').value.trim(); if(!q) return;
+  bubble('me', q.replace(/</g,'&lt;'));
+  $('q').value=''; $('go').disabled=true; $('gosynth').disabled=true; $('gobond').disabled=true;
+  const wait=bubble('sys','<span class="tag">النظام</span><span class="spin"></span> تعداد الضمان ← برهان Z3+CVC5 ← إصدار السند ← استيفاء ذري ← قياس رصيد المستفيد…');
+  try{
+    const t0=performance.now();
+    const r=await fetch(api('/bond'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({intent:q})});
+    const d=await r.json();
+    d._rtt_ms = performance.now()-t0;
+    wait.remove();
+    renderBond(d);
+  }catch(err){
+    wait.innerHTML='<span class="tag">النظام</span>انقطع الاتصال قبل وصول الردّ. الإصدار حتمي لنفس مقدار الضمان، فأعِد الإرسال.';
+  }finally{ $('go').disabled=false; $('gosynth').disabled=false; $('gobond').disabled=false; loadStatus(); }
+});
+
+function renderBond(d){
+  const p=d.proof||{};
+  const real=!!d.money_is_real;
+  let h='<span class="tag">'+(real?'تم الاستيفاء بضمان مخزَّن':'الضمان لا يغطي بعد')+'</span>';
+  h += real
+    ? 'السند صدر واستُوفي في معاملة واحدة، والمستفيد استلم كامل القيمة الاسمية.'
+    : 'الضمان المرصود أقل من القيمة الاسمية. لم تُحرَّك أي أموال؛ الفارق مذكور أدناه.';
+  h += '<div class="kv">';
+  h += `النية: <b>${escapeHtml(d.intent||'')}</b><br>`;
+  if(d.requested_usd) h += `المطلوب في النية: <b>${Number(d.requested_usd).toLocaleString('en-US')}</b><br>`;
+  h += `القيمة الاسمية (وحدات أساس): <code>${escapeHtml(d.face_value||'0')}</code><br>`;
+  h += `المستفيد المقفل: <code>${escapeHtml(d.beneficiary||'')}</code><br>`;
+  h += `الرصيد قبل: <code>${escapeHtml(d.balance_before||'0')}</code> → بعد: <code>${escapeHtml(d.balance_after||'0')}</code>`;
+  h += ` · المُسلَّم: <b>${escapeHtml(d.delivered||'0')}</b><br>`;
+  h += `البرهان: <b>${p.satisfied?'ناجح':'غير مكتمل'}</b> · Z3: <b>${String(p.provers&&p.provers.z3)}</b> · CVC5: <b>${String(p.provers&&p.provers.cvc5)}</b>`;
+  if(p.exact_units===false) h += ' · <span class="warn">الوحدات لم تنقسم انقساماً تاماً</span>';
+  h += '<br>';
+  if(p.theorem) h += `<div class="eq">${escapeHtml(p.theorem)}</div>`;
+  if(d.collateral&&d.collateral.length){
+    h += '<div class="matrix"><div class="mh">الضمان المرصود من تخزين العقد</div><ul>';
+    d.collateral.forEach(c=>{ h += `<li class="${c.stored_units&&c.stored_units!=='0'?'ok':'no'}">${escapeHtml(c.name)} · ${escapeHtml(c.kind)} · <b>${escapeHtml(c.stored_units)}</b></li>`; });
+    h += '</ul></div>';
+  }
+  if(d.bond_address) h += `السند: <code>${escapeHtml(d.bond_address)}</code><br>`;
+  if(d.vault) h += `الخزينة: <code>${escapeHtml(d.vault)}</code><br>`;
+  if(d.tx_hash){
+    h += `المعرّف: <code>${escapeHtml(d.tx_hash)}</code> · الكتلة: <b>${escapeHtml(String(d.block||''))}</b><br>`;
+    h += `الشبكة: <b>${escapeHtml(d.network||'')}</b> — سلسلة يشغّلها المحرك، وليست شبكة عامة<br>`;
+  }
+  if(d.shortfall_units&&d.shortfall_units!=='0') h += `الفارق بوحدات أساس: <b>${escapeHtml(d.shortfall_units)}</b><br>`;
+  h += '</div>';
+  if(d.notes&&d.notes.length) h += `<div class="kv">ملاحظات: ${escapeHtml(d.notes.join(' · '))}</div>`;
+  bubble('sys', h);
+}
 
 // The creation result. Two facts are kept apart on purpose: what was asked for
 // (the magnitude in the request) and what was recorded (one attestation of the
