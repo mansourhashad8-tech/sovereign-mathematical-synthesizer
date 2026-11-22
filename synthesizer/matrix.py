@@ -295,10 +295,23 @@ class PathMatrix:
         # If a lane delivered, the extra work is stood down and reported as such.
         # A required deliverable is exempt: it is the answer, so it is started
         # even after a venue paid.
+        #
+        # A CPU lane is pure Python, so it holds the GIL for as long as it runs.
+        # Starting one with no time left to finish it cannot help this answer and
+        # measurably hurts the next: leftover fork lanes were taking the following
+        # request's synthesis from ~130ms to ~780ms. So it is started only when
+        # the remaining window could still let it report, and is otherwise
+        # recorded as not run rather than as still working.
+        remaining = deadline - time.time()
+        can_start_cpu = remaining >= SETTINGS.cpu_lane_min_budget_s
         for lane in cpu_lanes + deferred_lanes:
             if outcome.winner is not None and not require_producer:
                 lane.status = "stood_down"
                 lane.reason = "not_needed_a_network_lane_delivered"
+                continue
+            if lane.cpu_bound and not can_start_cpu and not require_producer:
+                lane.status = "stood_down"
+                lane.reason = f"no_window_left_to_report;remaining_s={max(0.0, remaining):.3f}"
                 continue
             futures[pool.submit(self._run_lane, lane)] = lane
 

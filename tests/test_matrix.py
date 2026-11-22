@@ -167,6 +167,32 @@ def test_cpu_lanes_do_not_start_when_a_network_lane_already_paid():
     assert cpu_lane.status == "stood_down"
 
 
+def test_cpu_lane_is_not_started_with_no_window_left_to_report():
+    """A pure-Python lane started at the deadline cannot answer and costs the next
+    request: leftover fork lanes tripled the following synthesis, 130ms -> 780ms.
+    It must be recorded as not run, and must not be left running either."""
+    ran = []
+
+    def slow_network(lane: Lane) -> None:
+        time.sleep(0.30)
+        lane.status = "blocked"
+        lane.reason = "no_venue_answered"
+
+    def cpu(lane: Lane) -> None:
+        ran.append(lane.lane_id)
+        lane.status = "blocked"
+
+    outcome = PathMatrix(workers=4).run(
+        [_lane("net", slow_network), _lane("cpu", cpu, cpu_bound=True)],
+        target=5.0, asset="USDC", beneficiary="0xlocked", budget_s=0.2,
+    )
+
+    assert ran == []
+    cpu_lane = next(l for l in outcome.lanes if l.lane_id == "cpu")
+    assert cpu_lane.status == "stood_down"
+    assert "no_window_left_to_report" in cpu_lane.reason
+
+
 def test_every_route_family_is_represented_in_a_real_request():
     """A matrix that only tried blockchain routes could not claim completeness."""
     from synthesizer.intent import parse_deterministic

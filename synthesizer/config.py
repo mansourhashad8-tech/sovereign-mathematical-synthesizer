@@ -204,6 +204,10 @@ class Settings:
     # How long one matrix lane may run before it is stood down. A lane that
     # outlives this is reported as stalled, never as the outcome of the request.
     lane_timeout_s: float = float(_env("SYNTH_LANE_TIMEOUT_S", "8"))
+    # A CPU lane is pure Python and holds the GIL while it runs, so one started
+    # with less than this much window left cannot report before the answer and
+    # only slows the next request down. Below it, the lane is recorded as not run.
+    cpu_lane_min_budget_s: float = float(_env("SYNTH_CPU_LANE_MIN_BUDGET_S", "0.25"))
     # How long the *answer* may wait on the matrix. Short by design: the chat
     # request must return in seconds, while the lanes themselves keep working.
     # The window is sized to the engine-owned chain, which is the route that
