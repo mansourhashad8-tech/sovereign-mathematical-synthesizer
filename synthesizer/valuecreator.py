@@ -93,13 +93,72 @@ _ARABIC_SCALES: tuple[tuple[str, float], ...] = (
 _ARABIC_LETTER = re.compile(r"[\u0621-\u064A]")
 
 
+_ARABIC_PLURALS: tuple[tuple[str, float], ...] = (
+    ("مليارات", 1e9),
+    ("ملايين", 1e6),
+    ("آلاف", 1e3),
+    ("الاف", 1e3),
+)
+
+_ARABIC_WORD_NUMBERS: tuple[tuple[str, float], ...] = (
+    ("عشرة", 10),
+    ("عشر", 10),
+    ("تسعة", 9),
+    ("تسع", 9),
+    ("ثمانية", 8),
+    ("ثمان", 8),
+    ("سبعة", 7),
+    ("سبع", 7),
+    ("ستة", 6),
+    ("ست", 6),
+    ("خمسة", 5),
+    ("خمس", 5),
+    ("أربعة", 4),
+    ("اربعة", 4),
+    ("أربع", 4),
+    ("ثلاثة", 3),
+    ("ثلاث", 3),
+    ("اثنان", 2),
+    ("اثنين", 2),
+    ("اثنتان", 2),
+    ("واحد", 1),
+    ("واحدة", 1),
+)
+
+_ARABIC_FRACTIONS: tuple[tuple[str, float], ...] = (
+    ("نصف", 0.5),
+    ("ربع", 0.25),
+    ("ثلث", 1 / 3),
+)
+
+
+def _word_re(word: str) -> re.Pattern[str]:
+    """Match an Arabic word on its own, allowing the definite article.
+
+    Substring tests misfire on Arabic: "ست" (six) sits inside ordinary words,
+    and "مليوني" (two million) contains "مليون" (one million). Requiring a
+    non-letter on both sides keeps each form to the word that means it.
+    """
+    return re.compile(
+        r"(?<![\u0621-\u064A])(?:ال)?" + re.escape(word) + r"(?![\u0621-\u064A])"
+    )
+
+
+def _first_of(table: tuple[tuple[str, float], ...], lowered: str) -> float:
+    """The value for the first entry in ``table`` that appears as a word."""
+    for word, value in table:
+        if _word_re(word).search(lowered):
+            return value
+    return 0.0
+
+
 def _dual_scale(lowered: str) -> float:
     """The scale for an Arabic dual, e.g. "مليوني دولار" = two million.
 
-    The dual is checked first because its stem contains the singular
-    ("مليوني" contains "مليون"), so a plain substring test would read it as
-    one million. The negative lookahead keeps "مليونير" (millionaire, a single
-    million) from matching the construct form.
+    The dual is checked before the singular because its stem contains the
+    singular, so a plain substring test would read it as one million. The
+    trailing-letter guard keeps "مليونير" (millionaire, a single million) from
+    matching the construct form.
     """
     for stem, factor in _ARABIC_DUALS:
         for suffix in ("ين", "ان", "ي"):
@@ -112,34 +171,53 @@ def _dual_scale(lowered: str) -> float:
     return 0.0
 
 
+def _scale(lowered: str) -> float:
+    """The magnitude word, or 1.0 when the request names none.
+
+    The dual and the plural are checked first: "مليوني" contains "مليون" and
+    "ملايين" is a different word from "مليون", so neither is found by the
+    singular test alone.
+    """
+    dual = _dual_scale(lowered)
+    if dual:
+        return dual
+    plural = _first_of(_ARABIC_PLURALS, lowered)
+    if plural:
+        return plural
+    for word, factor in _ARABIC_SCALES:
+        if word in lowered:
+            return factor
+    return 1.0
+
+
 def parse_target_usd(text: str) -> float:
     """Extract the requested magnitude, or 0.0 when the request names none.
 
-    Handles digits with or without separators, the Arabic scale words, and the
-    Arabic dual. A scale word multiplies a preceding numeral when one is
-    present, so "1.5 مليون" is 1.5e6 and a bare "مليون" is 1e6.
+    Handles digits with or without separators, the Arabic scale words, the
+    dual ("مليونين"), the plural ("ثلاثة ملايين"), spelled-out counts
+    ("عشرة آلاف") and fractions ("نصف مليون"). A count multiplies the scale,
+    so "1.5 مليون" is 1.5e6, "ثلاثة ملايين" is 3e6, and a bare "مليون" is 1e6.
     """
     raw = (text or "").strip()
     if not raw:
         return 0.0
     lowered = raw.lower()
-    dual = _dual_scale(lowered)
-    scale = 1.0
-    for word, factor in _ARABIC_SCALES:
-        if word in lowered:
-            scale = factor
-            break
-    if dual:
-        scale = dual
-    numbers = re.findall(r"\d[\d,٬\s]*(?:\.\d+)?", raw)
+    scale = _scale(lowered)
+
     value = 0.0
-    for token in numbers:
+    for token in re.findall(r"\d[\d,٬\s]*(?:\.\d+)?", raw):
         cleaned = token.replace(",", "").replace("٬", "").replace(" ", "").strip()
         try:
             value = float(cleaned)
             break
         except ValueError:
             continue
+
+    if not value:
+        value = _first_of(_ARABIC_FRACTIONS, lowered) or _first_of(
+            _ARABIC_WORD_NUMBERS, lowered
+        )
+
     if value and scale > 1.0:
         return value * scale
     if value:

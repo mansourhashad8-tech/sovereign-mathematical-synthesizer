@@ -177,6 +177,22 @@ def test_the_dual_check_does_not_capture_longer_words():
     assert parse_target_usd("مليون دولار") == 1e6
 
 
+def test_spelled_out_counts_and_fractions_are_read():
+    assert parse_target_usd("أريد ثلاثة ملايين دولار") == 3e6
+    assert parse_target_usd("خمسة ملايين") == 5e6
+    assert parse_target_usd("عشرة آلاف") == 1e4
+    assert parse_target_usd("نصف مليون") == 5e5
+    assert parse_target_usd("ربع مليار") == 2.5e8
+
+
+def test_a_count_word_inside_another_word_is_not_a_count():
+    # "ست" (six) is a substring of ordinary words, so a scan that ignores word
+    # boundaries invents a factor of six where the request names none.
+    assert parse_target_usd("أريد ربحاً من السيولة") == 0
+    assert parse_target_usd("أريد استراتيجية") == 0
+    assert parse_target_usd("عندي ستة ملايين") == 6e6
+
+
 def test_a_repeat_creation_cites_the_original_transaction():
     hand = _FakeHand()
     creator = ValueCreator(fuel_hand=hand)
