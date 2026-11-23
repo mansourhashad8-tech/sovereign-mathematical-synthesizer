@@ -1,7 +1,7 @@
 {
   "status": "ok",
   "live_probe": false,
-  "checked_at": "2026-11-22T23:38:55Z",
+  "checked_at": "2026-11-23T07:43:26Z",
   "engine": "sovereign-synthesizer",
   "version": "2.0.0",
   "network": "fuel-devnet",
